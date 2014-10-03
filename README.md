@@ -1,4 +1,4 @@
-mouser
+Mouser
 ======
 
 Senior Project
