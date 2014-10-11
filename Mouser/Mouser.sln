@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Mouser", "Mouser\Mouser.vcxproj", "{9BD77921-4026-499E-9B8A-7F6B45806279}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MouserServer", "MouserServer\MouserServer.vcxproj", "{E54FDA9A-6DB9-4D03-BE39-54DF3A65C365}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MouserDrawTest", "MouserDrawTest\MouserDrawTest.vcxproj", "{9F784084-7B84-4A81-8FA1-13DD176B6937}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MouserWindow", "MouserWindow\MouserWindow.vcxproj", "{97866653-38A9-4808-BAD1-9315245368EB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9BD77921-4026-499E-9B8A-7F6B45806279}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9BD77921-4026-499E-9B8A-7F6B45806279}.Debug|Win32.Build.0 = Debug|Win32
+		{9BD77921-4026-499E-9B8A-7F6B45806279}.Release|Win32.ActiveCfg = Release|Win32
+		{9BD77921-4026-499E-9B8A-7F6B45806279}.Release|Win32.Build.0 = Release|Win32
+		{E54FDA9A-6DB9-4D03-BE39-54DF3A65C365}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E54FDA9A-6DB9-4D03-BE39-54DF3A65C365}.Debug|Win32.Build.0 = Debug|Win32
+		{E54FDA9A-6DB9-4D03-BE39-54DF3A65C365}.Release|Win32.ActiveCfg = Release|Win32
+		{E54FDA9A-6DB9-4D03-BE39-54DF3A65C365}.Release|Win32.Build.0 = Release|Win32
+		{9F784084-7B84-4A81-8FA1-13DD176B6937}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9F784084-7B84-4A81-8FA1-13DD176B6937}.Debug|Win32.Build.0 = Debug|Win32
+		{9F784084-7B84-4A81-8FA1-13DD176B6937}.Release|Win32.ActiveCfg = Release|Win32
+		{9F784084-7B84-4A81-8FA1-13DD176B6937}.Release|Win32.Build.0 = Release|Win32
+		{97866653-38A9-4808-BAD1-9315245368EB}.Debug|Win32.ActiveCfg = Debug|Win32
+		{97866653-38A9-4808-BAD1-9315245368EB}.Debug|Win32.Build.0 = Debug|Win32
+		{97866653-38A9-4808-BAD1-9315245368EB}.Release|Win32.ActiveCfg = Release|Win32
+		{97866653-38A9-4808-BAD1-9315245368EB}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
