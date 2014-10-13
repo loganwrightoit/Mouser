@@ -15,12 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BroadcastProgram.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="BroadcastProgram.cpp">
+    <ClCompile Include="BroadcastTest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

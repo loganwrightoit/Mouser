@@ -11,9 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{BBD21F53-7D74-4294-B072-53D961D3F3AB}</ProjectGuid>
+    <ProjectGuid>{C8B797C3-3C88-4D2E-8C2B-DAACE44F4CE9}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>BroadcastClient</RootNamespace>
+    <RootNamespace>MCClientExample</RootNamespace>
+    <ProjectName>MulticastTest</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -76,7 +77,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="BroadcastClient.cpp" />
+    <ClCompile Include="MulticastTest.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

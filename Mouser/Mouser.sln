@@ -11,11 +11,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MouserDrawTest", "MouserDra
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MouserWindow", "MouserWindow\MouserWindow.vcxproj", "{97866653-38A9-4808-BAD1-9315245368EB}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BroadcastServer", "BroadcastServer\BroadcastServer.vcxproj", "{A860966D-F209-491B-8D73-CDE44B29033D}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BroadcastTest", "BroadcastProgram\BroadcastProgram.vcxproj", "{FA02CDCF-0F28-45CC-9AED-F7738BC5F5F5}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BroadcastClient", "BroadcastClient\BroadcastClient.vcxproj", "{BBD21F53-7D74-4294-B072-53D961D3F3AB}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BroadcastProgram", "BroadcastProgram\BroadcastProgram.vcxproj", "{FA02CDCF-0F28-45CC-9AED-F7738BC5F5F5}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MulticastTest", "MCClientExample\MCClientExample.vcxproj", "{C8B797C3-3C88-4D2E-8C2B-DAACE44F4CE9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,18 +37,14 @@ Global
 		{97866653-38A9-4808-BAD1-9315245368EB}.Debug|Win32.Build.0 = Debug|Win32
 		{97866653-38A9-4808-BAD1-9315245368EB}.Release|Win32.ActiveCfg = Release|Win32
 		{97866653-38A9-4808-BAD1-9315245368EB}.Release|Win32.Build.0 = Release|Win32
-		{A860966D-F209-491B-8D73-CDE44B29033D}.Debug|Win32.ActiveCfg = Debug|Win32
-		{A860966D-F209-491B-8D73-CDE44B29033D}.Debug|Win32.Build.0 = Debug|Win32
-		{A860966D-F209-491B-8D73-CDE44B29033D}.Release|Win32.ActiveCfg = Release|Win32
-		{A860966D-F209-491B-8D73-CDE44B29033D}.Release|Win32.Build.0 = Release|Win32
-		{BBD21F53-7D74-4294-B072-53D961D3F3AB}.Debug|Win32.ActiveCfg = Debug|Win32
-		{BBD21F53-7D74-4294-B072-53D961D3F3AB}.Debug|Win32.Build.0 = Debug|Win32
-		{BBD21F53-7D74-4294-B072-53D961D3F3AB}.Release|Win32.ActiveCfg = Release|Win32
-		{BBD21F53-7D74-4294-B072-53D961D3F3AB}.Release|Win32.Build.0 = Release|Win32
 		{FA02CDCF-0F28-45CC-9AED-F7738BC5F5F5}.Debug|Win32.ActiveCfg = Debug|Win32
 		{FA02CDCF-0F28-45CC-9AED-F7738BC5F5F5}.Debug|Win32.Build.0 = Debug|Win32
 		{FA02CDCF-0F28-45CC-9AED-F7738BC5F5F5}.Release|Win32.ActiveCfg = Release|Win32
 		{FA02CDCF-0F28-45CC-9AED-F7738BC5F5F5}.Release|Win32.Build.0 = Release|Win32
+		{C8B797C3-3C88-4D2E-8C2B-DAACE44F4CE9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C8B797C3-3C88-4D2E-8C2B-DAACE44F4CE9}.Debug|Win32.Build.0 = Debug|Win32
+		{C8B797C3-3C88-4D2E-8C2B-DAACE44F4CE9}.Release|Win32.ActiveCfg = Release|Win32
+		{C8B797C3-3C88-4D2E-8C2B-DAACE44F4CE9}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

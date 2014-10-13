@@ -1,0 +1,11 @@
+Sending a structure in binary:
+
+01	struct PlayerState
+02	{
+03	    int X, Y;
+04	    int HealthLeft;
+05	    int ManaLeft;
+06	};
+07	PlayerState me = { 60, 25, 88, 23 };
+08	 
+09	send(socket, static_cast<char *>(&me), sizeof(me), 0);
