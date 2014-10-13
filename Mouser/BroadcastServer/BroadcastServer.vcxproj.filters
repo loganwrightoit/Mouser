@@ -15,12 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="main.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="MouserServer.cpp">
+    <ClCompile Include="BroadcastServer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

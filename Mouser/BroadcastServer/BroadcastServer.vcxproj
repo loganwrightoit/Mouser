@@ -11,9 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{9BD77921-4026-499E-9B8A-7F6B45806279}</ProjectGuid>
+    <ProjectGuid>{A860966D-F209-491B-8D73-CDE44B29033D}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Mouser</RootNamespace>
+    <RootNamespace>BroadcastServer</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -76,7 +76,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Mouser.cpp" />
+    <ClCompile Include="BroadcastServer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
