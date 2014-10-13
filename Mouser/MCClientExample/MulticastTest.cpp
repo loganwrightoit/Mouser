@@ -19,29 +19,12 @@ SOCKADDR_IN    mCastAddr, clientAddr;
 void printBanner(void)
 {
 	printf("------------------------------------------------------\n");
-	printf("                Mouser Multicast Sample               \n");
+	printf("                Mouser Multicast Test                 \n");
 	printf("------------------------------------------------------\n");
 }
 
-// Cleans up multicast, socket, and WSA when program is completed.
-void cleanUp(void)
-{
-	/* Leave the multicast group: With IGMP v1 this is a noop, but
-	*  with IGMP v2, it may send notification to multicast router.
-	*  Even if it's a noop, it's sanitary to cleanup after one's self.
-	*/
-	//mCastInterface.imr_multiaddr.s_addr = inet_addr(mCastIp);
-	//mCastInterface.imr_interface.s_addr = INADDR_ANY;
-	if (setsockopt(mCastSocket, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *) &mCastInterface, sizeof(mCastInterface))) {
-		printf("setsockopt() IP_DROP_MEMBERSHIP address %s failed: %d\n", mCastIp, WSAGetLastError());
-	}
-
-	closesocket(mCastSocket);
-	WSACleanup();
-}
-
 // Initializes multicast
-void setupMulticast()
+void initMulticast()
 {
 	BOOL flag;
 	int result;
@@ -133,14 +116,11 @@ void sendMulticast(char msg[])
 int main(int argc, char *argv[])
 {
 	printBanner();
-	setupMulticast();
+	initMulticast();
 
 	sendMulticast("I've joined the multicast!"); // Notify other clients on network that we are available
 
 	/* Begin listening for multicasts */
-
-	// TODO: When a multicast is received, initiate a TCP connection and close multicast
-	// Or, keep multicast open when client is prepared to see a list of available clients.
 
 	printf("Listening for multicast...\n");
 	while (1) {
@@ -148,6 +128,14 @@ int main(int argc, char *argv[])
 		Sleep(5000); // Wait 5 seconds before trying again.
 	}
 
-	cleanUp();
+	/* Close everything */
+
+	if (setsockopt(mCastSocket, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mCastInterface, sizeof(mCastInterface))) {
+		printf("setsockopt() IP_DROP_MEMBERSHIP address %s failed: %d\n", mCastIp, WSAGetLastError());
+	}
+
+	closesocket(mCastSocket);
+	WSACleanup();
+
 	return (0);
 }
