@@ -6,6 +6,7 @@
 *.user
 *.userosscache
 *.sln.docstates
+Thumbs.db
 
 # Build results
 [Dd]ebug/

@@ -1,136 +1,291 @@
-//#ifndef WIN32_LEAN_AND_MEAN
-//#define WIN32_LEAN_AND_MEAN
-//#endif
+// Mouser.cpp : Defines the entry point for the application.
+//
 
-//#include <windows.h>
-//#include <winsock2.h>
-#include <ws2tcpip.h>
+#include "stdafx.h"
+#include "Mouser.h"
+#include <tchar.h>
 
-//#include <stdlib.h>
-//#include <stdio.h>
-#include <string>
-#include <iostream>
-using namespace std;
+#define MAX_LOADSTRING 100
 
-// Need to link with Ws2_32.lib, Mswsock.lib, and Advapi32.lib
-#pragma comment (lib, "Ws2_32.lib")
-//#pragma comment (lib, "Mswsock.lib")
-//#pragma comment (lib, "AdvApi32.lib")
+// Global Variables:
+HINSTANCE hInst;								// current instance
+TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
+TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
 
-#define DEFAULT_BUFLEN 256
-#define DEFAULT_PORT "27015"
+// Forward declarations of functions included in this code module:
+ATOM				MyRegisterClass(HINSTANCE hInstance);
+BOOL				InitInstance(HINSTANCE, int);
+LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
-int __cdecl main(int argc, char **argv)
+int APIENTRY _tWinMain(_In_ HINSTANCE hInstance,
+                     _In_opt_ HINSTANCE hPrevInstance,
+                     _In_ LPTSTR    lpCmdLine,
+                     _In_ int       nCmdShow)
 {
-	char *userName = "Logan";
-	char serverName[50] = "";
+	UNREFERENCED_PARAMETER(hPrevInstance);
+	UNREFERENCED_PARAMETER(lpCmdLine);
 
-	WSADATA wsaData;
-	SOCKET _socket = INVALID_SOCKET;
-	struct addrinfo *result = NULL,
-		*ptr = NULL,
-		hints;
-	char sendbuf[DEFAULT_BUFLEN] = "User has connected!";
-	int _result;
-	int recvbuflen = DEFAULT_BUFLEN;
+ 	// TODO: Place code here.
+	MSG msg;
+	HACCEL hAccelTable;
 
-	// Validate the parameters
-	if (argc != 2) {
-		printf("usage: %s server-name\n", argv[0]);
-		return 1;
+	// Initialize global strings
+	LoadString(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+	LoadString(hInstance, IDC_MOUSER, szWindowClass, MAX_LOADSTRING);
+	MyRegisterClass(hInstance);
+
+	// Perform application initialization:
+	if (!InitInstance (hInstance, nCmdShow))
+	{
+		return FALSE;
 	}
 
-	// Initialize Winsock
-	_result = WSAStartup(MAKEWORD(2, 2), &wsaData); // Winsock v2.2
-	if (_result != 0) {
-		printf("ERROR WSAStartup failed: %d\n", _result);
-		return 1;
-	}
+	hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_MOUSER));
 
-	ZeroMemory(&hints, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	// Resolve the server address and port
-	_result = getaddrinfo(argv[1], DEFAULT_PORT, &hints, &result);
-	if (_result != 0) {
-		printf("ERROR: Getaddrinfo failed: %d\n", _result);
-		WSACleanup();
-		return 1;
-	}
-
-	// Attempt to connect to an address until one succeeds
-	for (ptr = result; ptr != NULL; ptr = ptr->ai_next) {
-
-		// Create a SOCKET for connecting to server
-		_socket = socket(ptr->ai_family, ptr->ai_socktype,
-			ptr->ai_protocol);
-		if (_socket == INVALID_SOCKET) {
-			printf("ERROR Socket failed: %ld\n", WSAGetLastError());
-			WSACleanup();
-			return 1;
+	// Main message loop:
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
 		}
+	}
 
-		// Connect to server.
-		_result = connect(_socket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (_result == SOCKET_ERROR) {
-			closesocket(_socket);
-			_socket = INVALID_SOCKET;
-			continue;
+	return (int) msg.wParam;
+}
+
+
+
+//
+//  FUNCTION: MyRegisterClass()
+//
+//  PURPOSE: Registers the window class.
+//
+ATOM MyRegisterClass(HINSTANCE hInstance)
+{
+	WNDCLASSEX wcex;
+
+	wcex.cbSize = sizeof(WNDCLASSEX);
+
+	wcex.style			= CS_HREDRAW | CS_VREDRAW;
+	wcex.lpfnWndProc	= WndProc;
+	wcex.cbClsExtra		= 0;
+	wcex.cbWndExtra		= 0;
+	wcex.hInstance		= hInstance;
+	wcex.hIcon			= LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
+	wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
+	//wcex.hbrBackground	= (HBRUSH)(COLOR_WINDOW+1);
+    wcex.hbrBackground  = CreateSolidBrush(RGB(100, 150, 200));
+	wcex.lpszMenuName	= MAKEINTRESOURCE(IDC_MOUSER);
+	wcex.lpszClassName	= szWindowClass;
+	wcex.hIconSm		= LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+
+	return RegisterClassEx(&wcex);
+}
+
+BOOL CenterWindow(HWND hwndWindow)
+{
+    HWND hwndParent;
+    RECT rectWindow, rectParent;
+
+    // make the window relative to its parent
+    if ((hwndParent = GetParent(hwndWindow)) != NULL)
+    {
+        GetWindowRect(hwndWindow, &rectWindow);
+        GetWindowRect(hwndParent, &rectParent);
+
+        int nWidth = rectWindow.right - rectWindow.left;
+        int nHeight = rectWindow.bottom - rectWindow.top;
+
+        int nX = ((rectParent.right - rectParent.left) - nWidth) / 2 + rectParent.left;
+        int nY = ((rectParent.bottom - rectParent.top) - nHeight) / 2 + rectParent.top;
+
+        int nScreenWidth = GetSystemMetrics(SM_CXSCREEN);
+        int nScreenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+        // make sure that the dialog box never moves outside of the screen
+        if (nX < 0) nX = 0;
+        if (nY < 0) nY = 0;
+        if (nX + nWidth > nScreenWidth) nX = nScreenWidth - nWidth;
+        if (nY + nHeight > nScreenHeight) nY = nScreenHeight - nHeight;
+
+        MoveWindow(hwndWindow, nX, nY, nWidth, nHeight, FALSE);
+
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+//
+//   FUNCTION: InitInstance(HINSTANCE, int)
+//
+//   PURPOSE: Saves instance handle and creates main window
+//
+//   COMMENTS:
+//
+//        In this function, we save the instance handle in a global variable and
+//        create and display the main program window.
+//
+BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
+{
+   HWND hWnd;
+
+   hInst = hInstance; // Store instance handle in our global variable
+
+   hWnd = CreateWindow(
+	   szWindowClass,       // lpClassName
+	   szTitle,             // lpWindowName,
+	   WS_OVERLAPPEDWINDOW, // dwStyle
+       1000,                // x
+	   400,                 // y
+	   480,                 // nWidth
+	   600,                 // nHeight
+	   NULL,                // hWndParent
+	   NULL,                // hMenu
+	   hInstance,           // hInstance
+	   NULL);               // lpParam
+
+   if (!hWnd)
+   {
+      return FALSE;
+   }
+
+   CenterWindow(hWnd);
+   ShowWindow(hWnd, nCmdShow);
+   UpdateWindow(hWnd);
+
+   return TRUE;
+}
+
+//
+// May be used to update the editbox
+//
+void AddLine(const HWND hwnd, TCHAR *newText)
+{
+	// get the current selection
+	DWORD StartPos, EndPos;
+    SendMessage(hwnd, EM_GETSEL, reinterpret_cast<WPARAM>(&StartPos), reinterpret_cast<WPARAM>(&EndPos));
+
+	// move the caret to the end of the text
+    int outLength = GetWindowTextLength(hwnd);
+    SendMessage(hwnd, EM_SETSEL, outLength, outLength);
+
+	// insert the text at the new caret position
+    SendMessage(hwnd, EM_REPLACESEL, TRUE, reinterpret_cast<LPARAM>(newText));
+    SendMessage(hwnd, EM_LINESCROLL, 0, 2);
+    TCHAR text[] = _T("\r\n");
+    SendMessage(hwnd, EM_REPLACESEL, 0, (LPARAM)text);
+}
+
+//
+//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
+//
+//  PURPOSE:  Processes messages for the main window.
+//
+//  WM_COMMAND	- process the application menu
+//  WM_PAINT	- Paint the main window
+//  WM_DESTROY	- post a quit message and return
+//
+//
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	int wmId, wmEvent;
+	PAINTSTRUCT ps;
+	HDC hdc;
+	HWND hOutput;
+
+    int width = 100;
+    int height = 100;
+    RECT rect;
+    if (GetWindowRect(hWnd, &rect))
+    {
+        width = rect.right - rect.left;
+        //height = rect.bottom - rect.top;
+    }
+
+	switch (message)
+	{
+	case WM_CREATE:
+
+		// TODO: Add winsock initialization stuff here!
+		hOutput = CreateWindowEx(WS_EX_CLIENTEDGE,
+			L"EDIT",
+			L"",
+            WS_CHILD | ES_MULTILINE | ES_WANTRETURN | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | ES_READONLY,
+            20,
+			20,
+            425,
+			height,
+			hWnd,
+			(HMENU)IDC_MAIN_OUTPUT_TEXTBOX,
+			GetModuleHandle(NULL),
+			NULL);
+
+        AddLine(hOutput, L"Line 0!");
+        AddLine(hOutput, L"Line 1!");
+        AddLine(hOutput, L"Line 2!");
+        AddLine(hOutput, L"Line 3!");
+        AddLine(hOutput, L"Line 4!");
+        AddLine(hOutput, L"Line 5!");
+        AddLine(hOutput, L"Line 6!");
+        AddLine(hOutput, L"Line 7!");
+        AddLine(hOutput, L"Line 8!");
+        AddLine(hOutput, L"Line 9!");
+
+		break;
+	case WM_COMMAND:
+		wmId    = LOWORD(wParam);
+		wmEvent = HIWORD(wParam);
+		// Parse the menu selections:
+		switch (wmId)
+		{
+		case IDM_ABOUT:
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+			break;
+		case IDM_EXIT:
+			DestroyWindow(hWnd);
+			break;
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+		break;
+	case WM_PAINT:
+		hdc = BeginPaint(hWnd, &ps);
+ 
+		// TODO: Add any drawing code here...
+		EndPaint(hWnd, &ps);
+		break;
+	case WM_CLOSE:
+		DestroyWindow(hWnd);
+		break;// return true;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	default:
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	return 0;
+}
+
+// Message handler for about box.
+INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		return (INT_PTR)TRUE;
+
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
 		}
 		break;
 	}
-
-	freeaddrinfo(result);
-
-	if (_socket == INVALID_SOCKET) {
-		printf("ERROR Unable to connect to server\n");
-		WSACleanup();
-		return 1;
-	}
-
-	// Send messages until user closes connection
-	do {
-		_result = send(_socket, sendbuf, (int)strlen(sendbuf), 0);
-		if (_result == SOCKET_ERROR) {
-			printf("ERROR Send failed: %d\n", WSAGetLastError());
-			closesocket(_socket);
-			WSACleanup();
-			return 1;
-		}
-
-		cout << userName << ": ";
-		cin.getline(sendbuf, DEFAULT_BUFLEN);
-
-	} while (strcmp(sendbuf, "close") != 0);
-
-	// shutdown the connection since no more data will be sent
-	_result = shutdown(_socket, SD_SEND);
-	if (_result == SOCKET_ERROR) {
-		printf("ERROR Shutdown failed: %d\n", WSAGetLastError());
-		closesocket(_socket);
-		WSACleanup();
-		return 1;
-	}
-
-	char *recvbuf = "buffer";
-	// Receive until the peer closes the connection
-	do {
-
-		_result = recv(_socket, recvbuf, recvbuflen, 0);
-		if (_result > 0)
-			printf("Bytes received: %d\n", _result);
-		else if (_result == 0)
-			printf("Connection closed\n");
-		else
-			printf("ERROR Recieve failed: %d\n", WSAGetLastError());
-
-	} while (_result > 0);
-
-	// cleanup
-	closesocket(_socket);
-	WSACleanup();
-
-	return 0;
+	return (INT_PTR)FALSE;
 }
