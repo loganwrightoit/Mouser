@@ -4,9 +4,9 @@
 #pragma comment (lib, "ws2_32.lib")
 
 #define BUFSIZE     1024
-#define MCAST_PORT  8000
+#define MCAST_PORT  41921
 #define MCAST_IP    "234.241.92.163"
-#define MCAST_TTL   1 // Set higher to traverse routers
+#define MCAST_TTL   2 // Set higher to traverse routers
 
 char           buffer[BUFSIZE];
 struct ip_mreq mCastInterface;
@@ -28,11 +28,11 @@ void initMulticast()
 {
 	BOOL flag;
 	int result;
-	WSADATA stWSAData;
+	WSADATA stWsaData;
 
 	/* Initialize winsock v2.2 */
 
-	result = WSAStartup(0x0202, &stWSAData);
+    result = WSAStartup(0x0202, &stWsaData);
 	if (result) {
 		printf("WSAStartup failed: %d\r\n", result);
 		exit(1);

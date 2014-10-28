@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="ConnectionUtil">
+      <UniqueIdentifier>{d40dda02-b03f-4adf-9372-161999d87667}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Peer">
+      <UniqueIdentifier>{72425561-d37f-4c0c-95d7-7a2cb926f8db}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -30,6 +36,18 @@
     <ClInclude Include="Mouser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Peer.h">
+      <Filter>Peer</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ConnectionUtil\BroadcastUtil.h">
+      <Filter>ConnectionUtil</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ConnectionUtil\ConnectionUtil.h">
+      <Filter>ConnectionUtil</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ConnectionUtil\MulticastUtil.h">
+      <Filter>ConnectionUtil</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -37,6 +55,18 @@
     </ClCompile>
     <ClCompile Include="Mouser.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ConnectionUtil\ConnectionUtil.cpp">
+      <Filter>ConnectionUtil</Filter>
+    </ClCompile>
+    <ClCompile Include="Peer.cpp">
+      <Filter>Peer</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ConnectionUtil\BroadcastUtil.cpp">
+      <Filter>ConnectionUtil</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ConnectionUtil\MulticastUtil.cpp">
+      <Filter>ConnectionUtil</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

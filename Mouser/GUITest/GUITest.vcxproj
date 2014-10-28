@@ -11,9 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{54450EA7-5558-4205-975D-41F59C46C1B2}</ProjectGuid>
+    <ProjectGuid>{A6854D3F-A9A6-4206-84F9-6C2EF3F9A45D}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Mouser</RootNamespace>
+    <RootNamespace>GUITest</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -47,11 +47,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Logan\Desktop\Mouser\Mouser\ConnectionUtil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -61,7 +61,8 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -75,34 +76,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
+    <ClInclude Include="GUITest.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ConnectionUtil\BroadcastUtil.h" />
-    <ClInclude Include="..\ConnectionUtil\ConnectionUtil.h" />
-    <ClInclude Include="..\ConnectionUtil\MulticastUtil.h" />
-    <ClInclude Include="Mouser.h" />
-    <ClInclude Include="Peer.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="stdafx.h" />
-    <ClInclude Include="targetver.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\ConnectionUtil\BroadcastUtil.cpp" />
-    <ClCompile Include="..\ConnectionUtil\ConnectionUtil.cpp" />
-    <ClCompile Include="..\ConnectionUtil\MulticastUtil.cpp" />
-    <ClCompile Include="Mouser.cpp" />
-    <ClCompile Include="Peer.cpp" />
-    <ClCompile Include="stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="Mouser.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="Mouser.ico" />
+    <ClCompile Include="GUITest.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
