@@ -1,7 +1,7 @@
-#include <ws2tcpip.h>
+#pragma once
 
 bool Send(SOCKET sock, char * inBytes);
-void Receive(SOCKET sock, char * outBytes);
+bool Receive(SOCKET sock, char * outBytes);
 
 void SendBroadcast();
 void SendMulticast();

@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Peer">
+      <UniqueIdentifier>{a7b9f17f-c274-440c-a401-acafeadf06c4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ConnectionUtil">
+      <UniqueIdentifier>{d080c7ff-0b46-4cd1-81f2-f7aa0414b930}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -27,20 +33,20 @@
     <ClInclude Include="Mouser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Peer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ConnectionUtil\ConnectionUtil.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Peer.h">
+      <Filter>Peer</Filter>
     </ClInclude>
-    <ClInclude Include="..\ConnectionUtil\MulticastUtil.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="ConnectionUtil.h">
+      <Filter>ConnectionUtil</Filter>
     </ClInclude>
     <ClInclude Include="BroadcastUtil.h">
-      <Filter>Header Files</Filter>
+      <Filter>ConnectionUtil</Filter>
+    </ClInclude>
+    <ClInclude Include="MulticastUtil.h">
+      <Filter>ConnectionUtil</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -51,16 +57,16 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Peer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Peer</Filter>
     </ClCompile>
-    <ClCompile Include="..\ConnectionUtil\BroadcastUtil.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="ConnectionUtil.cpp">
+      <Filter>ConnectionUtil</Filter>
     </ClCompile>
-    <ClCompile Include="..\ConnectionUtil\ConnectionUtil.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="BroadcastUtil.cpp">
+      <Filter>ConnectionUtil</Filter>
     </ClCompile>
-    <ClCompile Include="..\ConnectionUtil\MulticastUtil.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="MulticastUtil.cpp">
+      <Filter>ConnectionUtil</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

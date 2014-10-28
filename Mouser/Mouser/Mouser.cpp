@@ -4,7 +4,6 @@
 
 #include "stdafx.h"
 #include "Mouser.h"
-#include <tchar.h>
 
 #define MAX_LOADSTRING 100
 
@@ -174,7 +173,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
-	HWND hBroadcastButton, hMulticastButton, hIpBox, hDirectConnectButton;
+	HWND hBroadcastButton, hMulticastButton, hIpBox = NULL, hDirectConnectButton;
 
     int width = 100;
     int height = 100;

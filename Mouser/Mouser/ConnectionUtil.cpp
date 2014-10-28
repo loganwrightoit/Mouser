@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include <iostream>
 #include <ws2tcpip.h>
-#include "ConnectionModule.h"
+#include "ConnectionUtil.h"
 
 using namespace std;
 
@@ -26,7 +26,7 @@ bool Send(SOCKET sock, CHAR * inBytes)
 {
     // Prepend message with two-byte length header
     u_short len = strlen(inBytes);
-    byte byteLen[] = { (len & 0xff00) >> 8, (len & 0xff) };
+    BYTE byteLen[] = { (len & 0xff00) >> 8, (len & 0xff) };
     string s = "";
     s += byteLen[0];
     s += byteLen[1];
@@ -67,7 +67,7 @@ bool Receive(SOCKET sock, char * outBytes)
             s.append(buffer);
         } while (bytesLeft > 0);
 
-        strcpy(outBytes, const_cast<char*>(s.c_str()));
+        strcpy_s(outBytes, sizeof(outBytes), const_cast<char*>(s.c_str()));
         return true;
     }
     else if (inBytes != WSAEWOULDBLOCK && inBytes != 0) // Nothing to receive, don't block
