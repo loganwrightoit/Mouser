@@ -12,6 +12,7 @@
 HINSTANCE hInst;                        // current instance
 TCHAR szTitle[MAX_LOADSTRING];          // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];    // the main window class name
+HWND hOutputListBox;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -81,41 +82,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassEx(&wcex);
 }
 
-BOOL CenterWindow(HWND hwndWindow)
-{
-    HWND hwndParent;
-    RECT rectWindow, rectParent;
-
-    // TODO: Make this align Y correctly.
-
-    // make the window relative to its parent
-    if ((hwndParent = GetParent(hwndWindow)) != NULL)
-    {
-        GetWindowRect(hwndWindow, &rectWindow);
-        GetWindowRect(hwndParent, &rectParent);
-
-        int nWidth = rectWindow.right - rectWindow.left;
-        int nHeight = rectWindow.bottom - rectWindow.top;
-
-        int nX = ((rectParent.right - rectParent.left) - nWidth) / 2 + rectParent.left;
-        int nY = ((rectParent.bottom - rectParent.top) - nHeight) / 2 + rectParent.top;
-
-        int nScreenWidth = GetSystemMetrics(SM_CXSCREEN);
-        int nScreenHeight = GetSystemMetrics(SM_CYSCREEN);
-
-        if (nX < 0) nX = 0;
-        if (nY < 0) nY = 0;
-        if (nX + nWidth > nScreenWidth) nX = nScreenWidth - nWidth;
-        if (nY + nHeight > nScreenHeight) nY = nScreenHeight - nHeight;
-
-        MoveWindow(hwndWindow, nX, nY, nWidth, nHeight, FALSE);
-
-        return TRUE;
-    }
-
-    return FALSE;
-}
-
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
@@ -136,8 +102,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        szWindowClass,       // lpClassName
        szTitle,             // lpWindowName,
        WS_OVERLAPPEDWINDOW, // dwStyle
-       1000,                // x
-       400,                 // y
+       400,                 // x
+       50,                  // y
        480,                 // nWidth
        600,                 // nHeight
        NULL,                // hWndParent
@@ -150,7 +116,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
-   CenterWindow(hWnd);
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
@@ -158,7 +123,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 }
 
 //
-// Adds a new line to the output box in window.
+// Adds a new line to an edit box control.
 //
 void AddLine(const HWND hwnd, TCHAR *newText)
 {
@@ -178,6 +143,23 @@ void AddLine(const HWND hwnd, TCHAR *newText)
 }
 
 //
+// Set window font
+//
+void setWindowFont(HWND hWnd)
+{
+	NONCLIENTMETRICS ncm;
+	ncm.cbSize = sizeof(NONCLIENTMETRICS);
+	SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &ncm, 0);
+	HFONT hFont = ::CreateFontIndirect(&ncm.lfMessageFont);
+	SendMessage(hWnd, WM_SETFONT, (WPARAM)hFont, MAKELPARAM(TRUE, 0));
+}
+
+void AddOutputMsg(LPWSTR msg)
+{
+	SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)msg);
+}
+
+//
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
 //  PURPOSE:  Processes messages for the main window.
@@ -192,7 +174,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
-    HWND hOutput;
+	HWND hBroadcastButton, hMulticastButton, hIpBox, hDirectConnectButton;
 
     int width = 100;
     int height = 100;
@@ -208,29 +190,103 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
 
         // TODO: Add winsock initialization stuff here!
-        hOutput = CreateWindowEx(WS_EX_CLIENTEDGE,
-            L"EDIT",
+
+		// Create output edit box
+		hOutputListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+            L"LISTBOX",
             L"",
-            WS_CHILD | ES_MULTILINE | ES_WANTRETURN | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | ES_READONLY,
+            WS_CHILD | WS_VISIBLE,
             20,
             20,
             425,
             height,
             hWnd,
-            (HMENU)IDC_MAIN_OUTPUT_TEXTBOX,
+            (HMENU)IDC_MAIN_OUTPUT_LISTBOX,
             GetModuleHandle(NULL),
             NULL);
 
-        AddLine(hOutput, L"Line 0!");
-        AddLine(hOutput, L"Line 1!");
-        AddLine(hOutput, L"Line 2!");
-        AddLine(hOutput, L"Line 3!");
-        AddLine(hOutput, L"Line 4!");
-        AddLine(hOutput, L"Line 5!");
-        AddLine(hOutput, L"Line 6!");
-        AddLine(hOutput, L"Line 7!");
-        AddLine(hOutput, L"Line 8!");
-        AddLine(hOutput, L"Line 9!");
+		// Broadcast button
+		hBroadcastButton = CreateWindowEx(NULL,
+			L"BUTTON",
+			L"Broadcast Discovery",
+			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+			50,  // x padding
+			220, // y padding
+			150, // width
+			30,  // height
+			hWnd,
+			(HMENU)IDC_MAIN_BROADCAST_DISC_BUTTON,
+			GetModuleHandle(NULL),
+			NULL);
+
+		// Multicast button
+		hMulticastButton = CreateWindowEx(NULL,
+			L"BUTTON",
+			L"Multicast Discovery",
+			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+			50,  // x padding
+			270, // y padding
+			150, // width
+			30,  // height
+			hWnd,
+			(HMENU)IDC_MAIN_MULTICAST_DISC_BUTTON,
+			GetModuleHandle(NULL),
+			NULL);
+
+		// Manual IP connect button
+		hDirectConnectButton = CreateWindowEx(NULL,
+			L"BUTTON",
+			L"Direct Connect",
+			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+			50,  // x padding
+			320, // y padding
+			120, // width
+			30,  // height
+			hWnd,
+			(HMENU)IDC_MAIN_DIRECT_CONNECT_BUTTON,
+			GetModuleHandle(NULL),
+			NULL);
+
+		// IP edit box
+		hIpBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+			L"EDIT",
+			L"",
+			WS_CHILD | ES_WANTRETURN | WS_VISIBLE | ES_CENTER,
+			190,  // x padding
+			320, // y padding
+			200, // width
+			30,  // height
+			hWnd,
+			(HMENU)IDC_MAIN_IP_TEXTBOX,
+			GetModuleHandle(NULL),
+			NULL);
+
+		// Set text length limit for IP box
+		SendMessage(hIpBox, EM_LIMITTEXT, 15, NULL);
+		
+		// Add item to list box
+		SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)L"First item");
+		SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)L"Second item");
+		SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)L"Third item");
+
+		/*
+        AddLine(hOutputListBox, L"Line 0!");
+		AddLine(hOutputListBox, L"Line 1!");
+		AddLine(hOutputListBox, L"Line 2!");
+		AddLine(hOutputListBox, L"Line 3!");
+		AddLine(hOutputListBox, L"Line 4!");
+		AddLine(hOutputListBox, L"Line 5!");
+		AddLine(hOutputListBox, L"Line 6!");
+		AddLine(hOutputListBox, L"Line 7!");
+		AddLine(hOutputListBox, L"Line 8!");
+		AddLine(hOutputListBox, L"Line 9!");
+		*/
+
+		setWindowFont(hOutputListBox);
+		setWindowFont(hBroadcastButton);
+		setWindowFont(hMulticastButton);
+		setWindowFont(hIpBox);
+		setWindowFont(hDirectConnectButton);
 
         break;
     case WM_COMMAND:
@@ -239,6 +295,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         // Parse the menu selections:
         switch (wmId)
         {
+		case IDC_MAIN_BROADCAST_DISC_BUTTON:
+			AddOutputMsg(L"[UDP] Listening for peer");
+			break;
+		case IDC_MAIN_MULTICAST_DISC_BUTTON:
+			AddOutputMsg(L"[IGMP] Listening for peer");
+			break;
+		case IDC_MAIN_DIRECT_CONNECT_BUTTON:
+			TCHAR buff[16];
+			GetWindowText(hIpBox, buff, sizeof(buff));
+			if (_tcslen(buff) > 0) {
+				AddOutputMsg(L"[TCP] Connecting to host");
+			}
+			else {
+				AddOutputMsg(L"Please input an IP address");
+			}
+
+			break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
