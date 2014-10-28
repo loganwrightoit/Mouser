@@ -51,7 +51,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Logan\Desktop\Mouser\Mouser\ConnectionUtil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -78,9 +78,9 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ConnectionUtil\BroadcastUtil.h" />
     <ClInclude Include="..\ConnectionUtil\ConnectionUtil.h" />
     <ClInclude Include="..\ConnectionUtil\MulticastUtil.h" />
+    <ClInclude Include="BroadcastUtil.h" />
     <ClInclude Include="Mouser.h" />
     <ClInclude Include="Peer.h" />
     <ClInclude Include="Resource.h" />

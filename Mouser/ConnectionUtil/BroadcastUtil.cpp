@@ -1,16 +1,6 @@
 #include "stdafx.h"
 #include "BroadcastUtil.h"
 
-
-BroadcastUtil::BroadcastUtil()
-{
-}
-
-
-BroadcastUtil::~BroadcastUtil()
-{
-}
-
 /////////// OLD CODE
 
 #include <iostream>
@@ -22,6 +12,15 @@ BroadcastUtil::~BroadcastUtil()
 
 #pragma comment (lib, "ws2_32.lib")
 using namespace std;
+
+BroadcastUtil::BroadcastUtil()
+{
+}
+
+BroadcastUtil::~BroadcastUtil()
+{
+}
+
 #define PORT 7777
 
 char currentTime[16];

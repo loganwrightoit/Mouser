@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include <iostream>
 #include <ws2tcpip.h>
 #include "ConnectionModule.h"

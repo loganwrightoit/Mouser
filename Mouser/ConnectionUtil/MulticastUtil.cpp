@@ -1,11 +1,9 @@
 #include "stdafx.h"
 #include "MulticastUtil.h"
 
-
 MulticastUtil::MulticastUtil()
 {
 }
-
 
 MulticastUtil::~MulticastUtil()
 {

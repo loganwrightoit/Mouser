@@ -1,8 +1,9 @@
+#include "stdafx.h"
 #include "Peer.h"
-#include "ConnectionUtil.h"
 
-Peer::Peer(SOCKET sock)
+Peer::Peer(SOCKET inSock)
 {
+    sock = inSock;
 }
 
 Peer::~Peer()
@@ -10,9 +11,9 @@ Peer::~Peer()
     Disconnect();
 }
 
-void Peer::SendChatMsg(char * msg)
+void Peer::SendChatMsg(char * inBytes)
 {
-    Send(sock, msg);
+    Send(sock, inBytes);
 }
 
 void Peer::Disconnect()
