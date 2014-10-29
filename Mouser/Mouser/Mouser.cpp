@@ -260,7 +260,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		mcst_lstn_sock = GetMulticastSocket(1);
 		if (mcst_lstn_sock != INVALID_SOCKET)
 		{
-			if (WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_BCST_SOCKET, FD_READ))
+			if (WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_MCST_SOCKET, FD_READ))
 			{
 				//AddOutputMsg((LPWSTR)result);
 				MessageBox(hWnd, L"WSAAsyncSelect() failed for multicast socket.", L"Critical Error", MB_ICONERROR);
