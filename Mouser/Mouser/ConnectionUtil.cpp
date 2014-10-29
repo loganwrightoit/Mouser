@@ -32,7 +32,7 @@ void CloseSocket(SOCKET sock)
     closesocket(sock);
 }
 
-SOCKET GetBcstListenSocket()
+SOCKET GetBroadcastSocket()
 {
     SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
@@ -59,7 +59,7 @@ SOCKET GetBcstListenSocket()
 //
 // Sends a UDP broadcast packet across local network.
 //
-bool SendUdpBroadcast(SOCKET sock)
+bool SendBroadcast(SOCKET sock)
 {
     if (sock == INVALID_SOCKET)
     {
@@ -84,6 +84,39 @@ bool SendUdpBroadcast(SOCKET sock)
 	}
 
 	return true;
+}
+
+bool ReceiveBroadcast(SOCKET sock)
+{
+    sockaddr_in bcst_from_addr;
+    int addrLen = sizeof(bcst_from_addr);
+
+    char szHostName[255];
+    gethostname(szHostName, 255);
+    struct hostent *host_entry = gethostbyname(szHostName);
+    char * szLocalIP = inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list);
+
+    char buffer[DEFAULT_BUFFER_SIZE] = "";
+    if (recvfrom(sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&bcst_from_addr), &addrLen))
+    {
+        if (strcmp(inet_ntoa(bcst_from_addr.sin_addr), szLocalIP) != 0) {
+
+            // Work on redirecting cout << to output box in GUI
+            /*
+            char * inIp = inet_ntoa(bcst_from_addr.sin_addr);
+            string s = "[Broadcast]: Received broadcast from ";
+            s.append(inIp);
+            
+            AddOutputMsg(s.c_str());
+            */
+
+            AddOutputMsg(L"[Broadcast]: Received a broadcast from client.");
+            //cout << "Processed recvfrom : " << inet_ntoa(bcst_from_addr.sin_addr) << buffer << '\n';
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool CloseMulticast()
@@ -201,36 +234,6 @@ bool SendMulticastBroadcast(char * inBytes)
 		WSACleanup();
 		exit(1);
 	}
-}
-
-//
-// Client discovery function that listens for UDP broadcasts.
-//
-void ListenForBroadcast(SOCKET sock)
-{
-    /*
-    SOCKADDR_IN bcst_rcv_addr;
-    int addrLen = sizeof(bcst_rcv_addr);
-
-    // Resolve machine IP address
-
-    char szHostName[255];
-    gethostname(szHostName, 255);
-    HOSTENT * host_entry = gethostbyname(szHostName);
-    char * self_host = inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list);
-
-    while (1)
-    {
-        int addrLen = sizeof(bcst_rcv_addr);
-        char buffer[DEFAULT_BUFFER_SIZE] = "";
-        if (recvfrom(bcst_sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&bcst_rcv_addr), &addrLen))
-        {
-            if (strcmp(inet_ntoa(bcst_rcv_addr.sin_addr), self_host) != 0) {
-                cout << "Processed recvfrom : " << inet_ntoa(bcst_rcv_addr.sin_addr) << buffer << '\n';
-            }
-        }
-    }
-    */
 }
 
 //

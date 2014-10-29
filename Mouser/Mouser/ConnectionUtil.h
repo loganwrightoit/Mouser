@@ -6,9 +6,9 @@
 bool Send(SOCKET sock, char * inBytes);
 bool Receive(SOCKET sock, char * outBytes);
 
-SOCKET GetBcstListenSocket();
-bool ListenForBroadcast();
-bool SendUdpBroadcast(SOCKET sock);
+SOCKET GetBroadcastSocket();
+bool SendBroadcast(SOCKET sock);
+bool ReceiveBroadcast(SOCKET sock);
 
 SOCKET GetMcstListenSocket();
 bool InitMulticast();

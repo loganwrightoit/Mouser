@@ -157,11 +157,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     HDC hdc;
 	HWND hBroadcastButton, hMulticastButton, hIpBox = NULL, hDirectConnectButton;
 
-    if (isInit() && bcst_lstn_sock == INVALID_SOCKET)
-    {
-        bcst_lstn_sock = GetBcstListenSocket();
-    }
-
     int width = 100;
     int height = 100;
     RECT rect;
@@ -251,7 +246,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         InitWinsock();
 
         // Create broadcast listener
-        bcst_lstn_sock = GetBcstListenSocket();
+        bcst_lstn_sock = GetBroadcastSocket();
         if (bcst_lstn_sock != INVALID_SOCKET)
         {
             if (WSAAsyncSelect(bcst_lstn_sock, hWnd, WM_BCST_SOCKET, FD_READ))
@@ -292,7 +287,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
-            AddOutputMsg(L"[Broadcast]: Received a client packet.");
+            ReceiveBroadcast(bcst_lstn_sock);
             break;
         }
         break;
@@ -306,7 +301,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
 		case IDC_MAIN_BROADCAST_DISC_BUTTON:
-            SendUdpBroadcast(bcst_lstn_sock);
+            SendBroadcast(bcst_lstn_sock);
 			break;
 		case IDC_MAIN_MULTICAST_DISC_BUTTON:
 			AddOutputMsg(L"[IGMP] Listening for peer");
