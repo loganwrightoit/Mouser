@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "Mouser.h"
+#include <string>
 
 using namespace std;
 
@@ -14,6 +15,7 @@ HINSTANCE hInst;                        // current instance
 TCHAR szTitle[MAX_LOADSTRING];          // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];    // the main window class name
 HWND hOutputListBox;
+SOCKET mcst_lstn_sock = INVALID_SOCKET, bcst_lstn_sock = INVALID_SOCKET;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -122,26 +124,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 }
 
 //
-// Adds a new line to an edit box control.
-//
-void AddLine(const HWND hwnd, TCHAR *newText)
-{
-    // get the current selection
-    DWORD StartPos, EndPos;
-    SendMessage(hwnd, EM_GETSEL, reinterpret_cast<WPARAM>(&StartPos), reinterpret_cast<WPARAM>(&EndPos));
-
-    // move the caret to the end of the text
-    int outLength = GetWindowTextLength(hwnd);
-    SendMessage(hwnd, EM_SETSEL, outLength, outLength);
-
-    // insert the text at the new caret position
-    SendMessage(hwnd, EM_REPLACESEL, TRUE, reinterpret_cast<LPARAM>(newText));
-    SendMessage(hwnd, EM_LINESCROLL, 0, 2);
-    TCHAR text[] = _T("\r\n");
-    SendMessage(hwnd, EM_REPLACESEL, 0, (LPARAM)text);
-}
-
-//
 // Set window font
 //
 void setWindowFont(HWND hWnd)
@@ -175,6 +157,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     HDC hdc;
 	HWND hBroadcastButton, hMulticastButton, hIpBox = NULL, hDirectConnectButton;
 
+    if (isInit() && bcst_lstn_sock == INVALID_SOCKET)
+    {
+        bcst_lstn_sock = GetBcstListenSocket();
+    }
+
     int width = 100;
     int height = 100;
     RECT rect;
@@ -187,8 +174,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
     case WM_CREATE:
-
-        // TODO: Add winsock initialization stuff here!
 
 		// Create output edit box
 		hOutputListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
@@ -260,26 +245,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			GetModuleHandle(NULL),
 			NULL);
 
+        // Put intialization code here
+
+        // TODO: Add winsock initialization stuff here!
+        InitWinsock();
+
+        // Create broadcast listener
+        bcst_lstn_sock = GetBcstListenSocket();
+        if (bcst_lstn_sock != INVALID_SOCKET)
+        {
+            if (WSAAsyncSelect(bcst_lstn_sock, hWnd, WM_BCST_SOCKET, FD_READ))
+            {
+                //AddOutputMsg((LPWSTR)result);
+                MessageBox(hWnd, L"WSAAsyncSelect() failed for broadcast socket.", L"Critical Error", MB_ICONERROR);
+            }
+        }
+
+        // Create multicast listener
+        /*
+        mcst_lstn_sock = GetMcstListenSocket();
+        if (mcst_lstn_sock != INVALID_SOCKET)
+        {
+            int nResult = WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_MCST_SOCKET, (FD_CLOSE | FD_READ));
+            if (nResult)
+            {
+                MessageBox(hWnd, L"Multicast WSAAsyncSelect failed", L"Critical Error", MB_ICONERROR);
+            }
+            if (listen(mcst_lstn_sock, 1) == SOCKET_ERROR)
+            {
+                MessageBox(hWnd, L"Multicast listen error.", L"Error", MB_OK);
+            }
+        }
+        */
+
 		// Set text length limit for IP box
 		SendMessage(hIpBox, EM_LIMITTEXT, 15, NULL);
-		
-		// Add item to list box
-		SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)L"First item");
-		SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)L"Second item");
-		SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)L"Third item");
-
-		/*
-        AddLine(hOutputListBox, L"Line 0!");
-		AddLine(hOutputListBox, L"Line 1!");
-		AddLine(hOutputListBox, L"Line 2!");
-		AddLine(hOutputListBox, L"Line 3!");
-		AddLine(hOutputListBox, L"Line 4!");
-		AddLine(hOutputListBox, L"Line 5!");
-		AddLine(hOutputListBox, L"Line 6!");
-		AddLine(hOutputListBox, L"Line 7!");
-		AddLine(hOutputListBox, L"Line 8!");
-		AddLine(hOutputListBox, L"Line 9!");
-		*/
 
 		setWindowFont(hOutputListBox);
 		setWindowFont(hBroadcastButton);
@@ -288,6 +288,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		setWindowFont(hDirectConnectButton);
 
         break;
+    case WM_BCST_SOCKET:
+        switch (WSAGETSELECTEVENT(lParam))
+        {
+        case FD_READ:
+            AddOutputMsg(L"[Broadcast]: Received a client packet.");
+            break;
+        }
+        break;
+    case WM_MCST_SOCKET:
+        AddOutputMsg(L"[Multicast]: Received a client packet.");
+        break;
     case WM_COMMAND:
         wmId    = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
@@ -295,7 +306,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (wmId)
         {
 		case IDC_MAIN_BROADCAST_DISC_BUTTON:
-			AddOutputMsg(L"[UDP] Listening for peer");
+            SendUdpBroadcast(bcst_lstn_sock);
 			break;
 		case IDC_MAIN_MULTICAST_DISC_BUTTON:
 			AddOutputMsg(L"[IGMP] Listening for peer");
@@ -326,6 +337,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
+
+        // Close sockets and WSA
+        //closesocket(bcst_lstn_sock);
+        //closesocket(mcst_lstn_sock);
+        //WSACleanup();
+
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:

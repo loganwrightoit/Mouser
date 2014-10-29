@@ -9,28 +9,22 @@ using namespace std;
 #pragma comment (lib, "Ws2_32.lib")
 
 // General
-#define DEFAULT_BUFFER_SIZE 1024
-WSADATA wsaData;
-struct SOCKADDR_IN clientService;
+#define         DEFAULT_BUFFER_SIZE 1024
+WSADATA         wsaData;
+SOCKADDR_IN     client_addr_in;
 
-// Multicast definitions
-#define MCAST_PORT  41921
-#define MCAST_IP    "234.241.92.163"
-#define MCAST_TTL   2 // Set higher to traverse routers
-SOCKET  mcst_sock = INVALID_SOCKET; // IGMP Multicast Socket
+// Multicast
+#define         MCST_ADDR   "234.241.92.163"
+#define         MCST_PORT   41921
+const int       MCST_TTL = 2; // Set higher to traverse routers
+SOCKET          mcst_sock = INVALID_SOCKET; // IGMP Multicast Socket
+SOCKADDR_IN     mcst_addr;
+IP_MREQ         mcst_interface;
 
-// Multicast fields
-struct IP_MREQ mCastInterface;
-SOCKET         mCastSocket;
-char           mCastIp[] = MCAST_IP;
-USHORT         mCastPort = MCAST_PORT;
-ULONG          mCastTTL = MCAST_TTL;
-SOCKADDR_IN    mCastAddr, clientAddr;
+// Broadcast
+#define         BCST_PORT   41922
 
-// Broadcast defitions
-struct sockaddr_in Recv_addr; // for receiving udp broadcast
-struct sockaddr_in bcst_addr; // for udp broadcast
-SOCKET bcst_sock = INVALID_SOCKET; // UDP Broadcast Socket
+#define         CONN_PORT   41900
 
 void CloseSocket(SOCKET sock)
 {
@@ -38,108 +32,98 @@ void CloseSocket(SOCKET sock)
     closesocket(sock);
 }
 
+SOCKET GetBcstListenSocket()
+{
+    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    
+    char broadcast = 'a';
+    if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) != 0) {
+        AddOutputMsg(L"[Broadcast]: Unable to set socket options.");
+        return INVALID_SOCKET;
+    }
+
+    sockaddr_in bcst_rcv_addr;
+    bcst_rcv_addr.sin_family = AF_INET;
+    bcst_rcv_addr.sin_port = htons(BCST_PORT); // Handle endianness
+    bcst_rcv_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(s, (LPSOCKADDR)&bcst_rcv_addr, sizeof(bcst_rcv_addr)) == SOCKET_ERROR)
+    {
+        AddOutputMsg(L"[Broadcast]: Unable to bind socket.");
+        return INVALID_SOCKET;
+    }
+
+    return s;
+}
+
 //
 // Sends a UDP broadcast packet across local network.
 //
-bool SendUdpBroadcast()
+bool SendUdpBroadcast(SOCKET sock)
 {
-	socklen_t recLen = sizeof(Recv_addr);
-	char * szLocalIP;
+    if (sock == INVALID_SOCKET)
+    {
+        AddOutputMsg(L"[Broadcast]: SendUdpBroacast() passed in invalid socket.");
+        return false;
+    }
 
-	// Create broadcast socket
+    sockaddr_in bcst_xmt_addr;
+    bcst_xmt_addr.sin_family = AF_INET;
+    bcst_xmt_addr.sin_port = htons(BCST_PORT); // Handle endianness
+    bcst_xmt_addr.sin_addr.s_addr = inet_addr("255.255.255.255");
 
-	WSADATA wsaData;
-	WSAStartup(0x0202, &wsaData);
-	bcst_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (bcst_sock == INVALID_SOCKET) {
-		closesocket(bcst_sock);
-		AddOutputMsg(L"Failed to create broadcast socket.");
-		return false;
-	}
-
-	char * msg = "MouserClient Broadcast";
-	int _result = 0;
-
-	_result = setsockopt(bcst_sock, SOL_SOCKET, SO_BROADCAST, msg, sizeof(msg));
-	if (_result != 0) {
-		printf("ERROR: setting socket failed: %d\n", _result);
-		cleanUp();
-		return 1;
-	}
-
-	// Resolve machine IP address
-
-	char szHostName[255];
-	gethostname(szHostName, 255);
-	struct hostent *host_entry = gethostbyname(szHostName);
-	szLocalIP = inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list);
-
-	// Setup structs
-
-	Recv_addr.sin_family = AF_INET;
-	Recv_addr.sin_port = htons(PORT); // Handle endianness
-	Recv_addr.sin_addr.s_addr = INADDR_ANY;
-
-	bcst_addr.sin_family = AF_INET;
-	bcst_addr.sin_port = htons(PORT); // Handle endianness
-	bcst_addr.sin_addr.s_addr = inet_addr("255.255.255.255");
-
-	if (bind(sock, (sockaddr*)&Recv_addr, sizeof(Recv_addr)) < 0)
+    char * msg = "MouserClient Broadcast";
+    if (sendto(sock, msg, strlen(msg) + 1, 0, (sockaddr *)&bcst_xmt_addr, sizeof(bcst_xmt_addr)) < 0)
 	{
-		perror("bind");
-		_getch();
-		closesocket(sock);
-		return 1;
-	}
-
-	// Send broadcast
-	char * msg = "MouserClient";
-	if (sendto(sock, msg, strlen(msg) + 1, 0, (sockaddr *)&Sender_addr, sizeof(Sender_addr)) < 0)
-	{
-		AddOutputMsg(L"Broadcast packet was not able to be sent.");
-		_getch();
-		closesocket(sock);
+        AddOutputMsg(L"[Broadcast]: SendUdpBroadcast() - unable to send message.");
+        return false;
 	}
 	else
 	{
-		AddOutputMsg(L"Broadcast packet sent.");
+        AddOutputMsg(L"[Broadcast]: SendUdpBroadcast() - message sent.");
 	}
 
-
-	_beginthread(recvFunct, 0, NULL);
-	_beginthread(sendFunct1, 0, NULL);
-
-	cout << "spawned threads, press any key to exit.. \n";
-	closesocket(sock);
-	WSACleanup();
-	return 0;
+	return true;
 }
 
-void CloseMulticast()
+bool CloseMulticast()
 {
-	if (setsockopt(mCastSocket, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mCastInterface, sizeof(mCastInterface))) {
-		printf("setsockopt() IP_DROP_MEMBERSHIP address %s failed: %d\n", mCastIp, WSAGetLastError());
+    if (setsockopt(mcst_sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mcst_interface, sizeof(mcst_interface))) {
+		//printf("setsockopt() IP_DROP_MEMBERSHIP address %s failed: %d\n", mCastIp, WSAGetLastError());
+        return false;
 	}
+    closesocket(mcst_sock);
+    AddOutputMsg(L"[Multicast]: Socket closed.");
+    return true;
 }
 
-void InitMulticast()
+SOCKET GetMcstListenSocket()
 {
+    /*
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    sockaddr_in localAddress;
+    localAddress.sin_family = AF_INET;
+    localAddress.sin_port = htons(CONN_PORT);
+    localAddress.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(s, (LPSOCKADDR)&localAddress, sizeof(localAddress)) == SOCKET_ERROR)
+    {
+        AddOutputMsg(L"[Broadcast]: Unable to bind listener socket.");
+        return INVALID_SOCKET;
+    }
+
+    return s;
+    */
+
+    ////// ACTUAL CODE BELOW
+
 	BOOL flag;
 	int result;
-	WSADATA stWsaData;
-
-	/* Initialize winsock v2.2 */
-
-	result = WSAStartup(0x0202, &stWsaData);
-	if (result) {
-		printf("WSAStartup failed: %d\r\n", result);
-		exit(1);
-	}
 
 	/* Assign socket */
 
-	mCastSocket = socket(AF_INET, SOCK_DGRAM, 0);
-	if (mCastSocket == INVALID_SOCKET) {
+	mcst_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (mcst_sock == INVALID_SOCKET) {
 		printf("socket() failed: %d\n", WSAGetLastError());
 		WSACleanup();
 		exit(1);
@@ -147,17 +131,17 @@ void InitMulticast()
 
 	/* Bind socket */
 
-	clientAddr.sin_family = AF_INET;
-	clientAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	clientAddr.sin_port = htons(mCastPort);
-	if (bind(mCastSocket, (struct sockaddr*) &clientAddr, sizeof(clientAddr))) {
-		printf("bind() port: %d failed: %d\n", mCastPort, WSAGetLastError());
+	mcst_addr.sin_family = AF_INET;
+    mcst_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    mcst_addr.sin_port = htons(MCST_PORT);
+    if (bind(mcst_sock, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr))) {
+		printf("bind() port: %d failed: %d\n", MCST_PORT, WSAGetLastError());
 	}
 
 	/* Set time-to-live if not default size */
 
-	if (mCastTTL > 1) {
-		if (setsockopt(mCastSocket, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&mCastTTL, sizeof(mCastTTL))) {
+	if (MCST_TTL > 1) {
+        if (setsockopt(mcst_sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&MCST_TTL, sizeof(MCST_TTL))) {
 			printf("setsockopt() IP_MULTICAST_TTL failed: %d\n", WSAGetLastError());
 		}
 	}
@@ -165,45 +149,53 @@ void InitMulticast()
 	/* Disable loopback */
 
 	flag = FALSE;
-	if (setsockopt(mCastSocket, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag))) {
+    if (setsockopt(mcst_sock, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag))) {
 		printf("setsockopt() IP_MULTICAST_LOOP failed: %d\n", WSAGetLastError());
 	}
 
 	/* Assign destination address */
 
-	mCastAddr.sin_family = AF_INET;
-	mCastAddr.sin_addr.s_addr = inet_addr(mCastIp);
-	mCastAddr.sin_port = htons(mCastPort);
+    //mcst_addr.sin_family = AF_INET;
+    //mcst_addr.sin_addr.s_addr = inet_addr(MCST_ADDR);
+    //mcst_addr.sin_port = htons(MCST_PORT);
 
 	/* Join the multicast group */
 
-	mCastInterface.imr_multiaddr.s_addr = inet_addr(mCastIp);
-	mCastInterface.imr_interface.s_addr = INADDR_ANY;
-	if (setsockopt(mCastSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mCastInterface, sizeof(mCastInterface))) {
-		printf("setsockopt() IP_ADD_MEMBERSHIP address %s failed: %d\n", mCastIp, WSAGetLastError());
+	mcst_interface.imr_multiaddr.s_addr = inet_addr(MCST_ADDR);
+    mcst_interface.imr_interface.s_addr = INADDR_ANY;
+    if (setsockopt(mcst_sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mcst_interface, sizeof(mcst_interface))) {
+        printf("setsockopt() IP_ADD_MEMBERSHIP address %s failed: %d\n", MCST_ADDR, WSAGetLastError());
 	}
+
+    return mcst_sock;
 }
 
-// Receive a frame if one is waiting
-void receiveMulticast()
+//
+// Listen for multicasts.
+//
+bool MulticastListenThread()
 {
-	SOCKADDR_IN  stSrcAddr;
+	SOCKADDR_IN mcst_rcv_addr;
+    int addrLen = sizeof(mcst_rcv_addr);
+    char buffer[DEFAULT_BUFFER_SIZE] = "";
 
-	int addr_size = sizeof(struct sockaddr_in);
-	if (recvfrom(mCastSocket, buffer, DEFAULT_BUFFER_SIZE, 0, (struct sockaddr*) &stSrcAddr, &addr_size) < 0) {
-		printf("recvfrom() failed: %d\n", WSAGetLastError());
-		WSACleanup();
-		exit(1);
+    if (recvfrom(mcst_sock, buffer, sizeof(buffer), 0, (struct sockaddr*) &mcst_rcv_addr, &addrLen) < 0) {
+        closesocket(mcst_sock);
+        return false;
 	}
 	else {
-		printf("Received multicast from %s:%d: %s\n", inet_ntoa(stSrcAddr.sin_addr), ntohs(stSrcAddr.sin_port), buffer);
+        AddOutputMsg(L"[Multicast]: Received a broadcast from another client.");
+        return true;
+        //printf("Received multicast from %s:%d: %s\n", inet_ntoa(mcst_rcv_addr.sin_addr), ntohs(mcst_rcv_addr.sin_port), buffer);
 	}
 }
 
-// Sends a multicast to group
-void sendMulticast(char msg[])
+//
+// Sends a multicast broadcast.
+//
+bool SendMulticastBroadcast(char * inBytes)
 {
-	int result = sendto(mCastSocket, msg, (int)strlen(msg), 0, (struct sockaddr*) &mCastAddr, sizeof(mCastAddr));
+    int result = sendto(mcst_sock, inBytes, strlen(inBytes), 0, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr));
 	if (result < 0) {
 		printf("sendto() failed: %d\n", WSAGetLastError());
 		WSACleanup();
@@ -211,22 +203,34 @@ void sendMulticast(char msg[])
 	}
 }
 
+//
+// Client discovery function that listens for UDP broadcasts.
+//
 void ListenForBroadcast(SOCKET sock)
 {
-	SetBlocking(sock, false);
+    /*
+    SOCKADDR_IN bcst_rcv_addr;
+    int addrLen = sizeof(bcst_rcv_addr);
 
-	while (1)
-	{
-		char buffer[DEFAULT_BUFFER_SIZE] = "";
-		if (recvfrom(sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&Recv_addr), &recLen))
-		{
-			if (strcmp(inet_ntoa(Recv_addr.sin_addr), szLocalIP) != 0) {
-				string msg = "Received a broadcast packet from ";
-				msg.append(inet_ntoa(Recv_addr.sin_addr));
-				AddOutputMsg((LPWSTR)msg.c_str);
-			}
-		}
-	}
+    // Resolve machine IP address
+
+    char szHostName[255];
+    gethostname(szHostName, 255);
+    HOSTENT * host_entry = gethostbyname(szHostName);
+    char * self_host = inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list);
+
+    while (1)
+    {
+        int addrLen = sizeof(bcst_rcv_addr);
+        char buffer[DEFAULT_BUFFER_SIZE] = "";
+        if (recvfrom(bcst_sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&bcst_rcv_addr), &addrLen))
+        {
+            if (strcmp(inet_ntoa(bcst_rcv_addr.sin_addr), self_host) != 0) {
+                cout << "Processed recvfrom : " << inet_ntoa(bcst_rcv_addr.sin_addr) << buffer << '\n';
+            }
+        }
+    }
+    */
 }
 
 //
@@ -290,18 +294,30 @@ bool Receive(SOCKET sock, char * outBytes)
     return false;
 }
 
+bool initialized = false;
+
+bool isInit()
+{
+    return initialized;
+}
+
 //
 // Initializes Winsock
 //
-bool initWinsock()
+bool InitWinsock()
 {
     int result = WSAStartup(0x0202, &wsaData); // Winsock 2.2
-    if (result != NO_ERROR) {
-		AddOutputMsg(L"Encountered error while initializing winsock.");
+    if (result != NO_ERROR)
+    {
+        AddOutputMsg(L"[Winsock]: Encountered error during initialization.");
         return false;
     }
-
-    return true;
+    else
+    {
+        AddOutputMsg(L"[Winsock]: Successfully initialized.");
+        initialized = true;
+        return true;
+    }
 }
 
 //
