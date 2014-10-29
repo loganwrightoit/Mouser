@@ -78,20 +78,16 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BroadcastUtil.h" />
     <ClInclude Include="ConnectionUtil.h" />
     <ClInclude Include="Mouser.h" />
-    <ClInclude Include="MulticastUtil.h" />
     <ClInclude Include="Peer.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BroadcastUtil.cpp" />
     <ClCompile Include="ConnectionUtil.cpp" />
     <ClCompile Include="Mouser.cpp" />
-    <ClCompile Include="MulticastUtil.cpp" />
     <ClCompile Include="Peer.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

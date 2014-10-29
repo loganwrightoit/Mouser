@@ -5,6 +5,8 @@
 #include "stdafx.h"
 #include "Mouser.h"
 
+using namespace std;
+
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -52,8 +54,6 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 
     return (int) msg.wParam;
 }
-
-
 
 //
 //  FUNCTION: MyRegisterClass()

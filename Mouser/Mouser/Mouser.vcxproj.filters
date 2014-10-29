@@ -42,12 +42,6 @@
     <ClInclude Include="ConnectionUtil.h">
       <Filter>ConnectionUtil</Filter>
     </ClInclude>
-    <ClInclude Include="BroadcastUtil.h">
-      <Filter>ConnectionUtil</Filter>
-    </ClInclude>
-    <ClInclude Include="MulticastUtil.h">
-      <Filter>ConnectionUtil</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -60,12 +54,6 @@
       <Filter>Peer</Filter>
     </ClCompile>
     <ClCompile Include="ConnectionUtil.cpp">
-      <Filter>ConnectionUtil</Filter>
-    </ClCompile>
-    <ClCompile Include="BroadcastUtil.cpp">
-      <Filter>ConnectionUtil</Filter>
-    </ClCompile>
-    <ClCompile Include="MulticastUtil.cpp">
       <Filter>ConnectionUtil</Filter>
     </ClCompile>
   </ItemGroup>
