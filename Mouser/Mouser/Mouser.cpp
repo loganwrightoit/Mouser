@@ -256,22 +256,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
 
-        // Create multicast listener
-        /*
-        mcst_lstn_sock = GetMcstListenSocket();
-        if (mcst_lstn_sock != INVALID_SOCKET)
-        {
-            int nResult = WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_MCST_SOCKET, (FD_CLOSE | FD_READ));
-            if (nResult)
-            {
-                MessageBox(hWnd, L"Multicast WSAAsyncSelect failed", L"Critical Error", MB_ICONERROR);
-            }
-            if (listen(mcst_lstn_sock, 1) == SOCKET_ERROR)
-            {
-                MessageBox(hWnd, L"Multicast listen error.", L"Error", MB_OK);
-            }
-        }
-        */
+		// Create multicast listener
+		mcst_lstn_sock = GetMulticastSocket(1);
+		if (mcst_lstn_sock != INVALID_SOCKET)
+		{
+			if (WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_BCST_SOCKET, FD_READ))
+			{
+				//AddOutputMsg((LPWSTR)result);
+				MessageBox(hWnd, L"WSAAsyncSelect() failed for multicast socket.", L"Critical Error", MB_ICONERROR);
+			}
+		}
 
 		// Set text length limit for IP box
 		SendMessage(hIpBox, EM_LIMITTEXT, 15, NULL);
@@ -292,7 +286,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_MCST_SOCKET:
-        AddOutputMsg(L"[Multicast]: Received a client packet.");
+		switch (WSAGETSELECTEVENT(lParam))
+		{
+		case FD_READ:
+			ReceiveMulticast(mcst_lstn_sock);
+			break;
+		}
         break;
     case WM_COMMAND:
         wmId    = LOWORD(wParam);
@@ -304,7 +303,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SendBroadcast(bcst_lstn_sock);
 			break;
 		case IDC_MAIN_MULTICAST_DISC_BUTTON:
-			AddOutputMsg(L"[IGMP] Listening for peer");
+			SendMulticast(mcst_lstn_sock);
 			break;
 		case IDC_MAIN_DIRECT_CONNECT_BUTTON:
 			TCHAR buff[16];
@@ -315,7 +314,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			else {
 				AddOutputMsg(L"Please input an IP address");
 			}
-
 			break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);

@@ -17,13 +17,12 @@ SOCKADDR_IN     client_addr_in;
 #define         MCST_ADDR   "234.241.92.163"
 #define         MCST_PORT   41921
 const int       MCST_TTL = 2; // Set higher to traverse routers
-SOCKET          mcst_sock = INVALID_SOCKET; // IGMP Multicast Socket
-SOCKADDR_IN     mcst_addr;
-IP_MREQ         mcst_interface;
+struct ip_mreq mreq;
 
 // Broadcast
 #define         BCST_PORT   41922
 
+// Default connection port
 #define         CONN_PORT   41900
 
 void CloseSocket(SOCKET sock)
@@ -63,7 +62,7 @@ bool SendBroadcast(SOCKET sock)
 {
     if (sock == INVALID_SOCKET)
     {
-        AddOutputMsg(L"[Broadcast]: SendUdpBroacast() passed in invalid socket.");
+        AddOutputMsg(L"[Broadcast]: sendto() invalid socket.");
         return false;
     }
 
@@ -75,12 +74,12 @@ bool SendBroadcast(SOCKET sock)
     char * msg = "MouserClient Broadcast";
     if (sendto(sock, msg, strlen(msg) + 1, 0, (sockaddr *)&bcst_xmt_addr, sizeof(bcst_xmt_addr)) < 0)
 	{
-        AddOutputMsg(L"[Broadcast]: SendUdpBroadcast() - unable to send message.");
+        AddOutputMsg(L"[Broadcast]: sendto() failed.");
         return false;
 	}
 	else
 	{
-        AddOutputMsg(L"[Broadcast]: SendUdpBroadcast() - message sent.");
+        AddOutputMsg(L"[Broadcast]: Packet sent.");
 	}
 
 	return true;
@@ -110,7 +109,7 @@ bool ReceiveBroadcast(SOCKET sock)
             AddOutputMsg(s.c_str());
             */
 
-            AddOutputMsg(L"[Broadcast]: Received a broadcast from client.");
+            AddOutputMsg(L"[Broadcast]: Received client packet.");
             //cout << "Processed recvfrom : " << inet_ntoa(bcst_from_addr.sin_addr) << buffer << '\n';
             return true;
         }
@@ -119,120 +118,119 @@ bool ReceiveBroadcast(SOCKET sock)
     return false;
 }
 
-bool CloseMulticast()
+//
+// Leaves the multicast group and closes the socket.
+//
+bool CloseMulticast(SOCKET sock)
 {
-    if (setsockopt(mcst_sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mcst_interface, sizeof(mcst_interface))) {
-		//printf("setsockopt() IP_DROP_MEMBERSHIP address %s failed: %d\n", mCastIp, WSAGetLastError());
+	if (setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq))) {
+		AddOutputMsg(L"[Multicast]: setsockopt() IP_DROP_MEMBERSHIP failed.");
         return false;
 	}
-    closesocket(mcst_sock);
-    AddOutputMsg(L"[Multicast]: Socket closed.");
+    closesocket(sock);
     return true;
 }
 
-SOCKET GetMcstListenSocket()
+//
+// Gets a multicast socket.
+//
+SOCKET GetMulticastSocket(int TTL)
 {
-    /*
-    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    sockaddr_in localAddress;
-    localAddress.sin_family = AF_INET;
-    localAddress.sin_port = htons(CONN_PORT);
-    localAddress.sin_addr.s_addr = INADDR_ANY;
+	/* Create socket */
 
-    if (bind(s, (LPSOCKADDR)&localAddress, sizeof(localAddress)) == SOCKET_ERROR)
-    {
-        AddOutputMsg(L"[Broadcast]: Unable to bind listener socket.");
-        return INVALID_SOCKET;
-    }
-
-    return s;
-    */
-
-    ////// ACTUAL CODE BELOW
-
-	BOOL flag;
-	int result;
-
-	/* Assign socket */
-
-	mcst_sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (mcst_sock == INVALID_SOCKET) {
-		printf("socket() failed: %d\n", WSAGetLastError());
-		WSACleanup();
-		exit(1);
+	SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock == INVALID_SOCKET) {
+		AddOutputMsg(L"[Multicast]: socket() failed.");
+		return INVALID_SOCKET;
 	}
 
 	/* Bind socket */
 
+	sockaddr_in mcst_addr;
 	mcst_addr.sin_family = AF_INET;
     mcst_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     mcst_addr.sin_port = htons(MCST_PORT);
-    if (bind(mcst_sock, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr))) {
-		printf("bind() port: %d failed: %d\n", MCST_PORT, WSAGetLastError());
+    if (bind(sock, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr))) {
+		AddOutputMsg(L"[Multicast]: bind socket failed.");
+		closesocket(sock);
+		return INVALID_SOCKET;
 	}
 
 	/* Set time-to-live if not default size */
 
 	if (MCST_TTL > 1) {
-        if (setsockopt(mcst_sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&MCST_TTL, sizeof(MCST_TTL))) {
-			printf("setsockopt() IP_MULTICAST_TTL failed: %d\n", WSAGetLastError());
+		if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&MCST_TTL, sizeof(MCST_TTL))) {
+			AddOutputMsg(L"[Multicast]: setsockopt() IP_MULTICAST_TTL failed.");
+			closesocket(sock);
+			return INVALID_SOCKET;
 		}
 	}
 
 	/* Disable loopback */
 
-	flag = FALSE;
-    if (setsockopt(mcst_sock, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag))) {
-		printf("setsockopt() IP_MULTICAST_LOOP failed: %d\n", WSAGetLastError());
+	bool flag = FALSE;
+	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag))) {
+		AddOutputMsg(L"[Multicast]: setsockopt() IP_MULTICAST_LOOP failed.");
+		closesocket(sock);
+		return INVALID_SOCKET;
 	}
-
-	/* Assign destination address */
-
-    //mcst_addr.sin_family = AF_INET;
-    //mcst_addr.sin_addr.s_addr = inet_addr(MCST_ADDR);
-    //mcst_addr.sin_port = htons(MCST_PORT);
 
 	/* Join the multicast group */
 
-	mcst_interface.imr_multiaddr.s_addr = inet_addr(MCST_ADDR);
-    mcst_interface.imr_interface.s_addr = INADDR_ANY;
-    if (setsockopt(mcst_sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mcst_interface, sizeof(mcst_interface))) {
-        printf("setsockopt() IP_ADD_MEMBERSHIP address %s failed: %d\n", MCST_ADDR, WSAGetLastError());
+	mreq.imr_multiaddr.s_addr = inet_addr(MCST_ADDR);
+	mreq.imr_interface.s_addr = INADDR_ANY;
+	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq))) {
+		AddOutputMsg(L"[Multicast]: setsockopt() IP_ADD_MEMBERSHIP failed.");
+		closesocket(sock);
+		return INVALID_SOCKET;
 	}
 
-    return mcst_sock;
+    return sock;
 }
 
 //
-// Listen for multicasts.
+// Sends a multicast packet.
 //
-bool MulticastListenThread()
+bool SendMulticast(SOCKET sock)
 {
-	SOCKADDR_IN mcst_rcv_addr;
-    int addrLen = sizeof(mcst_rcv_addr);
-    char buffer[DEFAULT_BUFFER_SIZE] = "";
+	sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr(MCST_ADDR);
+	addr.sin_port = htons(MCST_PORT);
 
-    if (recvfrom(mcst_sock, buffer, sizeof(buffer), 0, (struct sockaddr*) &mcst_rcv_addr, &addrLen) < 0) {
-        closesocket(mcst_sock);
-        return false;
-	}
-	else {
-        AddOutputMsg(L"[Multicast]: Received a broadcast from another client.");
-        return true;
-        //printf("Received multicast from %s:%d: %s\n", inet_ntoa(mcst_rcv_addr.sin_addr), ntohs(mcst_rcv_addr.sin_port), buffer);
-	}
-}
-
-//
-// Sends a multicast broadcast.
-//
-bool SendMulticastBroadcast(char * inBytes)
-{
-    int result = sendto(mcst_sock, inBytes, strlen(inBytes), 0, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr));
+	char * buffer = "MouserMulticast Packet";
+	int result = sendto(sock, buffer, strlen(buffer), 0, (struct sockaddr*) &addr, sizeof(addr));
 	if (result < 0) {
-		printf("sendto() failed: %d\n", WSAGetLastError());
-		WSACleanup();
-		exit(1);
+		AddOutputMsg(L"[Multicast]: sendto() failed.");
+		return false;
+	}
+	else
+	{
+		AddOutputMsg(L"[Multicast]: Packet sent.");
+		return true;
+	}
+}
+
+//
+// Receives a multicast packet.
+//
+bool ReceiveMulticast(SOCKET sock)
+{
+	sockaddr_in addr;
+	int addrLen = sizeof(addr);
+	char buffer[DEFAULT_BUFFER_SIZE] = "";
+
+	if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr*) &addr, &addrLen) < 0)
+	{
+		AddOutputMsg(L"[Multicast]: recvfrom() failed.");
+		closesocket(sock);
+		return false;
+	}
+	else
+	{
+		AddOutputMsg(L"[Multicast]: Received a broadcast from another client.");
+		return true;
+		//printf("Received multicast from %s:%d: %s\n", inet_ntoa(mcst_rcv_addr.sin_addr), ntohs(mcst_rcv_addr.sin_port), buffer);
 	}
 }
 
@@ -297,13 +295,6 @@ bool Receive(SOCKET sock, char * outBytes)
     return false;
 }
 
-bool initialized = false;
-
-bool isInit()
-{
-    return initialized;
-}
-
 //
 // Initializes Winsock
 //
@@ -318,7 +309,6 @@ bool InitWinsock()
     else
     {
         AddOutputMsg(L"[Winsock]: Successfully initialized.");
-        initialized = true;
         return true;
     }
 }
