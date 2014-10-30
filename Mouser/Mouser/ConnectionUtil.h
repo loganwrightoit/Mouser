@@ -13,7 +13,7 @@ bool ReceiveBroadcast(SOCKET sock);
 bool CloseMulticast(SOCKET sock);
 SOCKET GetMulticastSocket();
 bool SendMulticast(SOCKET sock);
-bool ReceiveMulticast(SOCKET sock);
+char * ReceiveMulticast(SOCKET sock);
 bool SetMulticastTTL(SOCKET sock, int TTL);
 
 bool InitWinsock();

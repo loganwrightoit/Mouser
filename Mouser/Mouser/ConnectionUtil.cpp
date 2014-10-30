@@ -12,6 +12,10 @@ using namespace std;
 #define         DEFAULT_BUFFER_SIZE 1024
 WSADATA         wsaData;
 SOCKADDR_IN     client_addr_in;
+char myIp[256];
+
+sockaddr_in bcst_xmt_addr;
+sockaddr_in bcst_rcv_addr;
 
 /*
 Mulicast addresses
@@ -31,9 +35,6 @@ struct ip_mreq  mreq;
 // Broadcast
 #define         BCST_PORT   41922
 
-// Default connection port
-#define         CONN_PORT   41920
-
 void CloseSocket(SOCKET sock)
 {
     shutdown(sock, SD_SEND);
@@ -42,10 +43,10 @@ void CloseSocket(SOCKET sock)
 
 SOCKET GetBroadcastSocket()
 {
-    SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    SOCKET sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
     char broadcast = 'a';
-    if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) != 0)
+    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) != 0)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Broadcast]: setsockopt() failed with error: %i", WSAGetLastError());
@@ -53,12 +54,11 @@ SOCKET GetBroadcastSocket()
         return INVALID_SOCKET;
     }
 
-    sockaddr_in bcst_rcv_addr;
     bcst_rcv_addr.sin_family = AF_INET;
     bcst_rcv_addr.sin_port = htons(BCST_PORT); // Handle endianness
     bcst_rcv_addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(s, (LPSOCKADDR)&bcst_rcv_addr, sizeof(bcst_rcv_addr)) == SOCKET_ERROR)
+    if (bind(sock, (LPSOCKADDR)&bcst_rcv_addr, sizeof(bcst_rcv_addr)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Broadcast]: bind() failed with error: %i", WSAGetLastError());
@@ -66,7 +66,7 @@ SOCKET GetBroadcastSocket()
         return INVALID_SOCKET;
     }
 
-    return s;
+    return sock;
 }
 
 //
@@ -80,13 +80,12 @@ bool SendBroadcast(SOCKET sock)
         return false;
     }
 
-    sockaddr_in bcst_xmt_addr;
     bcst_xmt_addr.sin_family = AF_INET;
     bcst_xmt_addr.sin_port = htons(BCST_PORT); // Handle endianness
     bcst_xmt_addr.sin_addr.s_addr = inet_addr("255.255.255.255");
 
     char * msg = "MouserClient Broadcast";
-    if (sendto(sock, msg, strlen(msg) + 1, 0, (sockaddr *)&bcst_xmt_addr, sizeof(bcst_xmt_addr)) < 0)
+    if (sendto(sock, msg, strlen(msg), 0, (sockaddr *)&bcst_xmt_addr, sizeof(bcst_xmt_addr)) < 0)
 	{
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Broadcast]: sendto() failed with error: %i", WSAGetLastError());
@@ -106,15 +105,17 @@ bool ReceiveBroadcast(SOCKET sock)
     sockaddr_in bcst_from_addr;
     int addrLen = sizeof(bcst_from_addr);
 
-    char szHostName[255];
-    gethostname(szHostName, 255);
-    struct hostent *host_entry = gethostbyname(szHostName);
-    char * szLocalIP = inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list);
-
     char buffer[DEFAULT_BUFFER_SIZE] = "";
-    if (recvfrom(sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&bcst_from_addr), &addrLen))
+    int result = recvfrom(sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&bcst_from_addr), &addrLen);
+    if (result == SOCKET_ERROR)
     {
-        if (strcmp(inet_ntoa(bcst_from_addr.sin_addr), szLocalIP) != 0)
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Broadcast]: recvfrom() failed with error: %i", result);
+        AddOutputMsg(buffer);
+    }
+    else
+    {
+        if (inet_addr(myIp) != bcst_from_addr.sin_addr.S_un.S_addr)
         {
             char * inIp = inet_ntoa(bcst_from_addr.sin_addr);
             wchar_t buffer[256];
@@ -250,9 +251,9 @@ bool SendMulticast(SOCKET sock)
 }
 
 //
-// Receives a multicast packet.
+// Receives a multicast packet and returns the host.
 //
-bool ReceiveMulticast(SOCKET sock)
+char * ReceiveMulticast(SOCKET sock)
 {
 	sockaddr_in addr;
 	int addrLen = sizeof(addr);
@@ -264,14 +265,14 @@ bool ReceiveMulticast(SOCKET sock)
         swprintf(buffer, 256, L"[Multicast]: recvfrom() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
 		closesocket(sock);
-		return false;
+		return "";
 	}
 	else
 	{
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: Received multicast packet from %hs", inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
-		return true;
+        return inet_ntoa(addr.sin_addr);
 	}
 }
 
@@ -356,6 +357,13 @@ bool InitWinsock()
     else
     {
         AddOutputMsg(L"[Winsock]: Initialized.");
+
+        // Set my IP
+        char szHostName[255];
+        gethostname(szHostName, 255);
+        struct hostent *host_entry = gethostbyname(szHostName);
+        strcpy(myIp, inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list));
+
         return true;
     }
 }

@@ -8,6 +8,8 @@
 
 using namespace std;
 
+// Default connection port
+#define CONN_PORT 41920
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -15,7 +17,7 @@ HINSTANCE hInst;                        // current instance
 TCHAR szTitle[MAX_LOADSTRING];          // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];    // the main window class name
 HWND hOutputListBox;
-SOCKET mcst_lstn_sock = INVALID_SOCKET, bcst_lstn_sock = INVALID_SOCKET;
+SOCKET mcst_lstn_sock = INVALID_SOCKET, bcst_lstn_sock = INVALID_SOCKET, conn_socket = INVALID_SOCKET;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -155,7 +157,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
-	HWND hBroadcastButton, hMulticastButton, hMulticastTTLBox, hIpBox = NULL, hDirectConnectButton;
+	HWND hBroadcastButton,
+         hMulticastButton,
+         hMulticastTTLBox,
+         hIpBox = NULL,
+         hDirectConnectButton,
+         hPrimaryConnection;
 
 	int ttl = 1;
     int width = 100;
@@ -255,6 +262,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			GetModuleHandle(NULL),
 			NULL);
 
+        // create the window and use the result as the handle
+        hPrimaryConnection = CreateWindowEx(NULL,
+            L"primaryConnection", // name of the window class
+            L"Connected Client", // title of the window
+            WS_OVERLAPPEDWINDOW, // window style
+            300, // x-position of the window
+            300, // y-position of the window
+            500, // width of the window
+            400, // height of the window
+            HWND_DESKTOP, // we have no parent window, NULL
+            NULL, // we aren't using menus, NULL
+            hInst, // application handle
+            NULL); // used with multiple windows, NULL
+
         // Put intialization code here
 
         // TODO: Add winsock initialization stuff here!
@@ -266,8 +287,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             if (WSAAsyncSelect(bcst_lstn_sock, hWnd, WM_BCST_SOCKET, FD_READ))
             {
-                //AddOutputMsg((LPWSTR)result);
-                MessageBox(hWnd, L"WSAAsyncSelect() failed for broadcast socket.", L"Critical Error", MB_ICONERROR);
+                wchar_t buffer[256];
+                swprintf(buffer, 256, L"[Broadcast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+                AddOutputMsg(buffer);
             }
         }
 
@@ -277,8 +299,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			if (WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_MCST_SOCKET, FD_READ))
 			{
-				//AddOutputMsg((LPWSTR)result);
-				MessageBox(hWnd, L"WSAAsyncSelect() failed for multicast socket.", L"Critical Error", MB_ICONERROR);
+                wchar_t buffer[256];
+                swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+                AddOutputMsg(buffer);
 			}
 		}
 
@@ -296,6 +319,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
+            MessageBox(hWnd, L"Received a broadcast packet.", L"INFO", 0);
             ReceiveBroadcast(bcst_lstn_sock);
             break;
         }
@@ -304,7 +328,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		switch (WSAGETSELECTEVENT(lParam))
 		{
 		case FD_READ:
-			ReceiveMulticast(mcst_lstn_sock);
+            MessageBox(hWnd, L"Received a multicast packet.", L"INFO", 0);
+            if (mcst_lstn_sock != INVALID_SOCKET)
+            {
+                char * host = ReceiveMulticast(mcst_lstn_sock);
+                conn_socket = ConnectTo(host, CONN_PORT, 3);
+
+                if (conn_socket != INVALID_SOCKET)
+                {
+                    // Make window visible
+
+                    if (WSAAsyncSelect(conn_socket, hPrimaryConnection, WM_MCST_SOCKET, FD_READ | FD_WRITE))
+                    {
+                        wchar_t buffer[256];
+                        swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+                        AddOutputMsg(buffer);
+                    }
+                    else
+                    {
+                        // Show connection window
+                        SetWindowText(hPrimaryConnection, L"This is the new title!");
+                        ShowWindow(hPrimaryConnection, 0);
+                    }
+                }
+            }
+            else
+            {
+                // Process a new client connection if not already connected
+            }
 			break;
 		}
         break;
