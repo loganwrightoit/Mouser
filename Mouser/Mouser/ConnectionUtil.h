@@ -10,6 +10,7 @@ SOCKET GetBroadcastSocket();
 bool SendBroadcast(SOCKET sock);
 bool ReceiveBroadcast(SOCKET sock);
 
+bool CloseMulticast(SOCKET sock);
 SOCKET GetMulticastSocket();
 bool SendMulticast(SOCKET sock);
 bool ReceiveMulticast(SOCKET sock);

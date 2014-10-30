@@ -345,12 +345,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
-
-        // Close sockets and WSA
-        //closesocket(bcst_lstn_sock);
-        //closesocket(mcst_lstn_sock);
-        //WSACleanup();
-
+        closesocket(bcst_lstn_sock);
+        CloseMulticast(mcst_lstn_sock);
+        WSACleanup();
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:

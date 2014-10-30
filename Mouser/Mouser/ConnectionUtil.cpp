@@ -165,8 +165,11 @@ SOCKET GetMulticastSocket()
 	mcst_addr.sin_family = AF_INET;
     mcst_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     mcst_addr.sin_port = htons(MCST_PORT);
-    if (bind(sock, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr))) {
-		AddOutputMsg(L"[Multicast]: bind socket failed.");
+    if (bind(sock, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr)))    
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: bind() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
 		closesocket(sock);
 		return INVALID_SOCKET;
 	}
@@ -178,8 +181,11 @@ SOCKET GetMulticastSocket()
 	// Disable loopback
 
 	bool flag = FALSE;
-	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag))) {
-		AddOutputMsg(L"[Multicast]: setsockopt() IP_MULTICAST_LOOP failed.");
+	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag)))
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: setsockopt() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
 		closesocket(sock);
 		return INVALID_SOCKET;
 	}
@@ -188,8 +194,11 @@ SOCKET GetMulticastSocket()
 
 	mreq.imr_multiaddr.s_addr = inet_addr(MCST_ADDR);
 	mreq.imr_interface.s_addr = INADDR_ANY;
-	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq))) {
-		AddOutputMsg(L"[Multicast]: setsockopt() IP_ADD_MEMBERSHIP failed.");
+	if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq)))
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_ADD_MEMBERSHIP failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
 		closesocket(sock);
 		return INVALID_SOCKET;
 	}
@@ -202,8 +211,11 @@ SOCKET GetMulticastSocket()
 //
 bool SetMulticastTTL(SOCKET sock, int TTL)
 {
-	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&TTL, sizeof(TTL))) {
-		AddOutputMsg(L"[Multicast]: setsockopt() IP_MULTICAST_TTL failed.");
+	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&TTL, sizeof(TTL)))
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_MULTICAST_TTL failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
 		closesocket(sock);
 		return false;
 	}
@@ -223,8 +235,11 @@ bool SendMulticast(SOCKET sock)
 
 	char * buffer = "MouserMulticast Packet";
 	int result = sendto(sock, buffer, strlen(buffer), 0, (struct sockaddr*) &addr, sizeof(addr));
-	if (result < 0) {
-		AddOutputMsg(L"[Multicast]: sendto() failed.");
+	if (result < 0)    
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: sendto() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
 		return false;
 	}
 	else
@@ -245,15 +260,18 @@ bool ReceiveMulticast(SOCKET sock)
 
 	if (recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr*) &addr, &addrLen) < 0)
 	{
-		AddOutputMsg(L"[Multicast]: recvfrom() failed.");
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: recvfrom() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
 		closesocket(sock);
 		return false;
 	}
 	else
 	{
-		AddOutputMsg(L"[Multicast]: Received a broadcast from another client.");
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: Received multicast packet from %hs", inet_ntoa(addr.sin_addr));
+        AddOutputMsg(buffer);
 		return true;
-		//printf("Received multicast from %s:%d: %s\n", inet_ntoa(mcst_rcv_addr.sin_addr), ntohs(mcst_rcv_addr.sin_port), buffer);
 	}
 }
 
@@ -275,8 +293,10 @@ bool Send(SOCKET sock, CHAR * inBytes)
     int result = send(sock, s.c_str(), s.length(), 0);
     if (result == SOCKET_ERROR)
     {
-        cout << "DEBUG: Error requesting: " << WSAGetLastError() << ", shutting down connection." << endl;
-        CloseSocket(sock);
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: send() failed with error: %s", WSAGetLastError());
+        AddOutputMsg(buffer);
+        closesocket(sock);
         return false;
     }
     else
@@ -311,7 +331,9 @@ bool Receive(SOCKET sock, char * outBytes)
     }
     else if (inBytes != WSAEWOULDBLOCK && inBytes != 0) // Nothing to receive, don't block
     {
-        cout << "DEBUG: Error receiving: " << WSAGetLastError() << ", shutting down connection." << endl;
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: recv() failed with error: %s", WSAGetLastError());
+        AddOutputMsg(buffer);
         CloseSocket(sock);
     }
 
@@ -326,12 +348,14 @@ bool InitWinsock()
     int result = WSAStartup(0x0202, &wsaData); // Winsock 2.2
     if (result != NO_ERROR)
     {
-        AddOutputMsg(L"[Winsock]: Encountered error during initialization.");
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Winsock]: Initialization failed with error: %s", WSAGetLastError());
+        AddOutputMsg(buffer);
         return false;
     }
     else
     {
-        AddOutputMsg(L"[Winsock]: Successfully initialized.");
+        AddOutputMsg(L"[Winsock]: Initialized.");
         return true;
     }
 }
@@ -347,7 +371,9 @@ void SetBlocking(SOCKET sock, bool block)
     int result = ioctlsocket(sock, FIONBIO, &mode);
     if (result != NO_ERROR)
     {
-        cout << "ERORR failed setting socket blocking mode: " << result << endl;
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Socket]: ioctlsocket() failed with error: %i", result);
+        AddOutputMsg(buffer);
     }
 }
 
