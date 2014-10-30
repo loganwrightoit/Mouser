@@ -155,8 +155,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
-	HWND hBroadcastButton, hMulticastButton, hIpBox = NULL, hDirectConnectButton;
+	HWND hBroadcastButton, hMulticastButton, hMulticastTTLBox, hIpBox = NULL, hDirectConnectButton;
 
+	int ttl = 1;
     int width = 100;
     int height = 100;
     RECT rect;
@@ -212,6 +213,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			GetModuleHandle(NULL),
 			NULL);
 
+		// Multicast TTL box
+		hMulticastTTLBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+			L"EDIT",
+			L"",
+			WS_CHILD | ES_WANTRETURN | WS_VISIBLE | ES_CENTER,
+			220,  // x padding
+			270, // y padding
+			50, // width
+			30,  // height
+			hWnd,
+			(HMENU)IDC_MAIN_MCST_TTL_TEXTBOX,
+			GetModuleHandle(NULL),
+			NULL);
+
 		// Manual IP connect button
 		hDirectConnectButton = CreateWindowEx(NULL,
 			L"BUTTON",
@@ -257,7 +272,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
 
 		// Create multicast listener
-		mcst_lstn_sock = GetMulticastSocket(1);
+		mcst_lstn_sock = GetMulticastSocket();
 		if (mcst_lstn_sock != INVALID_SOCKET)
 		{
 			if (WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_MCST_SOCKET, FD_READ))
@@ -303,16 +318,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SendBroadcast(bcst_lstn_sock);
 			break;
 		case IDC_MAIN_MULTICAST_DISC_BUTTON:
+			// Set TTL
+			//SendMessage(hMulticastTTLBox, WM_GETTEXT, (WPARAM)10, (LPARAM)ttl);
+			//SetMulticastTTL(mcst_lstn_sock, ttl);
 			SendMulticast(mcst_lstn_sock);
 			break;
 		case IDC_MAIN_DIRECT_CONNECT_BUTTON:
 			TCHAR buff[16];
 			GetWindowText(hIpBox, buff, sizeof(buff));
 			if (_tcslen(buff) > 0) {
-				AddOutputMsg(L"[TCP] Connecting to host");
+				AddOutputMsg(L"[P2P] Connecting to host");
 			}
 			else {
-				AddOutputMsg(L"Please input an IP address");
+				AddOutputMsg(L"[P2P] Please input an IP address");
 			}
 			break;
         case IDM_ABOUT:

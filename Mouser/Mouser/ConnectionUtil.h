@@ -10,9 +10,10 @@ SOCKET GetBroadcastSocket();
 bool SendBroadcast(SOCKET sock);
 bool ReceiveBroadcast(SOCKET sock);
 
-SOCKET GetMulticastSocket(int TTL);
+SOCKET GetMulticastSocket();
 bool SendMulticast(SOCKET sock);
 bool ReceiveMulticast(SOCKET sock);
+bool SetMulticastTTL(SOCKET sock, int TTL);
 
 bool InitWinsock();
 void SetBlocking(SOCKET sock, bool block);

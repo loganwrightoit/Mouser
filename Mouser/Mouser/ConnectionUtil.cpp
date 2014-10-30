@@ -13,17 +13,26 @@ using namespace std;
 WSADATA         wsaData;
 SOCKADDR_IN     client_addr_in;
 
+/*
+Mulicast addresses
+224.0.0.0 to 224.0.0.255 (224.0.0.0/24) are reserved for local subnet multicast traffic.
+224.0.1.0 to 238.255.255.255 are known as globally scoped addresses, which means they can be used for multicasting across an intranet or the Internet.
+239.0.0.0 to 239.255.255.255 (239.0.0.0/8) are reserved for administratively scoped addresses.
+239.192.0.0 to 239.251.255.255 Organization-Local Scope
+239.255.0.0 to 239.255.255.255 Site-Local Scope
+*/
+
 // Multicast
-#define         MCST_ADDR   "234.241.92.163"
+#define         MCST_ADDR   "239.255.92.163"
 #define         MCST_PORT   41921
-const int       MCST_TTL = 2; // Set higher to traverse routers
-struct ip_mreq mreq;
+const int       MCST_TTL =  5; // Set higher to traverse routers
+struct ip_mreq  mreq;
 
 // Broadcast
 #define         BCST_PORT   41922
 
 // Default connection port
-#define         CONN_PORT   41900
+#define         CONN_PORT   41920
 
 void CloseSocket(SOCKET sock)
 {
@@ -134,11 +143,11 @@ bool CloseMulticast(SOCKET sock)
 //
 // Gets a multicast socket.
 //
-SOCKET GetMulticastSocket(int TTL)
+SOCKET GetMulticastSocket()
 {
 	/* Create socket */
 
-	SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
+	SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 	if (sock == INVALID_SOCKET) {
 		AddOutputMsg(L"[Multicast]: socket() failed.");
 		return INVALID_SOCKET;
@@ -156,17 +165,11 @@ SOCKET GetMulticastSocket(int TTL)
 		return INVALID_SOCKET;
 	}
 
-	/* Set time-to-live if not default size */
+	// Set time-to-live
 
-	if (MCST_TTL > 1) {
-		if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&MCST_TTL, sizeof(MCST_TTL))) {
-			AddOutputMsg(L"[Multicast]: setsockopt() IP_MULTICAST_TTL failed.");
-			closesocket(sock);
-			return INVALID_SOCKET;
-		}
-	}
+	SetMulticastTTL(sock, MCST_TTL);
 
-	/* Disable loopback */
+	// Disable loopback
 
 	bool flag = FALSE;
 	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag))) {
@@ -175,7 +178,7 @@ SOCKET GetMulticastSocket(int TTL)
 		return INVALID_SOCKET;
 	}
 
-	/* Join the multicast group */
+	// Join the multicast group
 
 	mreq.imr_multiaddr.s_addr = inet_addr(MCST_ADDR);
 	mreq.imr_interface.s_addr = INADDR_ANY;
@@ -186,6 +189,20 @@ SOCKET GetMulticastSocket(int TTL)
 	}
 
     return sock;
+}
+
+//
+// Sets time-to-live for Multicast socket.
+//
+bool SetMulticastTTL(SOCKET sock, int TTL)
+{
+	if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&TTL, sizeof(TTL))) {
+		AddOutputMsg(L"[Multicast]: setsockopt() IP_MULTICAST_TTL failed.");
+		closesocket(sock);
+		return false;
+	}
+
+	return true;
 }
 
 //
@@ -329,7 +346,7 @@ void SetBlocking(SOCKET sock, bool block)
 }
 
 //
-// Opens a client connection to server.
+// Opens a peer-to-peer connection with another client.
 //  Params:
 //      host - IP address of server
 //      port - Port of server
