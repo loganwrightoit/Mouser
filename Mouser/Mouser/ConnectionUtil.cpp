@@ -45,8 +45,11 @@ SOCKET GetBroadcastSocket()
     SOCKET s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
     char broadcast = 'a';
-    if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) != 0) {
-        AddOutputMsg(L"[Broadcast]: Unable to set socket options.");
+    if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) != 0)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Broadcast]: setsockopt() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
         return INVALID_SOCKET;
     }
 
@@ -57,7 +60,9 @@ SOCKET GetBroadcastSocket()
 
     if (bind(s, (LPSOCKADDR)&bcst_rcv_addr, sizeof(bcst_rcv_addr)) == SOCKET_ERROR)
     {
-        AddOutputMsg(L"[Broadcast]: Unable to bind socket.");
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Broadcast]: bind() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
         return INVALID_SOCKET;
     }
 
@@ -83,7 +88,9 @@ bool SendBroadcast(SOCKET sock)
     char * msg = "MouserClient Broadcast";
     if (sendto(sock, msg, strlen(msg) + 1, 0, (sockaddr *)&bcst_xmt_addr, sizeof(bcst_xmt_addr)) < 0)
 	{
-        AddOutputMsg(L"[Broadcast]: sendto() failed.");
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Broadcast]: sendto() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
         return false;
 	}
 	else
@@ -107,19 +114,12 @@ bool ReceiveBroadcast(SOCKET sock)
     char buffer[DEFAULT_BUFFER_SIZE] = "";
     if (recvfrom(sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&bcst_from_addr), &addrLen))
     {
-        if (strcmp(inet_ntoa(bcst_from_addr.sin_addr), szLocalIP) != 0) {
-
-            // Work on redirecting cout << to output box in GUI
-            /*
+        if (strcmp(inet_ntoa(bcst_from_addr.sin_addr), szLocalIP) != 0)
+        {
             char * inIp = inet_ntoa(bcst_from_addr.sin_addr);
-            string s = "[Broadcast]: Received broadcast from ";
-            s.append(inIp);
-            
-            AddOutputMsg(s.c_str());
-            */
-
-            AddOutputMsg(L"[Broadcast]: Received client packet.");
-            //cout << "Processed recvfrom : " << inet_ntoa(bcst_from_addr.sin_addr) << buffer << '\n';
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[Broadcast]: Received broadcast packet from %hs", inIp);
+            AddOutputMsg(buffer);
             return true;
         }
     }
@@ -132,8 +132,11 @@ bool ReceiveBroadcast(SOCKET sock)
 //
 bool CloseMulticast(SOCKET sock)
 {
-	if (setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq))) {
-		AddOutputMsg(L"[Multicast]: setsockopt() IP_DROP_MEMBERSHIP failed.");
+	if (setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq)))
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_DROP_MEMBERSHIP failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
         return false;
 	}
     closesocket(sock);
@@ -148,8 +151,11 @@ SOCKET GetMulticastSocket()
 	/* Create socket */
 
 	SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-	if (sock == INVALID_SOCKET) {
-		AddOutputMsg(L"[Multicast]: socket() failed.");
+	if (sock == INVALID_SOCKET)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[Multicast]: socket() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
 		return INVALID_SOCKET;
 	}
 

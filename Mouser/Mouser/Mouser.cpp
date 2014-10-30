@@ -318,9 +318,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             SendBroadcast(bcst_lstn_sock);
 			break;
 		case IDC_MAIN_MULTICAST_DISC_BUTTON:
-			// Set TTL
-			//SendMessage(hMulticastTTLBox, WM_GETTEXT, (WPARAM)10, (LPARAM)ttl);
-			//SetMulticastTTL(mcst_lstn_sock, ttl);
 			SendMulticast(mcst_lstn_sock);
 			break;
 		case IDC_MAIN_DIRECT_CONNECT_BUTTON:
