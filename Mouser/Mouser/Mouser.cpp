@@ -517,7 +517,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
-            //AddOutputMsg(L"[P2P]: FD_READ event raised.");
+            AddOutputMsg(L"[P2P]: FD_READ event raised.");
             break;
         case FD_WRITE:
             //AddOutputMsg(L"[P2P]: FD_WRITE event raised.");
