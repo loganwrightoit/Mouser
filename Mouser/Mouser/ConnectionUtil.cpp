@@ -123,13 +123,13 @@ bool SendBroadcast(SOCKET sock)
 	}
 	else
 	{
-        AddOutputMsg(L"[Broadcast]: Packet sent.");
+        AddOutputMsg(L"[Broadcast]: Discovery packet sent.");
 	}
 
 	return true;
 }
 
-sockaddr_in ReceiveBroadcast(SOCKET sock)
+sockaddr_in GetBroadcastSenderInfo(SOCKET sock)
 {
     sockaddr_in addr;
     int addrLen = sizeof(addr);
@@ -147,7 +147,7 @@ sockaddr_in ReceiveBroadcast(SOCKET sock)
         if (inet_addr(myIp) != addr.sin_addr.S_un.S_addr)
         {
             wchar_t buffer[256];
-            swprintf(buffer, 256, L"[Broadcast]: Received broadcast packet from %hs", inet_ntoa(addr.sin_addr));
+            swprintf(buffer, 256, L"[Broadcast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
             AddOutputMsg(buffer);
         }
     }
@@ -272,7 +272,7 @@ bool SendMulticast(SOCKET sock)
 	}
 	else
 	{
-		AddOutputMsg(L"[Multicast]: Packet sent.");
+		AddOutputMsg(L"[Multicast]: Discovery packet sent.");
 		return true;
 	}
 }
@@ -280,7 +280,7 @@ bool SendMulticast(SOCKET sock)
 //
 // Receives a multicast packet and returns the host.
 //
-sockaddr_in ReceiveMulticast(SOCKET sock)
+sockaddr_in GetMulticastSenderInfo(SOCKET sock)
 {
 	sockaddr_in addr;
 	int addrLen = sizeof(addr);
@@ -296,7 +296,7 @@ sockaddr_in ReceiveMulticast(SOCKET sock)
 	else
 	{
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: Received multicast packet from %hs", inet_ntoa(addr.sin_addr));
+        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
 	}
     return addr;
@@ -388,7 +388,7 @@ bool InitWinsock()
         char szHostName[255];
         gethostname(szHostName, 255);
         struct hostent *host_entry = gethostbyname(szHostName);
-        strcpy(myIp, inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list));
+        strcpy_s(myIp, inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list));
 
         return true;
     }

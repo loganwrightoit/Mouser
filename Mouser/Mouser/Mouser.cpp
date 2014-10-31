@@ -2,6 +2,8 @@
 // Mouser.cpp : Defines the entry point for the application.
 //
 
+#pragma once
+
 #include "stdafx.h"
 #include "Mouser.h"
 #include <string>
@@ -110,9 +112,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        szWindowClass,       // lpClassName
        szTitle,             // lpWindowName,
        WS_OVERLAPPEDWINDOW, // dwStyle
-       400,                 // x
-       50,                  // y
-       480,                 // nWidth
+       400,                   // x
+       300,                   // y
+       400,                 // nWidth
        600,                 // nHeight
        NULL,                // hWndParent
        NULL,                // hMenu
@@ -149,40 +151,111 @@ void AddOutputMsg(LPWSTR msg)
 
 void ConnectToPeerThread(sockaddr_in inAddr)
 {
-    p2p_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (p2p_sock == INVALID_SOCKET)
+    {
+        p2p_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (p2p_sock == INVALID_SOCKET)
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+            return;
+        }
+
+        // Set up our socket address structure
+        SOCKADDR_IN addr;
+        addr.sin_port = htons(GetPrimaryClientPort());
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
+
+        if (connect(p2p_sock, (LPSOCKADDR)(&addr), sizeof(addr)) == SOCKET_ERROR)
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+            return;
+        }
+        if (WSAAsyncSelect(p2p_sock, hMain, WM_P2P_SOCKET, (FD_CLOSE | FD_READ | FD_WRITE)) == SOCKET_ERROR)
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+            return;
+        }
+
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
+        AddOutputMsg(buffer);
+    }
+}
+
+//
+// Sets up UDP broadcast listener.
+//
+void SetupBroadcastListener()
+{
+    bcst_lstn_sock = GetBroadcastSocket();
+    if (bcst_lstn_sock != INVALID_SOCKET)
+    {
+        if (WSAAsyncSelect(bcst_lstn_sock, hMain, WM_BCST_SOCKET, FD_READ))
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[Broadcast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+        }
+    }
+}
+
+//
+// Sets up UDP multicast listener.
+//
+void SetupMulticastListener()
+{
+    mcst_lstn_sock = GetMulticastSocket();
+    if (mcst_lstn_sock != INVALID_SOCKET)
+    {
+        if (WSAAsyncSelect(mcst_lstn_sock, hMain, WM_MCST_SOCKET, FD_READ))
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+        }
+    }
+}
+
+//
+// Sets up TCP connection listener.
+//
+void SetupConnectionListener()
+{
+    if ((p2p_lstn_sock = socket(PF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        return;
     }
-
-    // Set up our socket address structure
-    SOCKADDR_IN addr;
-    addr.sin_port = htons(DEFAULT_PORT);
+    if (WSAAsyncSelect(p2p_lstn_sock, hMain, WM_P2P_LISTEN_SOCKET, (FD_ACCEPT | FD_CLOSE)) != 0)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+    }
+    sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(GetPrimaryClientPort());
 
-    AddOutputMsg(L"[P2P]: Attempting to connect to client");
-    if (connect(p2p_sock, (LPSOCKADDR)(&addr), sizeof(addr)) == SOCKET_ERROR)
+    if (::bind(p2p_lstn_sock, (struct sockaddr*) &addr, sizeof(addr)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
+        swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
     }
-    else
-    {
-        AddOutputMsg(L"[P2P]: Client connected.");
-    }
-
-    int result = WSAAsyncSelect(p2p_sock, hMain, WM_P2P_SOCKET, (FD_CLOSE | FD_READ));
-    if (result)
+    if (listen(p2p_lstn_sock, 5))
     {
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", result);
+        swprintf(buffer, 256, L"[P2P]: listen() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        return;
     }
 }
 
@@ -203,19 +276,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     HDC hdc;
 	HWND hBroadcastButton,
          hMulticastButton,
-         hMulticastTTLBox,
          hIpBox = NULL,
          hDirectConnectButton,
-         hPrimaryConnection;
+         hPrimaryConnection,
+         hSendPeerDataButton,
+         hDisconnectPeerButton;
 
-	int ttl = 1;
     int width = 100;
-    int height = 100;
     RECT rect;
     if (GetWindowRect(hWnd, &rect))
     {
         width = rect.right - rect.left;
-        //height = rect.bottom - rect.top;
     }
 
     switch (message)
@@ -228,13 +299,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         hOutputListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
             L"LISTBOX",
             L"",
-            WS_CHILD | WS_VISIBLE,
-            20,
-            20,
-            425,
-            height,
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+            0,
+            0,
+            width,
+            400,
             hWnd,
             (HMENU)IDC_MAIN_OUTPUT_LISTBOX,
+            GetModuleHandle(NULL),
+            NULL);
+
+        // Send data to peer button
+        hSendPeerDataButton = CreateWindowEx(NULL,
+            L"BUTTON",
+            L"Send Peer Data",
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+            0,  // x padding
+            400, // y padding
+            width / 2, // width
+            30,  // height
+            hWnd,
+            (HMENU)IDC_MAIN_SEND_PEER_DATA_BUTTON,
+            GetModuleHandle(NULL),
+            NULL);
+
+        // Disconnect from peer button
+        hDisconnectPeerButton = CreateWindowEx(NULL,
+            L"BUTTON",
+            L"Disconnect Peer",
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+            width / 2,  // x padding
+            400, // y padding
+            width / 2, // width
+            30,  // height
+            hWnd,
+            (HMENU)IDC_MAIN_DISCONNECT_PEER_BUTTON,
             GetModuleHandle(NULL),
             NULL);
 
@@ -243,9 +342,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             L"BUTTON",
             L"Broadcast Discovery",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            50,  // x padding
-            220, // y padding
-            150, // width
+            0,  // x padding
+            430, // y padding
+            width / 2, // width
             30,  // height
             hWnd,
             (HMENU)IDC_MAIN_BROADCAST_DISC_BUTTON,
@@ -257,26 +356,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             L"BUTTON",
             L"Multicast Discovery",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            50,  // x padding
-            270, // y padding
-            150, // width
+            width / 2,  // x padding
+            430, // y padding
+            width / 2, // width
             30,  // height
             hWnd,
             (HMENU)IDC_MAIN_MULTICAST_DISC_BUTTON,
-            GetModuleHandle(NULL),
-            NULL);
-
-        // Multicast TTL box
-        hMulticastTTLBox = CreateWindowEx(WS_EX_CLIENTEDGE,
-            L"EDIT",
-            L"",
-            WS_CHILD | ES_WANTRETURN | WS_VISIBLE | ES_CENTER,
-            220,  // x padding
-            270, // y padding
-            50, // width
-            30,  // height
-            hWnd,
-            (HMENU)IDC_MAIN_MCST_TTL_TEXTBOX,
             GetModuleHandle(NULL),
             NULL);
 
@@ -285,9 +370,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             L"BUTTON",
             L"Direct Connect",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            50,  // x padding
-            320, // y padding
-            120, // width
+            0,  // x padding
+            460, // y padding
+            width / 2, // width
             30,  // height
             hWnd,
             (HMENU)IDC_MAIN_DIRECT_CONNECT_BUTTON,
@@ -299,15 +384,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             L"EDIT",
             L"",
             WS_CHILD | ES_WANTRETURN | WS_VISIBLE | ES_CENTER,
-            190,  // x padding
-            320, // y padding
-            200, // width
+            width / 2,  // x padding
+            460, // y padding
+            width / 2, // width
             30,  // height
             hWnd,
             (HMENU)IDC_MAIN_IP_TEXTBOX,
             GetModuleHandle(NULL),
             NULL);
 
+        /*
         // create the window and use the result as the handle
         hPrimaryConnection = CreateWindowEx(NULL,
             L"primaryConnection", // name of the window class
@@ -321,93 +407,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             NULL, // we aren't using menus, NULL
             hInst, // application handle
             NULL); // used with multiple windows, NULL
-
-        // Put intialization code here
-
-        // TODO: Add winsock initialization stuff here!
-        InitWinsock();
-
-        // Create broadcast listener
-        bcst_lstn_sock = GetBroadcastSocket();
-        if (bcst_lstn_sock != INVALID_SOCKET)
-        {
-            if (WSAAsyncSelect(bcst_lstn_sock, hWnd, WM_BCST_SOCKET, FD_READ))
-            {
-                wchar_t buffer[256];
-                swprintf(buffer, 256, L"[Broadcast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-                AddOutputMsg(buffer);
-            }
-        }
-
-        // Create multicast listener
-        mcst_lstn_sock = GetMulticastSocket();
-        if (mcst_lstn_sock != INVALID_SOCKET)
-        {
-            if (WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_MCST_SOCKET, FD_READ))
-            {
-                wchar_t buffer[256];
-                swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-                AddOutputMsg(buffer);
-            }
-        }
-
-        // Set up connection listener
-        if ((p2p_lstn_sock = socket(PF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-        }
-        if (WSAAsyncSelect(p2p_lstn_sock, hWnd, WM_P2P_LISTEN_SOCKET, (FD_ACCEPT | FD_CLOSE)) != 0)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-        }
-        sockaddr_in addr;
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htonl(INADDR_ANY);
-        addr.sin_port = htons(DEFAULT_PORT);
-
-        if (::bind(p2p_lstn_sock, (struct sockaddr*) &addr, sizeof(addr)) == SOCKET_ERROR)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-        }
-        if (listen(p2p_lstn_sock, 5))
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: listen() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-        }
-
-        /*
-        // Create connection listener
-        p2p_lstn_sock = GetConnectionSocket();
-        if (p2p_lstn_sock != INVALID_SOCKET)
-        {
-        if (WSAAsyncSelect(p2p_lstn_sock, hWnd, WM_P2P_LISTEN_SOCKET, FD_READ | FD_ACCEPT | FD_CONNECT))
-        {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: Listener WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        }
-        else
-        {
-        AddOutputMsg(L"P2P Listener socket ASynced.");
-        }
-        }
-        else
-        {
-        AddOutputMsg(L"P2P listener socket creation failed.");
-        }
         */
 
+        // Initialize and setup connection-based and connectionless services
+        InitWinsock();
+        SetupBroadcastListener();
+        SetupMulticastListener();
+        SetupConnectionListener();
+        
         // Set text length limit for IP box
         SendMessage(hIpBox, EM_LIMITTEXT, 15, NULL);
 
         setWindowFont(hOutputListBox);
+        setWindowFont(hSendPeerDataButton);
+        setWindowFont(hDisconnectPeerButton);
         setWindowFont(hBroadcastButton);
         setWindowFont(hMulticastButton);
         setWindowFont(hIpBox);
@@ -418,10 +431,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
-            MessageBox(hWnd, L"Received a broadcast packet.\nAttempting client connection.", L"INFO", 0);
-            sockaddr_in addr = ReceiveBroadcast(bcst_lstn_sock);
-            thread clientThread(ConnectToPeerThread, addr);
-            clientThread.detach();
+            if (p2p_sock == INVALID_SOCKET)
+            {
+                sockaddr_in addr = GetBroadcastSenderInfo(bcst_lstn_sock);
+                thread clientThread(ConnectToPeerThread, addr);
+                clientThread.detach();
+            }
             break;
         }
         break;
@@ -429,10 +444,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
-            MessageBox(hWnd, L"Received a multicast packet.\nAttempting client connection.", L"INFO", 0);
-            sockaddr_in addr = ReceiveMulticast(mcst_lstn_sock);
-            thread clientThread(ConnectToPeerThread, addr);
-            clientThread.detach();
+            if (p2p_sock == INVALID_SOCKET)
+            {
+                sockaddr_in addr = GetMulticastSenderInfo(mcst_lstn_sock);
+                thread clientThread(ConnectToPeerThread, addr);
+                clientThread.detach();
+            }
             break;
         }
         break;
@@ -440,34 +457,63 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_CONNECT:
-            AddOutputMsg(L"[P2P]: FD_CONNECT ready.");
+            //AddOutputMsg(L"[P2P]: FD_CONNECT event raised.");
             break;
         case FD_ACCEPT:
-            AddOutputMsg(L"[P2P]: FD_ACCEPT ready.");
-            if ((p2p_sock = accept(wParam, NULL, NULL)) == INVALID_SOCKET)
+            //AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
+            if (p2p_sock == INVALID_SOCKET)
             {
+                if ((p2p_sock = accept(wParam, NULL, NULL)) == INVALID_SOCKET)
+                {
+                    wchar_t buffer[256];
+                    swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
+                    AddOutputMsg(buffer);
+                    break;
+                }
+                if (WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_READ | FD_WRITE | FD_CLOSE)) == SOCKET_ERROR)
+                {
+                    wchar_t buffer[256];
+                    swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+                    AddOutputMsg(buffer);
+                }
+                sockaddr_in addr;
+                int size = sizeof(addr);
+                getpeername(p2p_sock, (struct sockaddr *)&addr, &size);
                 wchar_t buffer[256];
-                swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
+                swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
                 AddOutputMsg(buffer);
-                break;
             }
-            AddOutputMsg(L"[P2P]: FD_ACCEPT processed, peer connection made.");
-            WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, FD_READ | FD_WRITE | FD_CLOSE);
-            break;
-            /*
-            // Show connection window
-            SetWindowText(hPrimaryConnection, L"Client Window");
-            ShowWindow(hPrimaryConnection, 0);
-            MessageBox(hWnd, L"Client connection successful.", L"INFO", 0);
-            break;
-            */
-            break;
-        case FD_READ:
-            AddOutputMsg(L"[P2P]: FD_READ ready.");
             break;
         }
     case WM_P2P_SOCKET:
-        MessageBox(hWnd, L"Received packet from client.", L"INFO", 0);
+        switch (WSAGETSELECTEVENT(lParam))
+        {
+        case FD_READ:
+            AddOutputMsg(L"[P2P]: FD_READ event raised.");
+            break;
+        case FD_WRITE:
+            //AddOutputMsg(L"[P2P]: FD_WRITE event raised.");
+            break;
+        case FD_CLOSE:
+            if (shutdown(p2p_sock, SD_SEND) == SOCKET_ERROR)
+            {
+                wchar_t buffer[256];
+                swprintf(buffer, 256, L"[P2P]: shutdown() failed with error: %i", WSAGetLastError());
+                AddOutputMsg(buffer);
+            }
+            if (closesocket(p2p_sock) == SOCKET_ERROR)
+            {
+                wchar_t buffer[256];
+                swprintf(buffer, 256, L"[P2P]: closesocket() failed with error: %i", WSAGetLastError());
+                AddOutputMsg(buffer);
+            }
+            else
+            {
+                AddOutputMsg(L"[P2P]: Peer closed connection.");
+            }
+            p2p_sock = INVALID_SOCKET;
+            break;
+        }
         break;
     case WM_COMMAND:
         wmId    = LOWORD(wParam);
@@ -491,6 +537,42 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				AddOutputMsg(L"[P2P] Please input an IP address");
 			}
 			break;
+        case IDC_MAIN_SEND_PEER_DATA_BUTTON:
+            if (p2p_sock != INVALID_SOCKET)
+            {
+                Send(p2p_sock, "This is a message!");
+            }
+            else
+            {
+                AddOutputMsg(L"[P2P]: Must connect to a peer before sending data.");
+            }
+            break;
+        case IDC_MAIN_DISCONNECT_PEER_BUTTON:
+            if (p2p_sock != INVALID_SOCKET)
+            {
+                if (shutdown(p2p_sock, SD_SEND) == SOCKET_ERROR)
+                {
+                    wchar_t buffer[256];
+                    swprintf(buffer, 256, L"[P2P]: shutdown() failed with error: %i", WSAGetLastError());
+                    AddOutputMsg(buffer);
+                }
+                if (closesocket(p2p_sock) == SOCKET_ERROR)
+                {
+                    wchar_t buffer[256];
+                    swprintf(buffer, 256, L"[P2P]: closesocket() failed with error: %i", WSAGetLastError());
+                    AddOutputMsg(buffer);
+                }
+                else
+                {
+                    AddOutputMsg(L"[P2P]: Peer closed connection.");
+                }
+            }
+            else
+            {
+                AddOutputMsg(L"[P2P]: Must connect to a peer before disconnecting.");
+            }
+            p2p_sock = INVALID_SOCKET;
+            break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;

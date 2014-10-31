@@ -12,12 +12,12 @@ USHORT GetPrimaryClientPort();
 
 SOCKET GetBroadcastSocket();
 bool SendBroadcast(SOCKET sock);
-sockaddr_in ReceiveBroadcast(SOCKET sock);
+sockaddr_in GetBroadcastSenderInfo(SOCKET sock);
 
 bool CloseMulticast(SOCKET sock);
 SOCKET GetMulticastSocket();
 bool SendMulticast(SOCKET sock);
-sockaddr_in ReceiveMulticast(SOCKET sock);
+sockaddr_in GetMulticastSenderInfo(SOCKET sock);
 bool SetMulticastTTL(SOCKET sock, int TTL);
 
 bool InitWinsock();
