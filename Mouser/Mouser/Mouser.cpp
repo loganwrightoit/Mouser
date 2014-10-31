@@ -484,7 +484,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //AddOutputMsg(L"[P2P]: FD_CONNECT event raised.");
             break;
         case FD_ACCEPT:
-            AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
+            //AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
             if (p2p_sock == INVALID_SOCKET)
             {
                 if ((p2p_sock = accept(wParam, NULL, NULL)) == INVALID_SOCKET)
@@ -517,7 +517,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
-            AddOutputMsg(L"[P2P]: FD_READ event raised.");
+            //AddOutputMsg(L"[P2P]: FD_READ event raised.");
             break;
         case FD_WRITE:
             //AddOutputMsg(L"[P2P]: FD_WRITE event raised.");
