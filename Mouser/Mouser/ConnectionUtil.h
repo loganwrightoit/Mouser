@@ -18,9 +18,6 @@ bool CloseMulticast(SOCKET sock);
 SOCKET GetMulticastSocket();
 bool SendMulticast(SOCKET sock);
 sockaddr_in GetMulticastSenderInfo(SOCKET sock);
-bool SetMulticastTTL(SOCKET sock, int TTL);
 
 bool InitWinsock();
 void SetBlocking(SOCKET sock, bool block);
-void CloseSocket(SOCKET sock);
-SOCKET ConnectTo(char * host, USHORT port, int timeoutSec);

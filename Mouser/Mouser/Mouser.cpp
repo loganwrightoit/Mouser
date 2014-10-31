@@ -168,7 +168,7 @@ void ConnectToPeerThread(sockaddr_in inAddr)
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
 
-        if (connect(p2p_sock, (LPSOCKADDR)(&addr), sizeof(addr)) == SOCKET_ERROR)
+        if (connect(p2p_sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
         {
             wchar_t buffer[256];
             swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
@@ -245,7 +245,7 @@ void SetupConnectionListener()
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(GetPrimaryClientPort());
 
-    if (::bind(p2p_lstn_sock, (struct sockaddr*) &addr, sizeof(addr)) == SOCKET_ERROR)
+    if (::bind(p2p_lstn_sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
@@ -278,7 +278,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
          hMulticastButton,
          hIpBox = NULL,
          hDirectConnectButton,
-         hPrimaryConnection,
+         //hPrimaryConnection,
          hSendPeerDataButton,
          hDisconnectPeerButton;
 
@@ -478,7 +478,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 sockaddr_in addr;
                 int size = sizeof(addr);
-                getpeername(p2p_sock, (struct sockaddr *)&addr, &size);
+                getpeername(p2p_sock, (LPSOCKADDR)&addr, &size);
                 wchar_t buffer[256];
                 swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
                 AddOutputMsg(buffer);
