@@ -6,14 +6,18 @@
 bool Send(SOCKET sock, char * inBytes);
 bool Receive(SOCKET sock, char * outBytes);
 
+SOCKET GetConnectionSocket();
+
+USHORT GetPrimaryClientPort();
+
 SOCKET GetBroadcastSocket();
 bool SendBroadcast(SOCKET sock);
-bool ReceiveBroadcast(SOCKET sock);
+sockaddr_in ReceiveBroadcast(SOCKET sock);
 
 bool CloseMulticast(SOCKET sock);
 SOCKET GetMulticastSocket();
 bool SendMulticast(SOCKET sock);
-char * ReceiveMulticast(SOCKET sock);
+sockaddr_in ReceiveMulticast(SOCKET sock);
 bool SetMulticastTTL(SOCKET sock, int TTL);
 
 bool InitWinsock();

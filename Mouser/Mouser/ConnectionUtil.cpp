@@ -26,6 +26,8 @@ Mulicast addresses
 239.255.0.0 to 239.255.255.255 Site-Local Scope
 */
 
+#define         DEFAULT_PORT 41920
+
 // Multicast
 #define         MCST_ADDR   "239.255.92.163"
 #define         MCST_PORT   41921
@@ -35,10 +37,35 @@ struct ip_mreq  mreq;
 // Broadcast
 #define         BCST_PORT   41922
 
+USHORT GetPrimaryClientPort()
+{
+    return DEFAULT_PORT;
+}
+
 void CloseSocket(SOCKET sock)
 {
     shutdown(sock, SD_SEND);
     closesocket(sock);
+}
+
+SOCKET GetConnectionSocket()
+{
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    struct sockaddr_in addr;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(DEFAULT_PORT);
+    addr.sin_family = AF_INET;
+
+    if (bind(sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        return INVALID_SOCKET;
+    }
+
+    return sock;
 }
 
 SOCKET GetBroadcastSocket()
@@ -54,11 +81,12 @@ SOCKET GetBroadcastSocket()
         return INVALID_SOCKET;
     }
 
-    bcst_rcv_addr.sin_family = AF_INET;
-    bcst_rcv_addr.sin_port = htons(BCST_PORT); // Handle endianness
-    bcst_rcv_addr.sin_addr.s_addr = INADDR_ANY;
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(BCST_PORT); // Handle endianness
+    addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(sock, (LPSOCKADDR)&bcst_rcv_addr, sizeof(bcst_rcv_addr)) == SOCKET_ERROR)
+    if (bind(sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Broadcast]: bind() failed with error: %i", WSAGetLastError());
@@ -80,12 +108,13 @@ bool SendBroadcast(SOCKET sock)
         return false;
     }
 
-    bcst_xmt_addr.sin_family = AF_INET;
-    bcst_xmt_addr.sin_port = htons(BCST_PORT); // Handle endianness
-    bcst_xmt_addr.sin_addr.s_addr = inet_addr("255.255.255.255");
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(BCST_PORT); // Handle endianness
+    addr.sin_addr.s_addr = inet_addr("255.255.255.255");
 
     char * msg = "MouserClient Broadcast";
-    if (sendto(sock, msg, strlen(msg), 0, (sockaddr *)&bcst_xmt_addr, sizeof(bcst_xmt_addr)) < 0)
+    if (sendto(sock, msg, strlen(msg), 0, (sockaddr *)&addr, sizeof(addr)) < 0)
 	{
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Broadcast]: sendto() failed with error: %i", WSAGetLastError());
@@ -100,13 +129,13 @@ bool SendBroadcast(SOCKET sock)
 	return true;
 }
 
-bool ReceiveBroadcast(SOCKET sock)
+sockaddr_in ReceiveBroadcast(SOCKET sock)
 {
-    sockaddr_in bcst_from_addr;
-    int addrLen = sizeof(bcst_from_addr);
+    sockaddr_in addr;
+    int addrLen = sizeof(addr);
 
     char buffer[DEFAULT_BUFFER_SIZE] = "";
-    int result = recvfrom(sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&bcst_from_addr), &addrLen);
+    int result = recvfrom(sock, buffer, sizeof(buffer), 0, reinterpret_cast<struct sockaddr*>(&addr), &addrLen);
     if (result == SOCKET_ERROR)
     {
         wchar_t buffer[256];
@@ -115,17 +144,15 @@ bool ReceiveBroadcast(SOCKET sock)
     }
     else
     {
-        if (inet_addr(myIp) != bcst_from_addr.sin_addr.S_un.S_addr)
+        if (inet_addr(myIp) != addr.sin_addr.S_un.S_addr)
         {
-            char * inIp = inet_ntoa(bcst_from_addr.sin_addr);
             wchar_t buffer[256];
-            swprintf(buffer, 256, L"[Broadcast]: Received broadcast packet from %hs", inIp);
+            swprintf(buffer, 256, L"[Broadcast]: Received broadcast packet from %hs", inet_ntoa(addr.sin_addr));
             AddOutputMsg(buffer);
-            return true;
         }
     }
 
-    return false;
+    return addr;
 }
 
 //
@@ -162,11 +189,11 @@ SOCKET GetMulticastSocket()
 
 	/* Bind socket */
 
-	sockaddr_in mcst_addr;
-	mcst_addr.sin_family = AF_INET;
-    mcst_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    mcst_addr.sin_port = htons(MCST_PORT);
-    if (bind(sock, (struct sockaddr*) &mcst_addr, sizeof(mcst_addr)))    
+	sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(MCST_PORT);
+    if (bind(sock, (struct sockaddr*) &addr, sizeof(addr)))
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: bind() failed with error: %i", WSAGetLastError());
@@ -253,7 +280,7 @@ bool SendMulticast(SOCKET sock)
 //
 // Receives a multicast packet and returns the host.
 //
-char * ReceiveMulticast(SOCKET sock)
+sockaddr_in ReceiveMulticast(SOCKET sock)
 {
 	sockaddr_in addr;
 	int addrLen = sizeof(addr);
@@ -265,15 +292,14 @@ char * ReceiveMulticast(SOCKET sock)
         swprintf(buffer, 256, L"[Multicast]: recvfrom() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
 		closesocket(sock);
-		return "";
 	}
 	else
 	{
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: Received multicast packet from %hs", inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
-        return inet_ntoa(addr.sin_addr);
 	}
+    return addr;
 }
 
 //
@@ -410,7 +436,7 @@ SOCKET ConnectTo(char * host, u_short port, int timeoutSec)
     // Set to non-blocking and start a connection attempt
 
     SetBlocking(sock, false);
-    connect(sock, (struct sockaddr *)&address, sizeof(address));
+    int result = connect(sock, (struct sockaddr *)&address, sizeof(address));
 
     fd_set Write, Err;
     FD_ZERO(&Write);
@@ -424,10 +450,14 @@ SOCKET ConnectTo(char * host, u_short port, int timeoutSec)
     select(0, NULL, &Write, &Err, &Timeout);
     if (FD_ISSET(sock, &Write))
     {
-        SetBlocking(sock, false);
+        //SetBlocking(sock, false);
         return sock;
     }
     else {
+        if (result == SOCKET_ERROR)
+        {
+            AddOutputMsg(L"[P2P]: connect() returned SOCKET_ERROR");
+        }
         return INVALID_SOCKET;
     }
 }
