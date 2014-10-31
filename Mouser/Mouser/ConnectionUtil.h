@@ -6,9 +6,10 @@
 bool Send(SOCKET sock, char * inBytes);
 bool Receive(SOCKET sock, char * outBytes);
 
-SOCKET GetConnectionSocket();
-
+char * GetMyHost();
 USHORT GetPrimaryClientPort();
+
+SOCKET GetConnectionSocket();
 
 SOCKET GetBroadcastSocket();
 bool SendBroadcast(SOCKET sock);

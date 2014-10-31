@@ -33,6 +33,11 @@ USHORT GetPrimaryClientPort()
     return DEFAULT_PORT;
 }
 
+char * GetMyHost()
+{
+    return myIp;
+}
+
 void CloseSocket(SOCKET sock)
 {
     shutdown(sock, SD_SEND);
@@ -64,7 +69,7 @@ SOCKET GetBroadcastSocket()
     SOCKET sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
     char broadcast = 'a';
-    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) != 0)
+    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Broadcast]: setsockopt() failed with error: %i", WSAGetLastError());
@@ -133,15 +138,6 @@ sockaddr_in GetBroadcastSenderInfo(SOCKET sock)
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Broadcast]: recvfrom() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-    }
-    else
-    {
-        if (inet_addr(myIp) != addr.sin_addr.S_un.S_addr)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[Broadcast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
-            AddOutputMsg(buffer);
-        }
     }
 
     return addr;

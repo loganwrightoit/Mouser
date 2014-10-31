@@ -197,11 +197,12 @@ void SetupBroadcastListener()
     bcst_lstn_sock = GetBroadcastSocket();
     if (bcst_lstn_sock != INVALID_SOCKET)
     {
-        if (WSAAsyncSelect(bcst_lstn_sock, hMain, WM_BCST_SOCKET, FD_READ))
+        if (WSAAsyncSelect(bcst_lstn_sock, hMain, WM_BCST_SOCKET, FD_READ) == SOCKET_ERROR)
         {
             wchar_t buffer[256];
             swprintf(buffer, 256, L"[Broadcast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
             AddOutputMsg(buffer);
+            closesocket(bcst_lstn_sock);
         }
     }
 }
@@ -214,11 +215,12 @@ void SetupMulticastListener()
     mcst_lstn_sock = GetMulticastSocket();
     if (mcst_lstn_sock != INVALID_SOCKET)
     {
-        if (WSAAsyncSelect(mcst_lstn_sock, hMain, WM_MCST_SOCKET, FD_READ))
+        if (WSAAsyncSelect(mcst_lstn_sock, hMain, WM_MCST_SOCKET, FD_READ) == SOCKET_ERROR)
         {
             wchar_t buffer[256];
             swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
             AddOutputMsg(buffer);
+            closesocket(mcst_lstn_sock);
         }
     }
 }
@@ -228,17 +230,22 @@ void SetupMulticastListener()
 //
 void SetupConnectionListener()
 {
-    if ((p2p_lstn_sock = socket(PF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
+    p2p_lstn_sock = socket(PF_INET, SOCK_STREAM, 0);
+
+    if (p2p_lstn_sock == INVALID_SOCKET)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
+        return;
     }
-    if (WSAAsyncSelect(p2p_lstn_sock, hMain, WM_P2P_LISTEN_SOCKET, (FD_ACCEPT | FD_CLOSE)) != 0)
+    if (WSAAsyncSelect(p2p_lstn_sock, hMain, WM_P2P_LISTEN_SOCKET, (FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
+        closesocket(p2p_lstn_sock);
+        return;
     }
     sockaddr_in addr;
     addr.sin_family = AF_INET;
@@ -250,12 +257,16 @@ void SetupConnectionListener()
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
+        closesocket(p2p_lstn_sock);
+        return;
     }
-    if (listen(p2p_lstn_sock, 5))
+    if (listen(p2p_lstn_sock, 5) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: listen() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
+        closesocket(p2p_lstn_sock);
+        return;
     }
 }
 
@@ -433,9 +444,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case FD_READ:
             if (p2p_sock == INVALID_SOCKET)
             {
+                // Read data into sockaddr_in
                 sockaddr_in addr = GetBroadcastSenderInfo(bcst_lstn_sock);
-                thread clientThread(ConnectToPeerThread, addr);
-                clientThread.detach();
+
+                // Check if host loops back to me
+                if (inet_addr(GetMyHost()) != addr.sin_addr.S_un.S_addr)
+                {
+                    //AddOutputMsg(L"[Broadcast]: FD_READ event raised.");
+
+                    wchar_t buffer[256];
+                    swprintf(buffer, 256, L"[Broadcast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
+                    AddOutputMsg(buffer);
+
+                    thread clientThread(ConnectToPeerThread, addr);
+                    clientThread.detach();
+                }
             }
             break;
         }
@@ -444,6 +467,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
+            //AddOutputMsg(L"[Multicast]: FD_READ event raised.");
             if (p2p_sock == INVALID_SOCKET)
             {
                 sockaddr_in addr = GetMulticastSenderInfo(mcst_lstn_sock);
@@ -460,7 +484,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //AddOutputMsg(L"[P2P]: FD_CONNECT event raised.");
             break;
         case FD_ACCEPT:
-            //AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
+            AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
             if (p2p_sock == INVALID_SOCKET)
             {
                 if ((p2p_sock = accept(wParam, NULL, NULL)) == INVALID_SOCKET)
@@ -468,14 +492,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     wchar_t buffer[256];
                     swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
                     AddOutputMsg(buffer);
+                    closesocket(p2p_sock);
                     break;
                 }
                 if (WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_READ | FD_WRITE | FD_CLOSE)) == SOCKET_ERROR)
                 {
                     wchar_t buffer[256];
                     swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+                    closesocket(p2p_sock);
                     AddOutputMsg(buffer);
+                    break;
                 }
+
                 sockaddr_in addr;
                 int size = sizeof(addr);
                 getpeername(p2p_sock, (LPSOCKADDR)&addr, &size);
