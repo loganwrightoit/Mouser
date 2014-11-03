@@ -1,8 +1,4 @@
 #include "StreamSender.h"
-#include "Mouser.h"
-
-#include <gdiplus.h>
-using namespace Gdiplus;
 
 StreamSender::StreamSender(SOCKET sock, HWND hWnd)
 {
