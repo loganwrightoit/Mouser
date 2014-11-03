@@ -291,7 +291,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
          hDirectConnectButton,
          //hPrimaryConnection,
          hSendPeerDataButton,
-         hDisconnectPeerButton;
+         hDisconnectPeerButton,
+         hCaptureScreenButton;
+
+    ScreenCapture cap = ScreenCapture(hMain);
 
     int width = 100;
     RECT rect;
@@ -401,6 +404,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             30,  // height
             hWnd,
             (HMENU)IDC_MAIN_IP_TEXTBOX,
+            GetModuleHandle(NULL),
+            NULL);
+
+        // Capture screen button
+        hCaptureScreenButton = CreateWindowEx(NULL,
+            L"BUTTON",
+            L"Capture Screen",
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+            0,  // x padding
+            490, // y padding
+            width / 2, // width
+            30,  // height
+            hWnd,
+            (HMENU)IDC_MAIN_CAPTURE_SCREEN_BUTTON,
             GetModuleHandle(NULL),
             NULL);
 
@@ -565,6 +582,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				AddOutputMsg(L"[P2P] Please input an IP address");
 			}
 			break;
+        case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
+            //cap.GetCapture();
+            cap.GetScreeny(L"C:\\Users\\Logan\\Desktop\\image.png", 25);
+            break;
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
             {
@@ -619,6 +640,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         closesocket(bcst_lstn_sock);
         CloseMulticast(mcst_lstn_sock);
         WSACleanup();
+        cap.~ScreenCapture();
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:
