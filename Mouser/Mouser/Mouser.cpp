@@ -294,7 +294,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
          hDisconnectPeerButton,
          hCaptureScreenButton;
 
-    ScreenCapture cap = ScreenCapture(hMain);
+    SOCKET strSock;
+    StreamSender strSender = StreamSender(strSock, hMain);
 
     int width = 100;
     RECT rect;
@@ -583,8 +584,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
-            //cap.GetCapture();
-            cap.GetScreeny(L"C:\\Users\\Logan\\Desktop\\image.png", 25);
+            strSender.Start();
             break;
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
@@ -640,7 +640,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         closesocket(bcst_lstn_sock);
         CloseMulticast(mcst_lstn_sock);
         WSACleanup();
-        cap.~ScreenCapture();
+        strSender.~StreamSender();
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:

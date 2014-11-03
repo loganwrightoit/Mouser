@@ -19,7 +19,7 @@
     <Filter Include="ConnectionUtil">
       <UniqueIdentifier>{d080c7ff-0b46-4cd1-81f2-f7aa0414b930}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ScreenCapture">
+    <Filter Include="StreamUtil">
       <UniqueIdentifier>{5456e5c5-18d3-416e-b87b-13cdfabd14d5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -45,8 +45,8 @@
     <ClInclude Include="ConnectionUtil.h">
       <Filter>ConnectionUtil</Filter>
     </ClInclude>
-    <ClInclude Include="ScreenCapture.h">
-      <Filter>ScreenCapture</Filter>
+    <ClInclude Include="StreamSender.h">
+      <Filter>StreamUtil</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -62,8 +62,8 @@
     <ClCompile Include="ConnectionUtil.cpp">
       <Filter>ConnectionUtil</Filter>
     </ClCompile>
-    <ClCompile Include="ScreenCapture.cpp">
-      <Filter>ScreenCapture</Filter>
+    <ClCompile Include="StreamSender.cpp">
+      <Filter>StreamUtil</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

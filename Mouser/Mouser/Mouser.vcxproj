@@ -81,7 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ConnectionUtil.h" />
-    <ClInclude Include="ScreenCapture.h" />
+    <ClInclude Include="StreamSender.h" />
     <ClInclude Include="Mouser.h" />
     <ClInclude Include="Peer.h" />
     <ClInclude Include="Resource.h" />
@@ -92,7 +92,7 @@
     <ClCompile Include="ConnectionUtil.cpp" />
     <ClCompile Include="Mouser.cpp" />
     <ClCompile Include="Peer.cpp" />
-    <ClCompile Include="ScreenCapture.cpp">
+    <ClCompile Include="StreamSender.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="stdafx.cpp">

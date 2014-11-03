@@ -20,4 +20,4 @@
 
 // TODO: reference additional headers your program requires here
 #include "ConnectionUtil.h"
-#include "ScreenCapture.h"
+#include "StreamSender.h"
