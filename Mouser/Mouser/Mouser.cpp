@@ -295,7 +295,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
          hCaptureScreenButton;
 
     SOCKET strSock;
-    StreamSender strSender = StreamSender(strSock, hMain);
+    StreamSender *strSender = NULL;
 
     int width = 100;
     RECT rect;
@@ -309,7 +309,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
 
         hMain = hWnd;
-
+        
         // Create output edit box
         hOutputListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
             L"LISTBOX",
@@ -584,7 +584,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
-            strSender.Start();
+            if (strSender == NULL)
+            {
+                strSender = new StreamSender(strSock, GetDesktopWindow());
+            }            
+            strSender->Start();
             break;
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
@@ -640,7 +644,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         closesocket(bcst_lstn_sock);
         CloseMulticast(mcst_lstn_sock);
         WSACleanup();
-        strSender.~StreamSender();
+        strSender->~StreamSender();
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:

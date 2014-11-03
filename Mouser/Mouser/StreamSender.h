@@ -13,6 +13,7 @@ class StreamSender
 
     public:
 
+        //StreamSender();
         StreamSender(SOCKET sock, HWND hWnd);
         ~StreamSender();
 
