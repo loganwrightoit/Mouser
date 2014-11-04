@@ -9,6 +9,7 @@ using namespace std;
 #pragma comment (lib, "Ws2_32.lib")
 
 #define         DEFAULT_BUFFER_SIZE 256
+#define         MAX_BUFFER_SIZE 1456
 #define         DEFAULT_PORT 41920
 WSADATA         wsaData;
 char            myIp[256];
