@@ -15,7 +15,6 @@ StreamSender::StreamSender(SOCKET sock, HWND hWnd)
 
     this->sock = sock;
     this->hWnd = hWnd;
-
     this->hSrcDC = GetDC(hWnd);
     this->hDestDC = CreateCompatibleDC(hSrcDC);
     this->hCaptureBitmap = CreateCompatibleBitmap(hSrcDC, scrWidth, scrHeight);

@@ -23,6 +23,7 @@ SOCKET mcst_lstn_sock = INVALID_SOCKET;
 SOCKET bcst_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_sock = INVALID_SOCKET;
+StreamSender *strSender = NULL;
 
 HWND hMain;
 
@@ -295,8 +296,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
          hCaptureScreenButton;
 
     SOCKET strSock;
-    StreamSender *strSender = NULL;
-
+   
     int width = 100;
     RECT rect;
     if (GetWindowRect(hWnd, &rect))
@@ -586,6 +586,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
             if (strSender == NULL)
             {
+                AddOutputMsg(L"DEBUG: Created stream sender.");
                 strSender = new StreamSender(strSock, GetDesktopWindow());
             }            
             strSender->Start();
@@ -630,6 +631,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
         case IDM_EXIT:
+            if (strSender != NULL)
+            {
+                MessageBox(hWnd, L"Cleaning up stream sender.", L"INFO", 0);
+                strSender->~StreamSender();
+            }
             DestroyWindow(hWnd);
             break;
         default:
@@ -644,7 +650,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         closesocket(bcst_lstn_sock);
         CloseMulticast(mcst_lstn_sock);
         WSACleanup();
-        strSender->~StreamSender();
+        if (strSender != NULL)
+        {
+            MessageBox(hWnd, L"Cleaning up stream sender.", L"INFO", 0);
+            strSender->~StreamSender();
+        }
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:
