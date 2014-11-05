@@ -29,6 +29,7 @@ class StreamSender
         SOCKET              sock;
         ULONG_PTR           gdiplusToken;
         GdiplusStartupInput gdiplusStartupInput;
+        CLSID               clsid;
         HWND                hWnd;
         HDC                 hSrcDC;
         HDC                 hDestDC;

@@ -3,6 +3,7 @@
 StreamSender::StreamSender(SOCKET sock, HWND hWnd)
 {
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+    GetEncoderClsid(L"image/png", &clsid);
 
     RECT rect;
     scrWidth = 0;
@@ -89,52 +90,6 @@ bool StreamSender::CaptureImageToFile(LPWSTR fileName)
     return true;
 }
 
-/*
-    ///// A WAY TO SAVE IMAGE TO BUFFER FOR SENDING OVER NETWORK
-
-    // Save bitmap to PNG and then to byte buffer
-    {
-        IStream *pStream = NULL;
-        LARGE_INTEGER liZero = {};
-        ULARGE_INTEGER pos = {};
-        STATSTG stg = {};
-        ULONG bytesRead = 0;
-        HRESULT hrRet = S_OK;
-
-        BYTE* buffer = NULL;  // this is your buffer that will hold the jpeg bytes
-        DWORD dwBufferSize = 0;  // this is the size of that buffer;
-
-        hrRet = CreateStreamOnHGlobal(NULL, TRUE, &pStream);
-        hrRet = pScreenShot->Save(pStream, &imageCLSID, &encoderParams) == 0 ? S_OK : E_FAIL;
-        hrRet = pStream->Seek(liZero, STREAM_SEEK_SET, &pos);
-        hrRet = pStream->Stat(&stg, STATFLAG_NONAME);
-
-        // allocate a byte buffer big enough to hold the jpeg stream in memory
-        buffer = new BYTE[stg.cbSize.LowPart];
-        hrRet = (buffer == NULL) ? E_OUTOFMEMORY : S_OK;
-        dwBufferSize = stg.cbSize.LowPart;
-
-        // copy the stream into memory
-        hrRet = pStream->Read(buffer, stg.cbSize.LowPart, &bytesRead);
-
-        wchar_t buffer1[256];
-        swprintf(buffer1, 256, L"[DEBUG]: capture byte[] size: %i", dwBufferSize);
-        AddOutputMsg(buffer1);
-
-        delete[] buffer;
-
-        // now go save "buffer" and "dwBufferSize" off somewhere.  This is the jpeg buffer
-        // don't forget to free it when you are done
-
-        // After success or if any of the above calls fail, don't forget to release the stream
-        if (pStream)
-        {
-            pStream->Release();
-        }
-    }
-
-*/
-
 //
 // Sends bitmap (or converted format) through socket as byte array.
 //
@@ -142,11 +97,9 @@ void StreamSender::SendBitmapAsStream()
 {
     IStream* pIStream1 = NULL;
     Status stat = Ok;
-    CLSID clsid;
-    GetEncoderClsid(L"image/png", &clsid);
+    
     Gdiplus::Bitmap bmp(hCaptureBitmap, (HPALETTE)0);
     stat = bmp.Save(pIStream1, &clsid);
-
     STATSTG myStreamStats = { 0 };
     if (SUCCEEDED(pIStream1->Stat(&myStreamStats, 0)))
     {

@@ -18,7 +18,7 @@ using namespace std;
 HINSTANCE hInst;                        // current instance
 TCHAR szTitle[MAX_LOADSTRING];          // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];    // the main window class name
-HWND hOutputListBox;
+HWND hOutputListBox, hCaptureScreenButton;
 SOCKET mcst_lstn_sock = INVALID_SOCKET;
 SOCKET bcst_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_lstn_sock = INVALID_SOCKET;
@@ -187,6 +187,8 @@ void ConnectToPeerThread(sockaddr_in inAddr)
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
+
+        ::EnableWindow(hCaptureScreenButton, true);
     }
 }
 
@@ -286,14 +288,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
-	HWND hBroadcastButton,
+    HWND hBroadcastButton,
          hMulticastButton,
          hIpBox = NULL,
          hDirectConnectButton,
          //hPrimaryConnection,
          hSendPeerDataButton,
-         hDisconnectPeerButton,
-         hCaptureScreenButton;
+         hDisconnectPeerButton;
+         //hCaptureScreenButton;
 
     SOCKET strSock;
    
@@ -411,7 +413,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         // Capture screen button
         hCaptureScreenButton = CreateWindowEx(NULL,
             L"BUTTON",
-            L"Capture Screen",
+            L"Start Streaming",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
             0,  // x padding
             490, // y padding
@@ -454,6 +456,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         setWindowFont(hMulticastButton);
         setWindowFont(hIpBox);
         setWindowFont(hDirectConnectButton);
+        setWindowFont(hCaptureScreenButton);
 
         break;
     case WM_BCST_SOCKET:
@@ -528,6 +531,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 wchar_t buffer[256];
                 swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
                 AddOutputMsg(buffer);
+                ::EnableWindow(hCaptureScreenButton, true);
             }
             break;
         }
@@ -555,6 +559,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
             else
             {
+                ::EnableWindow(hCaptureScreenButton, false);
                 AddOutputMsg(L"[P2P]: Peer closed connection.");
             }
             p2p_sock = INVALID_SOCKET;
@@ -584,12 +589,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
+            // if (p2p_sock != INVALID_SOCKET)
+            // {
             if (strSender == NULL)
             {
-                AddOutputMsg(L"DEBUG: Created stream sender.");
+                AddOutputMsg(L"DEBUG: Started streaming desktop.");
                 strSender = new StreamSender(strSock, GetDesktopWindow());
-            }            
-            strSender->Start();
+                strSender->Start();
+                SetWindowText(hCaptureScreenButton, L"Stop Streaming");
+            }
+            else
+            {
+                AddOutputMsg(L"DEBUG: Stopped streaming desktop.");
+                strSender->Stop();
+                SetWindowText(hCaptureScreenButton, L"Start Streaming");
+            }
+            //}
             break;
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
@@ -618,8 +633,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 else
                 {
-                    AddOutputMsg(L"[P2P]: Peer closed connection.");
+                    AddOutputMsg(L"[P2P]: Connection closed.");
                 }
+
+                // Disable button and change text
+                ::EnableWindow(hCaptureScreenButton, false);
+                SetWindowText(hCaptureScreenButton, L"Start Streaming");
+
             }
             else
             {
@@ -644,6 +664,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
+
+        if (p2p_sock == INVALID_SOCKET && IsWindowEnabled(hCaptureScreenButton))
+        {
+            ::EnableWindow(hCaptureScreenButton, false);
+        }  
+
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
