@@ -291,7 +291,7 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
     u_int sendSize = inSize + sizeof(inSize);
     char *toSend = new char[sendSize];
 
-    // Prepend message with four-byte length header    
+    // Prepend message with four-byte length header
     toSend[0] = (inSize & 0xff000000) >> 24;
     toSend[1] = (inSize & 0xff0000) >> 16;
     toSend[2] = (inSize & 0xff00) >> 8;
@@ -355,7 +355,6 @@ bool Receive(SOCKET sock, char * buffer, u_int recvLength)
     {
         int size = (std::min)(bytesRemaining, DEFAULT_BUFFER_SIZE);
         int result = recv(sock, (char*)(buffer + totalBytesReceived), size, 0);
-
         if (result == SOCKET_ERROR)
         {
             wchar_t buffer1[256];
@@ -363,7 +362,6 @@ bool Receive(SOCKET sock, char * buffer, u_int recvLength)
             AddOutputMsg(buffer1);
             return false;
         }
-
         totalBytesReceived += result;
         bytesRemaining -= result;
     }

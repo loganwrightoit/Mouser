@@ -550,10 +550,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         u_int recvLength = GetReceiveLength(p2p_sock);
                         if (recvLength > 0)
                         {
-                            wchar_t buffer1[256];
-                            swprintf(buffer1, 256, L"[P2P]: Attempting to receive length: %u", recvLength);
-                            MessageBox(hMain, buffer1, L"INFO", 0);
-
                             char * buffer = new char[recvLength];
                             if (!Receive(p2p_sock, buffer, recvLength))
                             {
@@ -562,9 +558,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                                 break;
                             }
 
-                            // Process stream data here
-                            // Assume string for testing
-                            AddOutputMsg((LPWSTR)buffer);
+                            // Process data here
 
                             delete[] buffer;
                         }
