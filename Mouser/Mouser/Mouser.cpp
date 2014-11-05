@@ -542,7 +542,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             AddOutputMsg(L"[P2P]: FD_READ event raised.");
             break;
         case FD_WRITE:
-            //AddOutputMsg(L"[P2P]: FD_WRITE event raised.");
+            AddOutputMsg(L"[P2P]: FD_WRITE event raised.");
             break;
         case FD_CLOSE:
             if (shutdown(p2p_sock, SD_SEND) == SOCKET_ERROR)
@@ -609,7 +609,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
             {
-                Send(p2p_sock, "This is a message!");
+                char * msg = "MouserPeerData";
+                Send(p2p_sock, msg, strlen(msg));
             }
             else
             {

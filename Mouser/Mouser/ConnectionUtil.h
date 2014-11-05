@@ -3,7 +3,7 @@
 #include "WinSock2.h"
 #pragma comment (lib, "Ws2_32.lib")
 
-bool Send(SOCKET sock, char * inBytes);
+bool Send(SOCKET sock, char * inBytes, u_int inSize);
 bool Receive(SOCKET sock, char * outBytes);
 
 char * GetMyHost();

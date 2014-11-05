@@ -13,7 +13,7 @@ Peer::~Peer()
 
 void Peer::SendChatMsg(char * inBytes)
 {
-    Send(sock, inBytes);
+    Send(sock, inBytes, strlen(inBytes));
 }
 
 void Peer::Disconnect()

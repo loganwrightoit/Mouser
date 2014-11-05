@@ -1,15 +1,16 @@
+#pragma comment (lib, "Ws2_32.lib")
+
 #include "stdafx.h"
-#include <iostream>
-#include <ws2tcpip.h>
+#include "ws2tcpip.h"
 #include "ConnectionUtil.h"
 #include "Mouser.h"
 
+#include <iostream>
+#include <algorithm>
+
 using namespace std;
 
-#pragma comment (lib, "Ws2_32.lib")
-
-#define         DEFAULT_BUFFER_SIZE 256
-#define         MAX_BUFFER_SIZE 1456
+#define         DEFAULT_BUFFER_SIZE 1456
 #define         DEFAULT_PORT 41920
 WSADATA         wsaData;
 char            myIp[256];
@@ -282,31 +283,44 @@ sockaddr_in GetMulticastSenderInfo(SOCKET sock)
 }
 
 //
-// Transmit message over connection.
-// Returns true if message successfully sent.
+// Transmit bytes over connection.
+// Returns true if bytes sent successfully.
 //
-bool Send(SOCKET sock, CHAR * inBytes)
+bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
 {
-    // Prepend message with two-byte length header
-    u_short len = strlen(inBytes);
-    BYTE byteLen[] = { (len & 0xff00) >> 8, (len & 0xff) };
-    string s = "";
-    s += byteLen[0];
-    s += byteLen[1];
-    s += inBytes;
+    int sendSize = inSize + sizeof(inSize);
+    char *toSend = new char[sendSize];
 
-    // Transmit remaining bytes
-    if (send(sock, s.c_str(), s.length(), 0) == SOCKET_ERROR)
+    // Prepend message with four-byte length header
+    toSend[0] = (sendSize & 0xff000000) >> 24;
+    toSend[1] = (sendSize & 0xff0000) >> 16;
+    toSend[2] = (sendSize & 0xff00) >> 8;
+    toSend[4] = (sendSize & 0xff);
+
+    // Send the data
+    int remaining = sendSize;
+    int totalBytesSent = 0;
+    while (remaining > 0)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: send() failed with error: %s", WSAGetLastError());
-        AddOutputMsg(buffer);
-        return false;
+        int result = send(sock, toSend + totalBytesSent, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
+        if (result == SOCKET_ERROR)
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: send() failed with error: %s", WSAGetLastError());
+            AddOutputMsg(buffer);
+            delete[] toSend;
+            return false;
+        }
+        totalBytesSent += result;
+        remaining -= result;
     }
-    else
-    {
-        return true;
-    }
+
+    wchar_t buffer[256];
+    swprintf(buffer, 256, L"[Debug]: Send complete, %i bytes sent.", totalBytesSent);
+    AddOutputMsg(buffer);
+
+    delete[] toSend;
+    return true;
 }
 
 //
@@ -316,16 +330,18 @@ bool Receive(SOCKET sock, char * outBytes)
 {
     string s = "";
 
-    // Receive first two bytes (message length)
-    u_short messageLength;
-    int inBytes = recv(sock, (char*)&messageLength, sizeof(messageLength), 0);
+    // Receive first four bytes (message length)
+    u_int szRef;
+    int inBytes = recv(sock, (char*)&szRef, sizeof(szRef), 0);
 
     if (inBytes > 0) // Receive all the data
     {
-        int bytesLeft = inBytes;
+        outBytes = new char[inBytes];
+
+        u_int bytesLeft = inBytes;
         do {
             // Receive all the data
-			char buffer[DEFAULT_BUFFER_SIZE] = "";
+            char buffer[DEFAULT_BUFFER_SIZE] = "";
             bytesLeft -= recv(sock, (char*)&buffer, sizeof(buffer), 0);
             s.append(buffer);
         } while (bytesLeft > 0);
@@ -333,7 +349,7 @@ bool Receive(SOCKET sock, char * outBytes)
         strcpy_s(outBytes, sizeof(outBytes), const_cast<char*>(s.c_str()));
         return true;
     }
-    else if (inBytes != WSAEWOULDBLOCK && inBytes != 0) // Nothing to receive, don't block
+    else if (inBytes == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: recv() failed with error: %s", WSAGetLastError());
