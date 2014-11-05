@@ -288,14 +288,17 @@ sockaddr_in GetMulticastSenderInfo(SOCKET sock)
 //
 bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
 {
-    int sendSize = inSize + sizeof(inSize);
+    u_int sendSize = inSize + sizeof(inSize);
     char *toSend = new char[sendSize];
 
-    // Prepend message with four-byte length header
-    toSend[0] = (sendSize & 0xff000000) >> 24;
-    toSend[1] = (sendSize & 0xff0000) >> 16;
-    toSend[2] = (sendSize & 0xff00) >> 8;
-    toSend[4] = (sendSize & 0xff);
+    // Prepend message with four-byte length header    
+    toSend[0] = (inSize & 0xff000000) >> 24;
+    toSend[1] = (inSize & 0xff0000) >> 16;
+    toSend[2] = (inSize & 0xff00) >> 8;
+    toSend[3] = (inSize & 0xff);
+
+    // Append data
+    memcpy_s(toSend + 4, sendSize, inBytes, inSize);
 
     // Send the data
     int remaining = sendSize;
@@ -311,6 +314,7 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
             delete[] toSend;
             return false;
         }
+
         totalBytesSent += result;
         remaining -= result;
     }
@@ -324,40 +328,51 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
 }
 
 //
-// Receive transaction data and fill outBytes.
+// Gets length header (first four bytes).
+// Call Receive() after making this call to get char array.
 //
-bool Receive(SOCKET sock, char * outBytes)
+u_int GetReceiveLength(SOCKET sock)
 {
-    string s = "";
-
-    // Receive first four bytes (message length)
     u_int szRef;
-    int inBytes = recv(sock, (char*)&szRef, sizeof(szRef), 0);
 
-    if (inBytes > 0) // Receive all the data
+    int result = recv(sock, (char*)&szRef, sizeof(szRef), 0);
+    if (result == SOCKET_ERROR)
     {
-        outBytes = new char[inBytes];
-
-        u_int bytesLeft = inBytes;
-        do {
-            // Receive all the data
-            char buffer[DEFAULT_BUFFER_SIZE] = "";
-            bytesLeft -= recv(sock, (char*)&buffer, sizeof(buffer), 0);
-            s.append(buffer);
-        } while (bytesLeft > 0);
-
-        strcpy_s(outBytes, sizeof(outBytes), const_cast<char*>(s.c_str()));
-        return true;
-    }
-    else if (inBytes == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: recv() failed with error: %s", WSAGetLastError());
-        AddOutputMsg(buffer);
-        CloseSocket(sock);
+        return 0;
     }
 
-    return false;
+    return ntohl(szRef);
+}
+
+//
+// Receive byte stream.
+//
+bool Receive(SOCKET sock, char * buffer, u_int recvLength)
+{
+    int totalBytesReceived = 0;
+    int bytesRemaining = recvLength;
+    while (bytesRemaining > 0)
+    {
+        int size = (std::min)(bytesRemaining, DEFAULT_BUFFER_SIZE);
+        int result = recv(sock, (char*)(buffer + totalBytesReceived), size, 0);
+
+        if (result == SOCKET_ERROR)
+        {
+            wchar_t buffer1[256];
+            swprintf(buffer1, 256, L"[P2P]: recv() failed with error: %s", WSAGetLastError());
+            AddOutputMsg(buffer1);
+            return false;
+        }
+
+        totalBytesReceived += result;
+        bytesRemaining -= result;
+    }
+
+    wchar_t buffer2[256];
+    swprintf(buffer2, 256, L"[Debug]: Received %i bytes.", totalBytesReceived);
+    AddOutputMsg(buffer2);
+
+    return true;
 }
 
 //

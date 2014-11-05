@@ -539,8 +539,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_READ:
-            AddOutputMsg(L"[P2P]: FD_READ event raised.");
-            break;
+        {
+                        AddOutputMsg(L"[P2P]: FD_READ event raised.");
+
+                        // Disable read events until finished processing data
+                        WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_WRITE | FD_CLOSE));
+
+                        // Information could be chat, remote mouse location, or streamed image.
+                        // Populate sends with ENUM for type later on.
+                        u_int recvLength = GetReceiveLength(p2p_sock);
+                        if (recvLength > 0)
+                        {
+                            wchar_t buffer1[256];
+                            swprintf(buffer1, 256, L"[P2P]: Attempting to receive length: %u", recvLength);
+                            MessageBox(hMain, buffer1, L"INFO", 0);
+
+                            char * buffer = new char[recvLength];
+                            if (!Receive(p2p_sock, buffer, recvLength))
+                            {
+                                AddOutputMsg(L"[Debug]: Receive ran into a problem receiving data.");
+                                delete[] buffer;
+                                break;
+                            }
+
+                            // Process stream data here
+                            // Assume string for testing
+                            AddOutputMsg((LPWSTR)buffer);
+
+                            delete[] buffer;
+                        }
+
+                        // Enable write events again
+                        WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_READ | FD_WRITE | FD_CLOSE));
+
+                        break;
+        }
         case FD_WRITE:
             AddOutputMsg(L"[P2P]: FD_WRITE event raised.");
             break;

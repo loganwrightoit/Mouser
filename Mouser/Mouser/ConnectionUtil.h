@@ -4,7 +4,8 @@
 #pragma comment (lib, "Ws2_32.lib")
 
 bool Send(SOCKET sock, char * inBytes, u_int inSize);
-bool Receive(SOCKET sock, char * outBytes);
+u_int GetReceiveLength(SOCKET sock);
+bool Receive(SOCKET sock, char * buffer, u_int recvSize);
 
 char * GetMyHost();
 USHORT GetPrimaryClientPort();
