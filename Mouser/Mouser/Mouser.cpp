@@ -559,6 +559,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                             }
 
                             // Process data here
+                            wchar_t buffer1[256];
+                            swprintf(buffer1, 256, L"[P2P]: Received %i bytes.", recvLength);
+                            AddOutputMsg(buffer1);
 
                             delete[] buffer;
                         }
@@ -637,7 +640,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (p2p_sock != INVALID_SOCKET)
             {
                 char * msg = "MouserPeerData";
-                Send(p2p_sock, msg, strlen(msg));
+                Send(p2p_sock, msg, strlen(msg) + 1);
             }
             else
             {
