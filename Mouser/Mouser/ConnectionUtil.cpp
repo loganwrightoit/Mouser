@@ -12,7 +12,6 @@ using namespace std;
 
 #define         DEFAULT_PORT 41920
 WSADATA         wsaData;
-char            myIp[256];
 
 /*
 Mulicast addresses
@@ -32,11 +31,6 @@ ip_mreq         mreq;
 USHORT GetPrimaryClientPort()
 {
     return DEFAULT_PORT;
-}
-
-char * GetMyHost()
-{
-    return myIp;
 }
 
 void CloseSocket(SOCKET sock)
@@ -63,85 +57,6 @@ SOCKET GetConnectionSocket()
     }
 
     return sock;
-}
-
-SOCKET GetBroadcastSocket()
-{
-    SOCKET sock = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    
-    char broadcast = 'a';
-    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Broadcast]: setsockopt() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        closesocket(sock);
-        return INVALID_SOCKET;
-    }
-
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(BCST_PORT); // Handle endianness
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Broadcast]: bind() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        closesocket(sock);
-        return INVALID_SOCKET;
-    }
-
-    return sock;
-}
-
-//
-// Sends a UDP broadcast packet across local network.
-//
-bool SendBroadcast(SOCKET sock)
-{
-    if (sock == INVALID_SOCKET)
-    {
-        AddOutputMsg(L"[Broadcast]: sendto() invalid socket.");
-        return false;
-    }
-
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(BCST_PORT); // Handle endianness
-    addr.sin_addr.s_addr = inet_addr("255.255.255.255");
-
-    char * msg = "MouserClient Broadcast";
-    if (sendto(sock, msg, strlen(msg), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
-	{
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Broadcast]: sendto() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        return false;
-	}
-	else
-	{
-        AddOutputMsg(L"[Broadcast]: Discovery packet sent.");
-	}
-
-	return true;
-}
-
-sockaddr_in GetBroadcastSenderInfo(SOCKET sock)
-{
-    sockaddr_in addr;
-    int size = sizeof(addr);
-
-    char buffer[DEFAULT_BUFFER_SIZE] = "";
-    if (recvfrom(sock, buffer, sizeof(buffer), 0, (LPSOCKADDR)&addr, &size) == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Broadcast]: recvfrom() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-    }
-
-    return addr;
 }
 
 //
@@ -304,26 +219,29 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
     int total = 0;
     while (remaining > 0)
     {
-        int result = send(sock, toSend + total, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
-        if (result == SOCKET_ERROR)
+        fd_set mySet;
+        FD_ZERO(&mySet);
+        FD_SET(sock, &mySet);
+        timeval zero = { 0, 0 };
+        int sel = select(0, NULL, &mySet, NULL, &zero);
+        if (FD_ISSET(sock, &mySet))
         {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: send() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            delete[] toSend;
-            return false;
+            int result = send(sock, toSend + total, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
+            if (result == SOCKET_ERROR)
+            {
+                wchar_t buffer[256];
+                swprintf(buffer, 256, L"[P2P]: send() failed with error: %i", WSAGetLastError());
+                AddOutputMsg(buffer);
+                delete[] toSend;
+                return false;
+            }
+            total += result;
+            remaining -= result;
         }
-
-        total += result;
-        remaining -= result;
-
-        wchar_t buffer2[256];
-        swprintf(buffer2, 256, L"[Debug]: Sent chunk of %i bytes, %i left.", result, remaining);
-        AddOutputMsg(buffer2);
     }
 
     wchar_t buffer[256];
-    swprintf(buffer, 256, L"[Debug]: Sent %i bytes to peer.", total);
+    swprintf(buffer, 256, L"[P2P]: Sent %i bytes to peer.", total);
     AddOutputMsg(buffer);
 
     delete[] toSend;
@@ -336,17 +254,12 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
 //
 u_int GetReceiveLength(SOCKET sock)
 {
-    u_int szRef;
-
+    u_int szRef = 0;
     int result = recv(sock, (char*)&szRef, sizeof(szRef), 0);
     if (result == SOCKET_ERROR)
     {
-        return 0;
+        return result;
     }
-
-    wchar_t buffer7[256];
-    swprintf(buffer7, 256, L"[Debug]: Received header, total of %i bytes.", result);
-    AddOutputMsg(buffer7);
 
     return ntohl(szRef);
 }
@@ -356,15 +269,10 @@ u_int GetReceiveLength(SOCKET sock)
 //
 bool Receive(SOCKET sock, char * inBuffer, u_int recvLength)
 {
-    int total = 0;    
+    int total = 0;
     while (total < recvLength)
     {
         int size = (std::min)((int)(recvLength - total), DEFAULT_BUFFER_SIZE);
-
-        wchar_t buffer5[256];
-        swprintf(buffer5, 256, L"[Debug]: Attempting to receive %i bytes.", size);
-        AddOutputMsg(buffer5);
-
         int result = recv(sock, (char*)(inBuffer + total), size, 0);
         if (result == SOCKET_ERROR)
         {
@@ -373,17 +281,8 @@ bool Receive(SOCKET sock, char * inBuffer, u_int recvLength)
             AddOutputMsg(buffer1);
             return false;
         }
-        
         total += result;
-
-        wchar_t buffer2[256];
-        swprintf(buffer2, 256, L"[Debug]: Received chunk of %i bytes.", result);
-        AddOutputMsg(buffer2);
     }
-
-    wchar_t buffer2[256];
-    swprintf(buffer2, 256, L"[Debug]: Receive finished with %i bytes.", total);
-    AddOutputMsg(buffer2);
 
     return true;
 }
@@ -404,12 +303,6 @@ bool InitWinsock()
     else
     {
         AddOutputMsg(L"[Winsock]: Initialized.");
-
-        // Set my IP
-        char szHostName[255];
-        gethostname(szHostName, 255);
-        struct hostent *host_entry = gethostbyname(szHostName);
-        strcpy_s(myIp, inet_ntoa(*(struct in_addr *)*host_entry->h_addr_list));
         return true;
     }
 }

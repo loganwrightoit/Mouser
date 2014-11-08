@@ -20,7 +20,6 @@ TCHAR szTitle[MAX_LOADSTRING];          // The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];    // the main window class name
 HWND hOutputListBox, hCaptureScreenButton;
 SOCKET mcst_lstn_sock = INVALID_SOCKET;
-SOCKET bcst_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_sock = INVALID_SOCKET;
 StreamSender *strSender = NULL;
@@ -157,35 +156,46 @@ void AddOutputMsg(LPWSTR msg)
 
 void ListenToPeerThread()
 {
-    SetBlocking(p2p_sock, true);
-
-    AddOutputMsg(L"[DEBUG]: Listening for peer data.");
-
-    while (1)
+    while (p2p_sock != INVALID_SOCKET)
     {
-        u_int length = GetReceiveLength(p2p_sock);
-
-        if (length == 0)
+        fd_set mySet;
+        FD_ZERO(&mySet);
+        FD_SET(p2p_sock, &mySet);
+        timeval zero = { 0, 0 };
+        int sel = select(0, &mySet, NULL, NULL, &zero);
+        if (FD_ISSET(p2p_sock, &mySet))
         {
-            // Shutdown
-            return;
+            u_int length = GetReceiveLength(p2p_sock);
+            if (length == SOCKET_ERROR)
+            {
+                // Shutdown
+                wchar_t buffer1[256];
+                swprintf(buffer1, 256, L"[P2P]: Peer socket failed with error: %i", WSAGetLastError());
+                AddOutputMsg(buffer1);
+                closesocket(p2p_sock);
+                return;
+            }
+            else if (length == 0)
+            {
+                AddOutputMsg(L"[P2P]: Peer shutdown socket.");
+                closesocket(p2p_sock);
+                return;
+            }
+            else
+            {
+                // Receive remainder of message
+                char * buffer = new char[length];
+                if (Receive(p2p_sock, buffer, length))
+                {
+                    // Process data here
+                    wchar_t buffer1[256];
+                    swprintf(buffer1, 256, L"[P2P]: Received %i bytes.", length);
+                    AddOutputMsg(buffer1);
+                }
+                delete[] buffer;
+            }
         }
-
-        // Receive remainder of message
-        char * buffer = new char[length];
-        if (Receive(p2p_sock, buffer, length))
-        {
-            // Process data here
-            wchar_t buffer1[256];
-            swprintf(buffer1, 256, L"[P2P]: Received %i bytes: %hs", length, buffer);
-            AddOutputMsg(buffer1);
-        }
-        delete[] buffer;
     }
-
-    // Some code to turn the bytes back into a stream, back into a image
-    //std::istringstream ss;
-    //ss.rdbuf()->pubsetbuf(buf,len);
 }
 
 void ConnectToPeerThread(sockaddr_in inAddr)
@@ -214,43 +224,16 @@ void ConnectToPeerThread(sockaddr_in inAddr)
             AddOutputMsg(buffer);
             return;
         }
-        /*
-        if (WSAAsyncSelect(p2p_sock, hMain, WM_P2P_SOCKET, (FD_CLOSE | FD_READ | FD_WRITE)) == SOCKET_ERROR)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            return;
-        }
-        */
 
-        // Process peer data
-        thread ListenToPeerThread(ListenToPeerThread);
-        ListenToPeerThread.detach();
+        // Create new thread for incoming P2P data
+        thread peerThread(ListenToPeerThread);
+        peerThread.detach();
 
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
 
         ::EnableWindow(hCaptureScreenButton, true);
-    }
-}
-
-//
-// Sets up UDP broadcast listener.
-//
-void SetupBroadcastListener()
-{
-    bcst_lstn_sock = GetBroadcastSocket();
-    if (bcst_lstn_sock != INVALID_SOCKET)
-    {
-        if (WSAAsyncSelect(bcst_lstn_sock, hMain, WM_BCST_SOCKET, FD_READ) == SOCKET_ERROR)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[Broadcast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            closesocket(bcst_lstn_sock);
-        }
     }
 }
 
@@ -286,7 +269,7 @@ void SetupConnectionListener()
         AddOutputMsg(buffer);
         return;
     }
-    if (WSAAsyncSelect(p2p_lstn_sock, hMain, WM_P2P_LISTEN_SOCKET, (FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
+    if (WSAAsyncSelect(p2p_lstn_sock, hMain, WM_P2P_LISTEN_SOCKET, (FD_CONNECT | FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
@@ -332,14 +315,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
-    HWND hBroadcastButton,
-         hMulticastButton,
-         hIpBox = NULL,
-         hDirectConnectButton,
-         //hPrimaryConnection,
-         hSendPeerDataButton,
-         hDisconnectPeerButton;
-         //hCaptureScreenButton;
+    HWND hMulticastButton;
+    HWND hSendPeerDataButton;
+    HWND hDisconnectPeerButton;
+    //HWND hCaptureScreenButton;
    
     int width = 100;
     RECT rect;
@@ -368,17 +347,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetModuleHandle(NULL),
             NULL);
 
-        // Send data to peer button
-        hSendPeerDataButton = CreateWindowEx(NULL,
+        // Multicast button
+        hMulticastButton = CreateWindowEx(NULL,
             L"BUTTON",
-            L"Send Peer Data",
+            L"Multicast Discovery",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
             0,  // x padding
             400, // y padding
             width / 2, // width
             30,  // height
             hWnd,
-            (HMENU)IDC_MAIN_SEND_PEER_DATA_BUTTON,
+            (HMENU)IDC_MAIN_MULTICAST_DISC_BUTTON,
             GetModuleHandle(NULL),
             NULL);
 
@@ -396,69 +375,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetModuleHandle(NULL),
             NULL);
 
-        // Broadcast button
-        hBroadcastButton = CreateWindowEx(NULL,
+        // Send data to peer button
+        hSendPeerDataButton = CreateWindowEx(NULL,
             L"BUTTON",
-            L"Broadcast Discovery",
+            L"Send Peer Data",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            0,  // x padding
+            0, // x padding
             430, // y padding
             width / 2, // width
             30,  // height
             hWnd,
-            (HMENU)IDC_MAIN_BROADCAST_DISC_BUTTON,
+            (HMENU)IDC_MAIN_SEND_PEER_DATA_BUTTON,
             GetModuleHandle(NULL),
             NULL);
-
-        // Multicast button
-        hMulticastButton = CreateWindowEx(NULL,
-            L"BUTTON",
-            L"Multicast Discovery",
-            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            width / 2,  // x padding
-            430, // y padding
-            width / 2, // width
-            30,  // height
-            hWnd,
-            (HMENU)IDC_MAIN_MULTICAST_DISC_BUTTON,
-            GetModuleHandle(NULL),
-            NULL);
-
-        // Manual IP connect button
-        hDirectConnectButton = CreateWindowEx(NULL,
-            L"BUTTON",
-            L"Direct Connect",
-            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            0,  // x padding
-            460, // y padding
-            width / 2, // width
-            30,  // height
-            hWnd,
-            (HMENU)IDC_MAIN_DIRECT_CONNECT_BUTTON,
-            GetModuleHandle(NULL),
-            NULL);
-
-        // IP edit box
-        hIpBox = CreateWindowEx(WS_EX_CLIENTEDGE,
-            L"EDIT",
-            L"",
-            WS_CHILD | ES_WANTRETURN | WS_VISIBLE | ES_CENTER,
-            width / 2,  // x padding
-            460, // y padding
-            width / 2, // width
-            30,  // height
-            hWnd,
-            (HMENU)IDC_MAIN_IP_TEXTBOX,
-            GetModuleHandle(NULL),
-            NULL);
-
+            
         // Capture screen button
         hCaptureScreenButton = CreateWindowEx(NULL,
             L"BUTTON",
             L"Start Streaming",
             WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            0,  // x padding
-            490, // y padding
+            width / 2,  // x padding
+            430, // y padding
             width / 2, // width
             30,  // height
             hWnd,
@@ -466,65 +403,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             GetModuleHandle(NULL),
             NULL);
 
-        /*
-        // create the window and use the result as the handle
-        hPrimaryConnection = CreateWindowEx(NULL,
-            L"primaryConnection", // name of the window class
-            L"Connected Client", // title of the window
-            WS_OVERLAPPEDWINDOW, // window style
-            300, // x-position of the window
-            300, // y-position of the window
-            500, // width of the window
-            400, // height of the window
-            HWND_DESKTOP, // we have no parent window, NULL
-            NULL, // we aren't using menus, NULL
-            hInst, // application handle
-            NULL); // used with multiple windows, NULL
-        */
-
         // Initialize and setup connection-based and connectionless services
         InitWinsock();
-        SetupBroadcastListener();
         SetupMulticastListener();
         SetupConnectionListener();
-        
-        // Set text length limit for IP box
-        SendMessage(hIpBox, EM_LIMITTEXT, 15, NULL);
-
         setWindowFont(hOutputListBox);
         setWindowFont(hSendPeerDataButton);
         setWindowFont(hDisconnectPeerButton);
-        setWindowFont(hBroadcastButton);
         setWindowFont(hMulticastButton);
-        setWindowFont(hIpBox);
-        setWindowFont(hDirectConnectButton);
         setWindowFont(hCaptureScreenButton);
 
-        break;
-    case WM_BCST_SOCKET:
-        switch (WSAGETSELECTEVENT(lParam))
-        {
-        case FD_READ:
-            if (p2p_sock == INVALID_SOCKET)
-            {
-                // Read data into sockaddr_in
-                sockaddr_in addr = GetBroadcastSenderInfo(bcst_lstn_sock);
-
-                // Check if host loops back to me
-                if (inet_addr(GetMyHost()) != addr.sin_addr.S_un.S_addr)
-                {
-                    //AddOutputMsg(L"[Broadcast]: FD_READ event raised.");
-
-                    wchar_t buffer[256];
-                    swprintf(buffer, 256, L"[Broadcast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
-                    AddOutputMsg(buffer);
-
-                    thread clientThread(ConnectToPeerThread, addr);
-                    clientThread.detach();
-                }
-            }
-            break;
-        }
         break;
     case WM_MCST_SOCKET:
         switch (WSAGETSELECTEVENT(lParam))
@@ -541,16 +429,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_P2P_LISTEN_SOCKET:
+
+        //
+        // This socket listens for incoming peer connection requests
+        // on the TCP connection protocol.  Once a request is received,
+        // a new socket will be created between both clients.
+        //
+
         switch (WSAGETSELECTEVENT(lParam))
         {
         case FD_CONNECT:
             //AddOutputMsg(L"[P2P]: FD_CONNECT event raised.");
             break;
-        case FD_ACCEPT:
+        case FD_ACCEPT: // Client that initiated multicast receives this
             //AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
             if (p2p_sock == INVALID_SOCKET)
             {
-                if ((p2p_sock = accept(wParam, NULL, NULL)) == INVALID_SOCKET)
+                p2p_sock = accept(wParam, NULL, NULL);
+                if (p2p_sock == INVALID_SOCKET)
                 {
                     wchar_t buffer[256];
                     swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
@@ -558,21 +454,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     closesocket(p2p_sock);
                     break;
                 }
-                /*
-                if (WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_READ | FD_WRITE | FD_CLOSE)) == SOCKET_ERROR)
-                {
-                    wchar_t buffer[256];
-                    swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-                    closesocket(p2p_sock);
-                    AddOutputMsg(buffer);
-                    break;
-                }
-                */
 
                 // Create new thread for incoming P2P data
-                sockaddr_in addr = GetMulticastSenderInfo(mcst_lstn_sock);
-                thread ListenToPeerThread(ListenToPeerThread);
-                ListenToPeerThread.detach();
+                thread peerThread(ListenToPeerThread);
+                peerThread.detach();
 
                 sockaddr_in temp_addr;
                 int size = sizeof(temp_addr);
@@ -582,29 +467,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 AddOutputMsg(buffer);
                 ::EnableWindow(hCaptureScreenButton, true);
             }
-            break;
         }
+
+        break;
     case WM_COMMAND:
         wmId    = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
         // Parse the menu selections:
         switch (wmId)
         {
-		case IDC_MAIN_BROADCAST_DISC_BUTTON:
-            SendBroadcast(bcst_lstn_sock);
-			break;
 		case IDC_MAIN_MULTICAST_DISC_BUTTON:
 			SendMulticast(mcst_lstn_sock);
-			break;
-		case IDC_MAIN_DIRECT_CONNECT_BUTTON:
-			TCHAR buff[16];
-			GetWindowText(hIpBox, buff, sizeof(buff));
-			if (_tcslen(buff) > 0) {
-				AddOutputMsg(L"[P2P] Connecting to host");
-			}
-			else {
-				AddOutputMsg(L"[P2P] Please input an IP address");
-			}
 			break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
             // if (p2p_sock != INVALID_SOCKET)
@@ -616,12 +489,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 //strSender->Start();
                 SetWindowText(hCaptureScreenButton, L"Stop Streaming");
 
-                char test[2500];
-                Send(p2p_sock, test, 2500);
+                char * test = new char[2560000];
+                Send(p2p_sock, test, 2560000);
+                delete[] test;
             }
             else
             {
-                AddOutputMsg(L"DEBUG: Stopped streaming desktop.");
+                AddOutputMsg(L"[P2P]: Stopped streaming desktop.");
                 strSender->Stop();
                 SetWindowText(hCaptureScreenButton, L"Start Streaming");
             }
@@ -630,8 +504,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
             {
-                string s = "This is a test message that is over 20 bytes long.";
-                Send(p2p_sock, (char*)s.c_str(), s.length());
+                char * test = new char[256000];
+                Send(p2p_sock, test, 256000);
+                delete[] test;
             }
             else
             {
@@ -657,6 +532,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     AddOutputMsg(L"[P2P]: Connection closed.");
                 }
+
+                p2p_sock = INVALID_SOCKET;
 
                 // Disable button and change text
                 ::EnableWindow(hCaptureScreenButton, false);
@@ -685,16 +562,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
-
-        if (p2p_sock == INVALID_SOCKET && IsWindowEnabled(hCaptureScreenButton))
-        {
-            ::EnableWindow(hCaptureScreenButton, false);
-        }  
-
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
-        closesocket(bcst_lstn_sock);
         CloseMulticast(mcst_lstn_sock);
         WSACleanup();
         if (strSender != NULL)
