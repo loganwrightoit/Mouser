@@ -10,7 +10,6 @@
 
 using namespace std;
 
-#define         DEFAULT_BUFFER_SIZE 1456
 #define         DEFAULT_PORT 41920
 WSADATA         wsaData;
 char            myIp[256];
@@ -302,25 +301,29 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
 
     // Send the data
     int remaining = sendSize;
-    int totalBytesSent = 0;
+    int total = 0;
     while (remaining > 0)
     {
-        int result = send(sock, toSend + totalBytesSent, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
+        int result = send(sock, toSend + total, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
         if (result == SOCKET_ERROR)
         {
             wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: send() failed with error: %s", WSAGetLastError());
+            swprintf(buffer, 256, L"[P2P]: send() failed with error: %i", WSAGetLastError());
             AddOutputMsg(buffer);
             delete[] toSend;
             return false;
         }
 
-        totalBytesSent += result;
+        total += result;
         remaining -= result;
+
+        wchar_t buffer2[256];
+        swprintf(buffer2, 256, L"[Debug]: Sent chunk of %i bytes, %i left.", result, remaining);
+        AddOutputMsg(buffer2);
     }
 
     wchar_t buffer[256];
-    swprintf(buffer, 256, L"[Debug]: Send complete, %i bytes sent.", totalBytesSent);
+    swprintf(buffer, 256, L"[Debug]: Sent %i bytes to peer.", total);
     AddOutputMsg(buffer);
 
     delete[] toSend;
@@ -341,33 +344,45 @@ u_int GetReceiveLength(SOCKET sock)
         return 0;
     }
 
+    wchar_t buffer7[256];
+    swprintf(buffer7, 256, L"[Debug]: Received header, total of %i bytes.", result);
+    AddOutputMsg(buffer7);
+
     return ntohl(szRef);
 }
 
 //
 // Receive byte stream.
 //
-bool Receive(SOCKET sock, char * buffer, u_int recvLength)
+bool Receive(SOCKET sock, char * inBuffer, u_int recvLength)
 {
-    int totalBytesReceived = 0;
-    int bytesRemaining = recvLength;
-    while (bytesRemaining > 0)
+    int total = 0;    
+    while (total < recvLength)
     {
-        int size = (std::min)(bytesRemaining, DEFAULT_BUFFER_SIZE);
-        int result = recv(sock, (char*)(buffer + totalBytesReceived), size, 0);
+        int size = (std::min)((int)(recvLength - total), DEFAULT_BUFFER_SIZE);
+
+        wchar_t buffer5[256];
+        swprintf(buffer5, 256, L"[Debug]: Attempting to receive %i bytes.", size);
+        AddOutputMsg(buffer5);
+
+        int result = recv(sock, (char*)(inBuffer + total), size, 0);
         if (result == SOCKET_ERROR)
         {
             wchar_t buffer1[256];
-            swprintf(buffer1, 256, L"[P2P]: recv() failed with error: %s", WSAGetLastError());
+            swprintf(buffer1, 256, L"[P2P]: recv() failed with error: %i", WSAGetLastError());
             AddOutputMsg(buffer1);
             return false;
         }
-        totalBytesReceived += result;
-        bytesRemaining -= result;
+        
+        total += result;
+
+        wchar_t buffer2[256];
+        swprintf(buffer2, 256, L"[Debug]: Received chunk of %i bytes.", result);
+        AddOutputMsg(buffer2);
     }
 
     wchar_t buffer2[256];
-    swprintf(buffer2, 256, L"[Debug]: Received %i bytes.", totalBytesReceived);
+    swprintf(buffer2, 256, L"[Debug]: Receive finished with %i bytes.", total);
     AddOutputMsg(buffer2);
 
     return true;

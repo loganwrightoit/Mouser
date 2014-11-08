@@ -3,13 +3,14 @@
 #include "WinSock2.h"
 #pragma comment (lib, "Ws2_32.lib")
 
+const int DEFAULT_BUFFER_SIZE = 20;
+
 bool Send(SOCKET sock, char * inBytes, u_int inSize);
 u_int GetReceiveLength(SOCKET sock);
 bool Receive(SOCKET sock, char * buffer, u_int recvSize);
 
 char * GetMyHost();
 USHORT GetPrimaryClientPort();
-
 SOCKET GetConnectionSocket();
 
 SOCKET GetBroadcastSocket();

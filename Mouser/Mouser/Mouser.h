@@ -4,3 +4,4 @@
 #include <string>
 
 void AddOutputMsg(LPWSTR msg);
+SOCKET GetPeerSocket();

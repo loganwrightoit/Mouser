@@ -25,6 +25,11 @@ SOCKET p2p_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_sock = INVALID_SOCKET;
 StreamSender *strSender = NULL;
 
+SOCKET GetPeerSocket()
+{
+    return p2p_sock;
+}
+
 HWND hMain;
 
 // Forward declarations of functions included in this code module:
@@ -150,6 +155,39 @@ void AddOutputMsg(LPWSTR msg)
 	SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)msg);
 }
 
+void ListenToPeerThread()
+{
+    SetBlocking(p2p_sock, true);
+
+    AddOutputMsg(L"[DEBUG]: Listening for peer data.");
+
+    while (1)
+    {
+        u_int length = GetReceiveLength(p2p_sock);
+
+        if (length == 0)
+        {
+            // Shutdown
+            return;
+        }
+
+        // Receive remainder of message
+        char * buffer = new char[length];
+        if (Receive(p2p_sock, buffer, length))
+        {
+            // Process data here
+            wchar_t buffer1[256];
+            swprintf(buffer1, 256, L"[P2P]: Received %i bytes: %hs", length, buffer);
+            AddOutputMsg(buffer1);
+        }
+        delete[] buffer;
+    }
+
+    // Some code to turn the bytes back into a stream, back into a image
+    //std::istringstream ss;
+    //ss.rdbuf()->pubsetbuf(buf,len);
+}
+
 void ConnectToPeerThread(sockaddr_in inAddr)
 {
     if (p2p_sock == INVALID_SOCKET)
@@ -176,6 +214,7 @@ void ConnectToPeerThread(sockaddr_in inAddr)
             AddOutputMsg(buffer);
             return;
         }
+        /*
         if (WSAAsyncSelect(p2p_sock, hMain, WM_P2P_SOCKET, (FD_CLOSE | FD_READ | FD_WRITE)) == SOCKET_ERROR)
         {
             wchar_t buffer[256];
@@ -183,6 +222,11 @@ void ConnectToPeerThread(sockaddr_in inAddr)
             AddOutputMsg(buffer);
             return;
         }
+        */
+
+        // Process peer data
+        thread ListenToPeerThread(ListenToPeerThread);
+        ListenToPeerThread.detach();
 
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
@@ -296,8 +340,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
          hSendPeerDataButton,
          hDisconnectPeerButton;
          //hCaptureScreenButton;
-
-    SOCKET strSock;
    
     int width = 100;
     RECT rect;
@@ -516,6 +558,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     closesocket(p2p_sock);
                     break;
                 }
+                /*
                 if (WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_READ | FD_WRITE | FD_CLOSE)) == SOCKET_ERROR)
                 {
                     wchar_t buffer[256];
@@ -524,78 +567,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     AddOutputMsg(buffer);
                     break;
                 }
+                */
 
-                sockaddr_in addr;
-                int size = sizeof(addr);
-                getpeername(p2p_sock, (LPSOCKADDR)&addr, &size);
+                // Create new thread for incoming P2P data
+                sockaddr_in addr = GetMulticastSenderInfo(mcst_lstn_sock);
+                thread ListenToPeerThread(ListenToPeerThread);
+                ListenToPeerThread.detach();
+
+                sockaddr_in temp_addr;
+                int size = sizeof(temp_addr);
+                getpeername(p2p_sock, (LPSOCKADDR)&temp_addr, &size);
                 wchar_t buffer[256];
-                swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
+                swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(temp_addr.sin_addr));
                 AddOutputMsg(buffer);
                 ::EnableWindow(hCaptureScreenButton, true);
             }
             break;
         }
-    case WM_P2P_SOCKET:
-        switch (WSAGETSELECTEVENT(lParam))
-        {
-        case FD_READ:
-        {
-                        AddOutputMsg(L"[P2P]: FD_READ event raised.");
-
-                        // Disable read events until finished processing data
-                        WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_WRITE | FD_CLOSE));
-
-                        // Information could be chat, remote mouse location, or streamed image.
-                        // Populate sends with ENUM for type later on.
-                        u_int recvLength = GetReceiveLength(p2p_sock);
-                        if (recvLength > 0)
-                        {
-                            char * buffer = new char[recvLength];
-                            if (!Receive(p2p_sock, buffer, recvLength))
-                            {
-                                AddOutputMsg(L"[Debug]: Receive ran into a problem receiving data.");
-                                delete[] buffer;
-                                break;
-                            }
-
-                            // Process data here
-                            wchar_t buffer1[256];
-                            swprintf(buffer1, 256, L"[P2P]: Received %i bytes.", recvLength);
-                            AddOutputMsg(buffer1);
-
-                            delete[] buffer;
-                        }
-
-                        // Enable write events again
-                        WSAAsyncSelect(p2p_sock, hWnd, WM_P2P_SOCKET, (FD_READ | FD_WRITE | FD_CLOSE));
-
-                        break;
-        }
-        case FD_WRITE:
-            AddOutputMsg(L"[P2P]: FD_WRITE event raised.");
-            break;
-        case FD_CLOSE:
-            if (shutdown(p2p_sock, SD_SEND) == SOCKET_ERROR)
-            {
-                wchar_t buffer[256];
-                swprintf(buffer, 256, L"[P2P]: shutdown() failed with error: %i", WSAGetLastError());
-                AddOutputMsg(buffer);
-            }
-            if (closesocket(p2p_sock) == SOCKET_ERROR)
-            {
-                wchar_t buffer[256];
-                swprintf(buffer, 256, L"[P2P]: closesocket() failed with error: %i", WSAGetLastError());
-                AddOutputMsg(buffer);
-            }
-            else
-            {
-                ::EnableWindow(hCaptureScreenButton, false);
-                AddOutputMsg(L"[P2P]: Peer closed connection.");
-            }
-            p2p_sock = INVALID_SOCKET;
-            break;
-        }
-        break;
     case WM_COMMAND:
         wmId    = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
@@ -623,10 +611,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // {
             if (strSender == NULL)
             {
-                AddOutputMsg(L"DEBUG: Started streaming desktop.");
-                strSender = new StreamSender(strSock, GetDesktopWindow());
-                strSender->Start();
+                //AddOutputMsg(L"DEBUG: Started streaming desktop.");
+                //strSender = new StreamSender(p2p_sock, GetDesktopWindow());
+                //strSender->Start();
                 SetWindowText(hCaptureScreenButton, L"Stop Streaming");
+
+                char test[2500];
+                Send(p2p_sock, test, 2500);
             }
             else
             {
@@ -639,8 +630,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
             {
-                char * msg = "MouserPeerData";
-                Send(p2p_sock, msg, strlen(msg) + 1);
+                string s = "This is a test message that is over 20 bytes long.";
+                Send(p2p_sock, (char*)s.c_str(), s.length());
             }
             else
             {
@@ -684,7 +675,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_EXIT:
             if (strSender != NULL)
             {
-                MessageBox(hWnd, L"Cleaning up stream sender.", L"INFO", 0);
                 strSender->~StreamSender();
             }
             DestroyWindow(hWnd);

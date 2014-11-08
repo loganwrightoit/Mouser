@@ -1,4 +1,9 @@
+#include "stdafx.h"
 #include "StreamSender.h"
+#include "Mouser.h"
+#include <string>
+#include <atlimage.h>
+#include <assert.h>
 
 StreamSender::StreamSender(SOCKET sock, HWND hWnd)
 {
@@ -81,6 +86,8 @@ int StreamSender::GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
 
 bool StreamSender::CaptureImageToFile(LPWSTR fileName)
 {
+    hCaptureBitmap = CreateCompatibleBitmap(hSrcDC, scrWidth, scrHeight);
+
     BitBlt(hDestDC, 0, 0, scrWidth, scrHeight, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT);
     Gdiplus::Bitmap bmp(hCaptureBitmap, (HPALETTE)0);
     CLSID pngClsid;
@@ -93,30 +100,87 @@ bool StreamSender::CaptureImageToFile(LPWSTR fileName)
 //
 // Sends bitmap (or converted format) through socket as byte array.
 //
-void StreamSender::SendBitmapAsStream()
+void StreamSender::CaptureAsStream()
 {
-    IStream* pIStream1 = NULL;
-    Status stat = Ok;
+    // Load sample image
+    CImage image;
+    image.Attach(hCaptureBitmap);
+    HRESULT hr;    
+    assert(hr == S_OK);
     
+    // Calculate reasonably safe buffer size
+    int stride = 4 * ((image.GetWidth() + 3) / 4);
+    size_t safeSize = stride * image.GetHeight() * 4 + sizeof(BITMAPINFOHEADER)+sizeof(BITMAPFILEHEADER)+256 * sizeof(RGBQUAD);
+    HGLOBAL mem = GlobalAlloc(GHND, safeSize);
+    assert(mem);
+
+    // Create stream and save bitmap
+    IStream* stream = 0;
+    hr = CreateStreamOnHGlobal(mem, TRUE, &stream);
+    assert(hr == S_OK);
+    hr = image.Save(stream, Gdiplus::ImageFormatPNG);
+    assert(hr == S_OK);
+
+    // Allocate buffer for saved image
+    LARGE_INTEGER seekPos = { 0 };
+    ULARGE_INTEGER imageSize;
+    hr = stream->Seek(seekPos, STREAM_SEEK_CUR, &imageSize);
+    assert(hr == S_OK && imageSize.HighPart == 0);
+    char *buffer = new char[imageSize.LowPart];
+
+    // Fill buffer from stream
+    hr = stream->Seek(seekPos, STREAM_SEEK_SET, 0);
+    assert(hr == S_OK);
+    hr = stream->Read(buffer, imageSize.LowPart, 0);
+    assert(hr == S_OK);
+
+    // Send bytes to destination over socket
+    Send(GetPeerSocket(), buffer, (u_int)imageSize.LowPart);
+
+    // Save to disk
+    /*
+    FILE* fp = 0;
+    errno_t err = _wfopen_s(&fp, L"c:\\temp\\copy.bmp", L"wb");
+    assert(err == 0 && fp != 0);
+    fwrite(buffer, 1, imageSize.LowPart, fp);
+    fclose(fp);
+    */
+
+    // Cleanup
+    //stream->Release();
+    delete[] buffer;
+
+    ///////
+    /*
+    IStream* pIStream1 = 0;
+    Status stat = Ok;
+
+    BitBlt(hDestDC, 0, 0, scrWidth, scrHeight, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT);
     Gdiplus::Bitmap bmp(hCaptureBitmap, (HPALETTE)0);
     stat = bmp.Save(pIStream1, &clsid);
+
     STATSTG myStreamStats = { 0 };
-    if (SUCCEEDED(pIStream1->Stat(&myStreamStats, 0)))
+    if (pIStream1->Stat(&myStreamStats, 0) == S_OK)
     {
         char* streamData = new char[myStreamStats.cbSize.QuadPart];
         ULONG bytesSaved = 0;
-        if (SUCCEEDED(pIStream1->Read(streamData, myStreamStats.cbSize.QuadPart, &bytesSaved)))
+        if (pIStream1->Read(streamData, myStreamStats.cbSize.QuadPart, &bytesSaved) == S_OK)
         {
             // Send bytes to destination over socket
+            Send(sock, streamData, bytesSaved);
         }
         delete[] streamData;
     }
 
     pIStream1->Release();
+    */
 }
 
 void StreamSender::Start()
 {
+    CaptureAsStream();
+
+    /*
     DWORD maxTicks = GetTickCount() + 1000;
     int capture = 0;
     while (GetTickCount() <= maxTicks)
@@ -129,6 +193,7 @@ void StreamSender::Start()
     wchar_t buffer[256];
     swprintf(buffer, 256, L"[DEBUG]: captured desktop at %i fps", capture);
     AddOutputMsg(buffer);
+    */
 }
 
 void StreamSender::Stop()
