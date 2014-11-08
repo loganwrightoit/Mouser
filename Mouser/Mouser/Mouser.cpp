@@ -158,24 +158,20 @@ void ListenToPeerThread()
 {
     while (p2p_sock != INVALID_SOCKET)
     {
-        fd_set mySet;
-        FD_ZERO(&mySet);
-        FD_SET(p2p_sock, &mySet);
-        timeval zero = { 0, 0 };
-        int sel = select(0, &mySet, NULL, NULL, &zero);
-        if (FD_ISSET(p2p_sock, &mySet))
+        u_int length = GetReceiveLength(p2p_sock);
+        bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
+        if (length == SOCKET_ERROR && !blocking)
         {
-            u_int length = GetReceiveLength(p2p_sock);
-            if (length == SOCKET_ERROR)
-            {
-                // Shutdown
-                wchar_t buffer1[256];
-                swprintf(buffer1, 256, L"[P2P]: Peer socket failed with error: %i", WSAGetLastError());
-                AddOutputMsg(buffer1);
-                closesocket(p2p_sock);
-                return;
-            }
-            else if (length == 0)
+            // Shutdown
+            wchar_t buffer1[256];
+            swprintf(buffer1, 256, L"[P2P]: Peer socket failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer1);
+            closesocket(p2p_sock);
+            return;
+        }
+        else if (!blocking)
+        {
+            if (length == 0)
             {
                 AddOutputMsg(L"[P2P]: Peer shutdown socket.");
                 closesocket(p2p_sock);
@@ -454,6 +450,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     closesocket(p2p_sock);
                     break;
                 }
+
+                SetBlocking(p2p_sock, false);
 
                 // Create new thread for incoming P2P data
                 thread peerThread(ListenToPeerThread);

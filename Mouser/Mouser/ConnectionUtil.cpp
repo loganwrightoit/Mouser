@@ -219,22 +219,18 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
     int total = 0;
     while (remaining > 0)
     {
-        fd_set mySet;
-        FD_ZERO(&mySet);
-        FD_SET(sock, &mySet);
-        timeval zero = { 0, 0 };
-        int sel = select(0, NULL, &mySet, NULL, &zero);
-        if (FD_ISSET(sock, &mySet))
+        int result = send(sock, toSend + total, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
+        bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
+        if (result == SOCKET_ERROR && !blocking)
         {
-            int result = send(sock, toSend + total, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
-            if (result == SOCKET_ERROR)
-            {
-                wchar_t buffer[256];
-                swprintf(buffer, 256, L"[P2P]: send() failed with error: %i", WSAGetLastError());
-                AddOutputMsg(buffer);
-                delete[] toSend;
-                return false;
-            }
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: send() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+            delete[] toSend;
+            return false;
+        }
+        if (!blocking)
+        {
             total += result;
             remaining -= result;
         }
@@ -256,7 +252,8 @@ u_int GetReceiveLength(SOCKET sock)
 {
     u_int szRef = 0;
     int result = recv(sock, (char*)&szRef, sizeof(szRef), 0);
-    if (result == SOCKET_ERROR)
+    bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
+    if (result == SOCKET_ERROR && !blocking)
     {
         return result;
     }
@@ -274,14 +271,18 @@ bool Receive(SOCKET sock, char * inBuffer, u_int recvLength)
     {
         int size = (std::min)((int)(recvLength - total), DEFAULT_BUFFER_SIZE);
         int result = recv(sock, (char*)(inBuffer + total), size, 0);
-        if (result == SOCKET_ERROR)
+        bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
+        if (result == SOCKET_ERROR && !blocking)
         {
             wchar_t buffer1[256];
             swprintf(buffer1, 256, L"[P2P]: recv() failed with error: %i", WSAGetLastError());
             AddOutputMsg(buffer1);
             return false;
         }
-        total += result;
+        if (!blocking)
+        {
+            total += result;
+        }
     }
 
     return true;
