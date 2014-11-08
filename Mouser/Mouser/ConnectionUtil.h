@@ -14,7 +14,7 @@ SOCKET GetConnectionSocket();
 
 bool CloseMulticast(SOCKET sock);
 SOCKET GetMulticastSocket();
-bool SendMulticast(SOCKET sock);
+bool SendMulticast(SOCKET sock, char * identifier);
 sockaddr_in GetMulticastSenderInfo(SOCKET sock);
 
 bool InitWinsock();

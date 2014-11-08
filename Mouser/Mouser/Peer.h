@@ -1,20 +1,19 @@
 #pragma once
-#include <ws2tcpip.h>
-#include "ConnectionUtil.h"
 
 class Peer
 {
 public:
 
-    Peer(SOCKET sock);
+    Peer(SOCKET sock, char * identifier);
     ~Peer();
 
-    void SendChatMsg(char * msg);
+    void SendString(char * inBytes);
+    void SendCharArray(char * inBytes, u_int inLength);
     void Disconnect();
 
 private:
 
-    char * name;
+    char * identifier;
     SOCKET sock;
 
 };

@@ -149,15 +149,18 @@ SOCKET GetMulticastSocket()
 //
 // Sends a multicast packet.
 //
-bool SendMulticast(SOCKET sock)
+bool SendMulticast(SOCKET sock, char * identifier)
 {
 	sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = inet_addr(MCST_ADDR);
 	addr.sin_port = htons(MCST_PORT);
 
-	char * buffer = "MouserMulticast Packet";
-	if (sendto(sock, buffer, strlen(buffer), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)    
+    string s = "MouserMulticast|";
+    s.append(identifier);
+
+	//char * buffer = new char[s.length()];
+	if (sendto(sock, s.c_str(), s.length(), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)    
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: sendto() failed with error: %i", WSAGetLastError());
@@ -190,7 +193,7 @@ sockaddr_in GetMulticastSenderInfo(SOCKET sock)
 	else
 	{
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
+        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs at %hs", buffer, inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
 	}
     return addr;
