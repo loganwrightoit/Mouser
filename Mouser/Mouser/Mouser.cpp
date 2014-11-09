@@ -484,26 +484,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
 			break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
-            // if (p2p_sock != INVALID_SOCKET)
-            // {
-            if (strSender == NULL)
+            if (p2p_sock != INVALID_SOCKET)
             {
-                //AddOutputMsg(L"DEBUG: Started streaming desktop.");
-                //strSender = new StreamSender(p2p_sock, GetDesktopWindow());
-                //strSender->Start();
-                SetWindowText(hCaptureScreenButton, L"Stop Streaming");
+                if (strSender == NULL)
+                {
+                    //AddOutputMsg(L"DEBUG: Started streaming desktop.");
+                    strSender = new StreamSender(p2p_sock, GetDesktopWindow());
+                    strSender->Start();
+                    SetWindowText(hCaptureScreenButton, L"Stop Streaming");
 
-                char * test = new char[2560000];
-                Send(p2p_sock, test, 2560000);
-                delete[] test;
+                    //char * test = new char[2560000];
+                    //Send(p2p_sock, test, 2560000);
+                    //delete[] test;
+                }
+                else
+                {
+                    AddOutputMsg(L"[P2P]: Streaming stopped.");
+                    strSender->Stop();
+                    strSender->~StreamSender();
+                    SetWindowText(hCaptureScreenButton, L"Start Streaming");
+                }
             }
-            else
-            {
-                AddOutputMsg(L"[P2P]: Stopped streaming desktop.");
-                strSender->Stop();
-                SetWindowText(hCaptureScreenButton, L"Start Streaming");
-            }
-            //}
             break;
         case IDC_MAIN_SEND_PEER_DATA_BUTTON:
             if (p2p_sock != INVALID_SOCKET)
@@ -511,10 +512,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 char * test = new char[256000];
                 Send(p2p_sock, test, 256000);
                 delete[] test;
-            }
-            else
-            {
-                AddOutputMsg(L"[P2P]: Must connect to a peer before sending data.");
             }
             break;
         case IDC_MAIN_DISCONNECT_PEER_BUTTON:
