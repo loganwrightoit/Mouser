@@ -9,6 +9,8 @@
 #include <string>
 #include <thread>
 #include <stdlib.h>
+#include <iostream>
+#include <atlimage.h> // IStream_ and CImage functions
 
 using namespace std;
 
@@ -187,10 +189,23 @@ void ListenToPeerThread()
                 char * buffer = new char[length];
                 if (Receive(p2p_sock, buffer, length))
                 {
+                    // For now, assume data is CImage stream data
+                    IStream *pStream;
+                    HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
+                    IStream_Write(pStream, buffer, length);
+
+                    CImage image;
+                    image.Load(pStream);
+                    
                     // Process data here
                     wchar_t buffer1[256];
-                    swprintf(buffer1, 256, L"[P2P]: Received %i bytes.", length);
+                    swprintf(buffer1, 256, L"[P2P]: Received %i bytes. Image WxH: %ix%i", length, image.GetWidth(), image.GetHeight());
                     AddOutputMsg(buffer1);
+
+                    // Process data here
+                    //wchar_t buffer1[256];
+                    //swprintf(buffer1, 256, L"[P2P]: Received %i bytes.", length);
+                    //AddOutputMsg(buffer1);
                 }
                 delete[] buffer;
             }
@@ -502,6 +517,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     AddOutputMsg(L"[P2P]: Streaming stopped.");
                     strSender->Stop();
                     strSender->~StreamSender();
+                    strSender = NULL;
                     SetWindowText(hCaptureScreenButton, L"Start Streaming");
                 }
             }
