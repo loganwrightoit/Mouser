@@ -114,7 +114,14 @@ void StreamSender::CaptureAsStream()
 
 void StreamSender::Start()
 {
-    CaptureAsStream();
+
+    while (1)
+    {
+        CaptureAsStream();
+        Sleep(1000);
+    }
+
+    //CaptureAsStream();
 
     /*
     DWORD maxTicks = GetTickCount() + 1000;

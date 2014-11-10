@@ -36,11 +36,13 @@ SOCKET GetPeerSocket()
 }
 
 HWND hMain;
+HWND hStreamWindow;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
-LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK    MainWndProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK    StreamWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPTSTR lpCmdLine, _In_ int nCmdShow)
@@ -84,23 +86,43 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 //
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
-    WNDCLASSEX wcex;
+    WNDCLASSEX wMainClass;
+    WNDCLASSEX wStreamClass;
 
-    wcex.cbSize = sizeof(WNDCLASSEX);
+    // May be unnecessary
+    memset(&wMainClass, 0, sizeof(WNDCLASSEX));
+    memset(&wStreamClass, 0, sizeof(WNDCLASSEX));
 
-    wcex.style         = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc   = WndProc;
-    wcex.cbClsExtra    = 0;
-    wcex.cbWndExtra    = 0;
-    wcex.hInstance     = hInstance;
-    wcex.hIcon         = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
-    wcex.hCursor       = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground = CreateSolidBrush(RGB(100, 150, 200)); // Default: (HBRUSH)(COLOR_WINDOW+1)
-    wcex.lpszMenuName  = MAKEINTRESOURCE(IDC_MOUSER);
-    wcex.lpszClassName = szWindowClass;
-    wcex.hIconSm       = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+    wMainClass.cbSize = sizeof(WNDCLASSEX);
+    wMainClass.style = CS_HREDRAW | CS_VREDRAW;
+    wMainClass.lpfnWndProc = MainWndProc;
+    wMainClass.cbClsExtra = 0;
+    wMainClass.cbWndExtra = 0;
+    wMainClass.hInstance = hInstance;
+    wMainClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
+    wMainClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wMainClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200)); // Default: (HBRUSH)(COLOR_WINDOW+1)
+    wMainClass.lpszMenuName = MAKEINTRESOURCE(IDC_MOUSER);
+    wMainClass.lpszClassName = szWindowClass;
+    wMainClass.hIconSm = LoadIcon(wMainClass.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
-    return RegisterClassEx(&wcex);
+    // Stream window
+    wStreamClass.cbSize = sizeof(WNDCLASSEX);
+    wStreamClass.style = CS_HREDRAW | CS_VREDRAW;
+    wStreamClass.lpfnWndProc = (WNDPROC)StreamWndProc;
+    wStreamClass.cbClsExtra = NULL;
+    wStreamClass.cbWndExtra = NULL;
+    wStreamClass.hInstance = hInst;
+    wStreamClass.hIcon = NULL;
+    wStreamClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wStreamClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wStreamClass.lpszMenuName = NULL;
+    wStreamClass.lpszClassName = L"StreamClass";
+    wStreamClass.hIconSm = NULL;
+
+    RegisterClassEx(&wStreamClass);
+
+    return RegisterClassEx(&wMainClass);
 }
 
 //
@@ -115,11 +137,9 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 //
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
-   HWND hWnd;
-
    hInst = hInstance; // Store instance handle in our global variable
 
-   hWnd = CreateWindow(
+   hMain = CreateWindow(
        szWindowClass,       // lpClassName
        szTitle,             // lpWindowName,
        WS_OVERLAPPEDWINDOW, // dwStyle
@@ -132,13 +152,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        hInstance,           // hInstance
        NULL);               // lpParam
 
-   if (!hWnd)
+   if (!hMain)
    {
       return FALSE;
    }
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+   ShowWindow(hMain, nCmdShow);
+   UpdateWindow(hMain);
 
    return TRUE;
 }
@@ -189,6 +209,24 @@ void ListenToPeerThread()
                 char * buffer = new char[length];
                 if (Receive(p2p_sock, buffer, length))
                 {
+                    if (!hStreamWindow)
+                    {
+                        hStreamWindow = CreateWindow(
+                            L"StreamClass",       // lpClassName
+                            szTitle,             // lpWindowName,
+                            WS_OVERLAPPEDWINDOW, // dwStyle
+                            200,                   // x
+                            200,                   // y
+                            800,                 // nWidth
+                            600,                 // nHeight
+                            NULL,                // hWndParent
+                            NULL,                // hMenu
+                            hInst,           // hInstance
+                            NULL);               // lpParam
+
+                        ShowWindow(hStreamWindow, SW_SHOW);
+                    }
+
                     // For now, assume data is CImage stream data
                     IStream *pStream;
                     HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
@@ -204,6 +242,13 @@ void ListenToPeerThread()
                         swprintf(buffer1, 256, L"[P2P]: Could not save image, error: %l", save);
                         AddOutputMsg(buffer1);
                     }
+
+                    // Draw to window
+                    HDC hdc = GetDC(hStreamWindow);
+                    image.BitBlt(hdc, 0, 0);
+                    //InvalidateRect(hStreamWindow, NULL, TRUE);
+                    //UpdateWindow(hStreamWindow);
+                    ReleaseDC(hStreamWindow, hdc);
                                         
                     // Process data here
                     wchar_t buffer1[256];
@@ -369,7 +414,7 @@ void SetupConnectionListener()
 //  WM_DESTROY    - post a quit message and return
 //
 //
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     int wmId, wmEvent;
     PAINTSTRUCT ps;
@@ -616,6 +661,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    int wmId, wmEvent;
+    PAINTSTRUCT ps;
+    HDC hdc;
+
+    switch (msg)
+    {
+    case WM_PAINT:
+        hdc = BeginPaint(hWnd, &ps);
+        EndPaint(hWnd, &ps);
+        break;
+    case WM_CLOSE:
+        break;
+    }
+    return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
 // Message handler for about box.
