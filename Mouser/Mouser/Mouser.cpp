@@ -209,19 +209,25 @@ void ListenToPeerThread()
                 char * buffer = new char[length];
                 if (Receive(p2p_sock, buffer, length))
                 {
+                    /*
+                        Need to create protocol for determining what kind of packet this is.
+                        Will create a switch to process different ENUMs.
+                    */
+
                     if (!hStreamWindow)
                     {
+                        AddOutputMsg(L"[P2P]: Created streaming window.");
                         hStreamWindow = CreateWindow(
-                            L"StreamClass",       // lpClassName
+                            L"StreamClass",      // lpClassName
                             szTitle,             // lpWindowName,
                             WS_OVERLAPPEDWINDOW, // dwStyle
-                            200,                   // x
-                            200,                   // y
+                            200,                 // x
+                            200,                 // y
                             800,                 // nWidth
                             600,                 // nHeight
                             NULL,                // hWndParent
                             NULL,                // hMenu
-                            hInst,           // hInstance
+                            hInst,               // hInstance
                             NULL);               // lpParam
 
                         ShowWindow(hStreamWindow, SW_SHOW);
@@ -232,33 +238,16 @@ void ListenToPeerThread()
                     HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
                     IStream_Write(pStream, buffer, length);
 
+                    // Create image from stream
                     CImage image;
                     image.Load(pStream);
-
-                    HRESULT save = image.Save(_T("debug.png"));
-                    if (save != S_OK)
-                    {
-                        wchar_t buffer1[256];
-                        swprintf(buffer1, 256, L"[P2P]: Could not save image, error: %l", save);
-                        AddOutputMsg(buffer1);
-                    }
 
                     // Draw to window
                     HDC hdc = GetDC(hStreamWindow);
                     image.BitBlt(hdc, 0, 0);
-                    //InvalidateRect(hStreamWindow, NULL, TRUE);
-                    //UpdateWindow(hStreamWindow);
                     ReleaseDC(hStreamWindow, hdc);
-                                        
-                    // Process data here
-                    wchar_t buffer1[256];
-                    swprintf(buffer1, 256, L"[P2P]: Received %i bytes. Image WxH: %ix%i", length, image.GetWidth(), image.GetHeight());
-                    AddOutputMsg(buffer1);
 
-                    // Process data here
-                    //wchar_t buffer1[256];
-                    //swprintf(buffer1, 256, L"[P2P]: Received %i bytes.", length);
-                    //AddOutputMsg(buffer1);
+                    pStream->Release();
                 }
                 delete[] buffer;
             }
@@ -556,18 +545,13 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             {
                 if (strSender == NULL)
                 {
-                    //AddOutputMsg(L"DEBUG: Started streaming desktop.");
                     strSender = new StreamSender(p2p_sock, GetDesktopWindow());
-                    strSender->Start();
+                    thread streamThread(&StreamSender::Start, strSender);
+                    streamThread.detach();
                     SetWindowText(hCaptureScreenButton, L"Stop Streaming");
-
-                    //char * test = new char[2560000];
-                    //Send(p2p_sock, test, 2560000);
-                    //delete[] test;
                 }
                 else
                 {
-                    //AddOutputMsg(L"[P2P]: Streaming stopped.");
                     strSender->Stop();
                     strSender->~StreamSender();
                     strSender = NULL;
@@ -602,8 +586,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
                 {
                     AddOutputMsg(L"[P2P]: Connection closed.");
                 }
-
-                p2p_sock = INVALID_SOCKET;
 
                 // Disable button and change text
                 ::EnableWindow(hDisconnectPeerButton, false);
@@ -672,10 +654,13 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     switch (msg)
     {
     case WM_PAINT:
-        hdc = BeginPaint(hWnd, &ps);
-        EndPaint(hWnd, &ps);
+        {
+            hdc = BeginPaint(hWnd, &ps);
+            EndPaint(hWnd, &ps);
+        }
         break;
-    case WM_CLOSE:
+    case WM_DESTROY:
+        AddOutputMsg(L"[P2P]: Destroyed streaming window.");
         break;
     }
     return DefWindowProc(hWnd, msg, wParam, lParam);

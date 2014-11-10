@@ -239,9 +239,10 @@ bool Send(SOCKET sock, CHAR * inBytes, u_int inSize)
         }
     }
 
-    wchar_t buffer[256];
-    swprintf(buffer, 256, L"[P2P]: Sent %i bytes to peer.", total);
-    AddOutputMsg(buffer);
+    // DEBUG
+    //wchar_t buffer[256];
+    //swprintf(buffer, 256, L"[P2P]: Sent %i bytes to peer.", total);
+    //AddOutputMsg(buffer);
 
     delete[] toSend;
     return true;

@@ -112,34 +112,34 @@ void StreamSender::CaptureAsStream()
     pStream->Release();
 }
 
+bool stopStream = false;
+bool measureRate = true;
+
 void StreamSender::Start()
 {
-
-    while (1)
+    u_long ticks = GetTickCount();
+    int rate = 0;
+    while (!stopStream)
     {
         CaptureAsStream();
-        Sleep(1000);
+
+        if (measureRate)
+        {
+            ++rate;
+            u_long curTicks = GetTickCount();
+            u_long elapsed = curTicks - ticks;
+            if (elapsed > 1000)
+            {
+                wchar_t buffer[256];
+                swprintf(buffer, 256, L"[P2P]: Capturing at %i frames per second.", rate);
+                AddOutputMsg(buffer);
+                measureRate = false;
+            }
+        }
     }
-
-    //CaptureAsStream();
-
-    /*
-    DWORD maxTicks = GetTickCount() + 1000;
-    int capture = 0;
-    while (GetTickCount() <= maxTicks)
-    {
-        wchar_t fileName[256];
-        swprintf(fileName, 256, L"C:\\Users\\Logan\\Desktop\\debug\\image%i.png", capture);
-        if (CaptureImageToFile(fileName)) ++capture;
-    }
-
-    wchar_t buffer[256];
-    swprintf(buffer, 256, L"[DEBUG]: captured desktop at %i fps", capture);
-    AddOutputMsg(buffer);
-    */
 }
 
 void StreamSender::Stop()
 {
-    // Stop stream
+    stopStream = true;
 }
