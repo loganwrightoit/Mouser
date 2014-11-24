@@ -29,6 +29,10 @@ SOCKET mcst_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_sock = INVALID_SOCKET;
 StreamSender *strSender = NULL;
+Gdiplus::Image* backgroundImage = nullptr;
+
+int streamLastCursorLocX = 10;
+int streamLastCursorLocY = 10;
 
 SOCKET GetPeerSocket()
 {
@@ -96,8 +100,8 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wMainClass.cbSize = sizeof(WNDCLASSEX);
     wMainClass.style = CS_HREDRAW | CS_VREDRAW;
     wMainClass.lpfnWndProc = MainWndProc;
-    wMainClass.cbClsExtra = 0;
-    wMainClass.cbWndExtra = 0;
+    wMainClass.cbClsExtra = NULL;
+    wMainClass.cbWndExtra = NULL;
     wMainClass.hInstance = hInstance;
     wMainClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wMainClass.hCursor = LoadCursor(NULL, IDC_ARROW);
@@ -112,8 +116,8 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wStreamClass.lpfnWndProc = (WNDPROC)StreamWndProc;
     wStreamClass.cbClsExtra = NULL;
     wStreamClass.cbWndExtra = NULL;
-    wStreamClass.hInstance = hInst;
-    wStreamClass.hIcon = NULL;
+    wStreamClass.hInstance = hInstance;
+    wStreamClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wStreamClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     wStreamClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
     wStreamClass.lpszMenuName = NULL;
@@ -152,7 +156,20 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        hInstance,           // hInstance
        NULL);               // lpParam
 
-   if (!hMain)
+   hStreamWindow = CreateWindow(
+       L"StreamClass",      // lpClassName
+       L"Streaming Window", // lpWindowName,
+       WS_OVERLAPPEDWINDOW, // dwStyle
+       200,                 // x
+       200,                 // y
+       800,                 // nWidth
+       600,                 // nHeight
+       NULL,                // hWndParent
+       NULL,                // hMenu
+       hInstance,           // hInstance
+       NULL);               // lpParam
+
+   if (!hMain || !hStreamWindow)
    {
       return FALSE;
    }
@@ -214,40 +231,31 @@ void ListenToPeerThread()
                         Will create a switch to process different ENUMs.
                     */
 
-                    if (!hStreamWindow)
-                    {
-                        AddOutputMsg(L"[P2P]: Created streaming window.");
-                        hStreamWindow = CreateWindow(
-                            L"StreamClass",      // lpClassName
-                            szTitle,             // lpWindowName,
-                            WS_OVERLAPPEDWINDOW, // dwStyle
-                            200,                 // x
-                            200,                 // y
-                            800,                 // nWidth
-                            600,                 // nHeight
-                            NULL,                // hWndParent
-                            NULL,                // hMenu
-                            hInst,               // hInstance
-                            NULL);               // lpParam
+                    // Client should send a stream start packet, showing window ONCE
+                    ShowWindow(hStreamWindow, SW_SHOW);
 
-                        ShowWindow(hStreamWindow, SW_SHOW);
-                    }
+                    //////// WORKING CODE
 
                     // For now, assume data is CImage stream data
                     IStream *pStream;
                     HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
                     IStream_Write(pStream, buffer, length);
-
                     // Create image from stream
                     CImage image;
                     image.Load(pStream);
-
                     // Draw to window
                     HDC hdc = GetDC(hStreamWindow);
                     image.BitBlt(hdc, 0, 0);
                     ReleaseDC(hStreamWindow, hdc);
-
                     pStream->Release();
+                    
+                    /////
+
+                    // Draw static cursor on screen after blit
+                    // Always get last location from a cache in case update has not occurred
+                    HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+                    HDC hDC = GetDC(hStreamWindow);
+                    DrawIconEx(hDC, streamLastCursorLocX, streamLastCursorLocY, NormalCursor, 0, 0, NULL, NULL, DI_DEFAULTSIZE | DI_NORMAL);
                 }
                 delete[] buffer;
             }
@@ -403,7 +411,7 @@ void SetupConnectionListener()
 //  WM_DESTROY    - post a quit message and return
 //
 //
-LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     int wmId, wmEvent;
     PAINTSTRUCT ps;
@@ -417,7 +425,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         width = rect.right - rect.left;
     }
 
-    switch (message)
+    switch (msg)
     {
     case WM_CREATE:
 
@@ -611,7 +619,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
             DestroyWindow(hWnd);
             break;
         default:
-            return DefWindowProc(hWnd, message, wParam, lParam);
+            return DefWindowProc(hWnd, msg, wParam, lParam);
         }
         break;
     case WM_PAINT:
@@ -640,11 +648,35 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
         PostQuitMessage(0);
         break;
     default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
+        return DefWindowProc(hWnd, msg, wParam, lParam);
     }
     return 0;
 }
 
+void drawGDI(HDC hDc)
+{
+    AddOutputMsg(L"Drawing the stream image...");
+
+    /*
+    IStream *pStream;
+    if (SUCCEEDED(CreateStreamOnHGlobal(0, TRUE, &pStream)))
+    {
+        IStream_Write(pStream, streamImageBuffer, streamImageLen);
+        backgroundImage->FromStream(pStream);
+
+        Gdiplus::Graphics* g = Gdiplus::Graphics::FromHDC(hDc);
+        g->SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+
+        g->DrawImage(backgroundImage, 0, 0);
+
+        g->Flush();
+        delete g;
+        pStream->Release();
+    }
+    */
+}
+
+// Message handler for stream window.
 LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     int wmId, wmEvent;
@@ -653,17 +685,22 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
 
     switch (msg)
     {
-    case WM_PAINT:
-        {
+        case WM_PAINT:
             hdc = BeginPaint(hWnd, &ps);
+
+            //drawGDI(hdc);
+
+            //UpdateStreamWindow(hdc);
+
             EndPaint(hWnd, &ps);
-        }
-        break;
-    case WM_DESTROY:
-        AddOutputMsg(L"[P2P]: Destroyed streaming window.");
-        break;
+            break;
+        case WM_DESTROY:
+            AddOutputMsg(L"[P2P]: Stream closed.");
+            break;
+        default:
+            return DefWindowProc(hWnd, msg, wParam, lParam);
     }
-    return DefWindowProc(hWnd, msg, wParam, lParam);
+    return 0;
 }
 
 // Message handler for about box.
