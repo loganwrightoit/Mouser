@@ -129,6 +129,19 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassEx(&wMainClass);
 }
 
+void CenterWindow(HWND hWnd)
+{
+    int scrX = GetSystemMetrics(SM_CXSCREEN);
+    int scrY = GetSystemMetrics(SM_CYSCREEN);
+    RECT winRect;
+    GetWindowRect(hWnd, &winRect);
+    int winWidth = winRect.right - winRect.left;
+    int winHeight = winRect.bottom - winRect.top;
+    int newLeft = scrX / 2 - winWidth / 2;
+    int newTop = scrY / 2 - winHeight / 2;
+    MoveWindow(hWnd, newLeft, newTop, winWidth, winHeight, false);
+}
+
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
 //
@@ -174,6 +187,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
+   CenterWindow(hMain);
    ShowWindow(hMain, nCmdShow);
    UpdateWindow(hMain);
 
@@ -195,6 +209,27 @@ void setWindowFont(HWND hWnd)
 void AddOutputMsg(LPWSTR msg)
 {
 	SendMessage(hOutputListBox, LB_ADDSTRING, 0, (LPARAM)msg);
+}
+
+void DrawImage(HDC hdc, CImage image)
+{
+    // Image size determined by window width and height
+    RECT hWndRect;
+    GetWindowRect(hStreamWindow, &hWndRect);
+    int hWndWidth = hWndRect.right - hWndRect.left;
+    int hWndHeight = hWndRect.bottom - hWndRect.top;
+
+    // Construct resized rect for image
+    RECT imgRect;
+    imgRect.left = 0;
+    imgRect.right = hWndWidth;
+    imgRect.top = 0;
+    imgRect.bottom = hWndHeight;
+
+    // Do corrections for aspect ratio here, and use stretch blt with more paramaters
+
+    SetStretchBltMode(hdc, HALFTONE); // Smooth resize
+    image.StretchBlt(hdc, imgRect);
 }
 
 void ListenToPeerThread()
@@ -234,22 +269,34 @@ void ListenToPeerThread()
                     // Client should send a stream start packet, showing window ONCE
                     ShowWindow(hStreamWindow, SW_SHOW);
 
-                    //////// WORKING CODE
-
                     // For now, assume data is CImage stream data
                     IStream *pStream;
                     HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
                     IStream_Write(pStream, buffer, length);
+                    
                     // Create image from stream
                     CImage image;
                     image.Load(pStream);
-                    // Draw to window
+
+                    // Adjust window size if set to image size
+                    RECT strRect;
+                    GetWindowRect(hStreamWindow, &strRect);
+                    int strWidth = strRect.right - strRect.left;
+                    int strHeight = strRect.top - strRect.bottom;
+                    
+                    if (image.GetWidth() != strWidth || image.GetHeight() != strHeight)
+                    {
+                        MoveWindow(hStreamWindow, strRect.left, strRect.top, image.GetWidth(), image.GetHeight(), false);
+                        CenterWindow(hStreamWindow);
+                    }
+
+                    // Draw image to screen
                     HDC hdc = GetDC(hStreamWindow);
-                    image.BitBlt(hdc, 0, 0);
+                    DrawImage(hdc, image); // Uses stretch blt method
+                    //image.BitBlt(hdc, 0, 0);
+
                     ReleaseDC(hStreamWindow, hdc);
                     pStream->Release();
-                    
-                    /////
 
                     // Draw static cursor on screen after blit
                     // Always get last location from a cache in case update has not occurred
@@ -685,13 +732,12 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
 
     switch (msg)
     {
+        case WM_ERASEBKGND:
+            AddOutputMsg(L"[DEBUG]: Stream window erasing background.");
+            return FALSE;
+            break;
         case WM_PAINT:
             hdc = BeginPaint(hWnd, &ps);
-
-            //drawGDI(hdc);
-
-            //UpdateStreamWindow(hdc);
-
             EndPaint(hWnd, &ps);
             break;
         case WM_DESTROY:

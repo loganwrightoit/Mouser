@@ -11,13 +11,9 @@ StreamSender::StreamSender(SOCKET sock, HWND hWnd)
     GetEncoderClsid(L"image/png", &clsid);
 
     RECT rect;
-    scrWidth = 0;
-    scrHeight = 0;
-    if (GetWindowRect(hWnd, &rect))
-    {
-        scrWidth = rect.right - rect.left;
-        scrHeight = rect.bottom - rect.top;
-    }
+    GetWindowRect(hWnd, &rect);
+    scrWidth = rect.right - rect.left;
+    scrHeight = rect.bottom - rect.top;
 
     this->sock = sock;
     this->hWnd = hWnd;
@@ -137,6 +133,8 @@ void StreamSender::Start()
             }
         }
     }
+
+    Stop();
 }
 
 void StreamSender::Stop()
