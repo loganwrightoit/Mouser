@@ -12,10 +12,13 @@ bool Receive(SOCKET sock, char * buffer, u_int recvSize);
 USHORT GetPrimaryClientPort();
 SOCKET GetConnectionSocket();
 
-bool CloseMulticast(SOCKET sock);
+bool CloseMulticast();
 SOCKET GetMulticastSocket();
-bool SendMulticast(SOCKET sock, char * identifier);
-sockaddr_in GetMulticastSenderInfo(SOCKET sock);
+bool SendMulticast(char * identifier);
+sockaddr_in GetMulticastSenderInfo();
 
 bool InitWinsock();
 void SetBlocking(SOCKET sock, bool block);
+
+void SetupMulticastListener(HWND hWnd);
+void SetupConnectionListener(HWND hWnd);

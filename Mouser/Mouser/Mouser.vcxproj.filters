@@ -48,6 +48,9 @@
     <ClInclude Include="StreamSender.h">
       <Filter>StreamUtil</Filter>
     </ClInclude>
+    <ClInclude Include="NetworkManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -64,6 +67,9 @@
     </ClCompile>
     <ClCompile Include="StreamSender.cpp">
       <Filter>StreamUtil</Filter>
+    </ClCompile>
+    <ClCompile Include="NetworkManager.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -25,8 +25,6 @@ HWND hOutputListBox;
 HWND hCaptureScreenButton;
 HWND hSendPeerDataButton;
 HWND hDisconnectPeerButton;
-SOCKET mcst_lstn_sock = INVALID_SOCKET;
-SOCKET p2p_lstn_sock = INVALID_SOCKET;
 SOCKET p2p_sock = INVALID_SOCKET;
 StreamSender *strSender = NULL;
 Gdiplus::Image* backgroundImage = nullptr;
@@ -386,69 +384,6 @@ void ConnectToPeerThread(sockaddr_in inAddr)
 }
 
 //
-// Sets up UDP multicast listener.
-//
-void SetupMulticastListener()
-{
-    mcst_lstn_sock = GetMulticastSocket();
-    if (mcst_lstn_sock != INVALID_SOCKET)
-    {
-        if (WSAAsyncSelect(mcst_lstn_sock, hMain, WM_MCST_SOCKET, FD_READ) == SOCKET_ERROR)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            CloseMulticast(mcst_lstn_sock);
-        }
-    }
-}
-
-//
-// Sets up TCP connection listener.
-//
-void SetupConnectionListener()
-{
-    p2p_lstn_sock = socket(PF_INET, SOCK_STREAM, 0);
-
-    if (p2p_lstn_sock == INVALID_SOCKET)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        return;
-    }
-    if (WSAAsyncSelect(p2p_lstn_sock, hMain, WM_P2P_LISTEN_SOCKET, (FD_CONNECT | FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        closesocket(p2p_lstn_sock);
-        return;
-    }
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    addr.sin_port = htons(GetPrimaryClientPort());
-
-    if (::bind(p2p_lstn_sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        closesocket(p2p_lstn_sock);
-        return;
-    }
-    if (listen(p2p_lstn_sock, 5) == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: listen() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        closesocket(p2p_lstn_sock);
-        return;
-    }
-}
-
-//
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
 //  PURPOSE:  Processes messages for the main window.
@@ -549,9 +484,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             NULL);
 
         // Initialize and setup connection-based and connectionless services
+
+
         InitWinsock();
-        SetupMulticastListener();
-        SetupConnectionListener();
+        SetupMulticastListener(hMain);
+        SetupConnectionListener(hMain);
+
         setWindowFont(hOutputListBox);
         setWindowFont(hSendPeerDataButton);
         setWindowFont(hDisconnectPeerButton);
@@ -569,7 +507,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             case FD_READ:
                 if (p2p_sock == INVALID_SOCKET)
                 {
-                    sockaddr_in addr = GetMulticastSenderInfo(mcst_lstn_sock);
+                    sockaddr_in addr = GetMulticastSenderInfo();
                     thread clientThread(ConnectToPeerThread, addr);
                     clientThread.detach();
                 }
@@ -592,7 +530,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             {
                 string identifier = "CLIENT_";
                 identifier.append(std::to_string(rand()));
-                SendMulticast(mcst_lstn_sock, (char*)identifier.c_str());
+                SendMulticast((char*)identifier.c_str());
             }
 			break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
@@ -679,11 +617,11 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             shutdown(p2p_sock, SD_BOTH);
             closesocket(p2p_sock);
         }
-        if (p2p_lstn_sock != INVALID_SOCKET)
-        {
-            closesocket(p2p_lstn_sock);
-        }
-        CloseMulticast(mcst_lstn_sock);
+        //if (p2p_lstn_sock != INVALID_SOCKET)
+        //{
+        //    closesocket(p2p_lstn_sock);
+        //}
+        CloseMulticast();
         WSACleanup();
         if (strSender != NULL)
         {
@@ -698,29 +636,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
     return 0;
-}
-
-void drawGDI(HDC hDc)
-{
-    AddOutputMsg(L"Drawing the stream image...");
-
-    /*
-    IStream *pStream;
-    if (SUCCEEDED(CreateStreamOnHGlobal(0, TRUE, &pStream)))
-    {
-        IStream_Write(pStream, streamImageBuffer, streamImageLen);
-        backgroundImage->FromStream(pStream);
-
-        Gdiplus::Graphics* g = Gdiplus::Graphics::FromHDC(hDc);
-        g->SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
-
-        g->DrawImage(backgroundImage, 0, 0);
-
-        g->Flush();
-        delete g;
-        pStream->Release();
-    }
-    */
 }
 
 // Message handler for stream window.

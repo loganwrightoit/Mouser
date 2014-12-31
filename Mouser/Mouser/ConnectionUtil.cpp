@@ -12,6 +12,8 @@ using namespace std;
 
 #define         DEFAULT_PORT 41920
 WSADATA         wsaData;
+SOCKET mcst_lstn_sock = INVALID_SOCKET;
+SOCKET p2p_lstn_sock = INVALID_SOCKET;
 
 /*
 Mulicast addresses
@@ -62,17 +64,17 @@ SOCKET GetConnectionSocket()
 //
 // Leaves the multicast group and closes the socket.
 //
-bool CloseMulticast(SOCKET sock)
+bool CloseMulticast()
 {
-	if (setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) == SOCKET_ERROR)
+    if (setsockopt(mcst_lstn_sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_DROP_MEMBERSHIP failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        closesocket(sock);
+        closesocket(mcst_lstn_sock);
         return false;
 	}
-    closesocket(sock);
+    closesocket(mcst_lstn_sock);
     return true;
 }
 
@@ -149,7 +151,7 @@ SOCKET GetMulticastSocket()
 //
 // Sends a multicast packet.
 //
-bool SendMulticast(SOCKET sock, char * identifier)
+bool SendMulticast(char * identifier)
 {
 	sockaddr_in addr;
 	addr.sin_family = AF_INET;
@@ -160,7 +162,7 @@ bool SendMulticast(SOCKET sock, char * identifier)
     s.append(identifier);
 
 	//char * buffer = new char[s.length()];
-	if (sendto(sock, s.c_str(), s.length(), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)    
+    if (sendto(mcst_lstn_sock, s.c_str(), s.length(), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: sendto() failed with error: %i", WSAGetLastError());
@@ -177,18 +179,18 @@ bool SendMulticast(SOCKET sock, char * identifier)
 //
 // Receives a multicast packet and returns the host.
 //
-sockaddr_in GetMulticastSenderInfo(SOCKET sock)
+sockaddr_in GetMulticastSenderInfo()
 {
 	sockaddr_in addr;
 	int addrLen = sizeof(addr);
 	char buffer[DEFAULT_BUFFER_SIZE] = "";
 
-    if (recvfrom(sock, buffer, sizeof(buffer), 0, (LPSOCKADDR)&addr, &addrLen) == SOCKET_ERROR)
+    if (recvfrom(mcst_lstn_sock, buffer, sizeof(buffer), 0, (LPSOCKADDR)&addr, &addrLen) == SOCKET_ERROR)
 	{
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: recvfrom() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-		closesocket(sock);
+        closesocket(mcst_lstn_sock);
 	}
 	else
 	{
@@ -325,5 +327,68 @@ void SetBlocking(SOCKET sock, bool block)
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Socket]: ioctlsocket() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
+    }
+}
+
+//
+// Sets up UDP multicast listener.
+//
+void SetupMulticastListener(HWND hWnd)
+{
+    mcst_lstn_sock = GetMulticastSocket();
+    if (mcst_lstn_sock != INVALID_SOCKET)
+    {
+        if (WSAAsyncSelect(mcst_lstn_sock, hWnd, WM_MCST_SOCKET, FD_READ) == SOCKET_ERROR)
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+            CloseMulticast();
+        }
+    }
+}
+
+//
+// Sets up TCP connection listener.
+//
+void SetupConnectionListener(HWND hWnd)
+{
+    p2p_lstn_sock = socket(PF_INET, SOCK_STREAM, 0);
+
+    if (p2p_lstn_sock == INVALID_SOCKET)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        return;
+    }
+    if (WSAAsyncSelect(p2p_lstn_sock, hWnd, WM_P2P_LISTEN_SOCKET, (FD_CONNECT | FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        closesocket(p2p_lstn_sock);
+        return;
+    }
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(GetPrimaryClientPort());
+
+    if (::bind(p2p_lstn_sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        closesocket(p2p_lstn_sock);
+        return;
+    }
+    if (listen(p2p_lstn_sock, 5) == SOCKET_ERROR)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: listen() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        closesocket(p2p_lstn_sock);
+        return;
     }
 }
