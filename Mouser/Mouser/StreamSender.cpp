@@ -100,7 +100,7 @@ void StreamSender::CaptureAsStream()
     IStream_Read(pStream, mem, liSize.QuadPart);
 
     // Send data
-    Send(sock, mem, liSize.QuadPart);
+    NetworkManager::GetInstance().Send(sock, mem, liSize.QuadPart);
 
     // Release memory
     image.Destroy();

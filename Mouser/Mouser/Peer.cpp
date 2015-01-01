@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "Peer.h"
+#include "NetworkManager.h"
 
 Peer::Peer(SOCKET sock, char * identifier)
 {
@@ -14,12 +15,12 @@ Peer::~Peer()
 
 void Peer::SendString(char * inBytes)
 {
-    Send(sock, inBytes, strlen(inBytes));
+    NetworkManager::GetInstance().Send(sock, inBytes, strlen(inBytes));
 }
 
 void Peer::SendCharArray(char * inBytes, u_int inLength)
 {
-    Send(sock, inBytes, inLength);
+    NetworkManager::GetInstance().Send(sock, inBytes, inLength);
 }
 
 void Peer::Disconnect()

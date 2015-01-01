@@ -18,5 +18,6 @@
 #include <tchar.h>
 
 // TODO: reference additional headers your program requires here
-#include "ConnectionUtil.h"
+#include "NetworkManager.h"
 #include "StreamSender.h"
+#include "PeerHandler.h"

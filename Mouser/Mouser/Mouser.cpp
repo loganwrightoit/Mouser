@@ -27,7 +27,8 @@ HWND hSendPeerDataButton;
 HWND hDisconnectPeerButton;
 SOCKET p2p_sock = INVALID_SOCKET;
 StreamSender *strSender = NULL;
-Gdiplus::Image* backgroundImage = nullptr;
+NetworkManager *network = &NetworkManager::GetInstance();
+PeerHandler *peerHandler = &PeerHandler::GetInstance();
 
 int streamLastCursorLocX = 10;
 int streamLastCursorLocY = 10;
@@ -230,159 +231,6 @@ void DrawImage(HDC hdc, CImage image)
     image.StretchBlt(hdc, imgRect);
 }
 
-void ListenToPeerThread()
-{
-    while (p2p_sock != INVALID_SOCKET)
-    {
-        u_int length = GetReceiveLength(p2p_sock);
-        bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
-        if (length == SOCKET_ERROR && !blocking)
-        {
-            // Socket was shutdown already, exit thread
-            return;
-        }
-        else if (!blocking)
-        {
-            if (length == 0)
-            {
-                AddOutputMsg(L"[P2P]: Peer disconnected.");
-                ::EnableWindow(hDisconnectPeerButton, false);
-                ::EnableWindow(hSendPeerDataButton, false);
-                ::EnableWindow(hCaptureScreenButton, false);
-                closesocket(p2p_sock);
-                p2p_sock = INVALID_SOCKET;
-                return;
-            }
-            else
-            {
-                // Receive remainder of message
-                char * buffer = new char[length];
-                if (Receive(p2p_sock, buffer, length))
-                {
-                    /*
-                        Need to create protocol for determining what kind of packet this is.
-                        Will create a switch to process different ENUMs.
-                    */
-
-                    // Client should send a stream start packet, showing window ONCE
-                    ShowWindow(hStreamWindow, SW_SHOW);
-
-                    // For now, assume data is CImage stream data
-                    IStream *pStream;
-                    HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
-                    IStream_Write(pStream, buffer, length);
-                    
-                    // Create image from stream
-                    CImage image;
-                    image.Load(pStream);
-
-                    // Adjust window size if set to image size
-                    RECT strRect;
-                    GetWindowRect(hStreamWindow, &strRect);
-                    int strWidth = strRect.right - strRect.left;
-                    int strHeight = strRect.top - strRect.bottom;
-                    
-                    if (image.GetWidth() != strWidth || image.GetHeight() != strHeight)
-                    {
-                        MoveWindow(hStreamWindow, strRect.left, strRect.top, image.GetWidth(), image.GetHeight(), false);
-                        CenterWindow(hStreamWindow);
-                    }
-
-                    // Draw image to screen
-                    HDC hdc = GetDC(hStreamWindow);
-                    DrawImage(hdc, image); // Uses stretch blt method
-                    //image.BitBlt(hdc, 0, 0);
-
-                    ReleaseDC(hStreamWindow, hdc);
-                    pStream->Release();
-
-                    // Draw static cursor on screen after blit
-                    // Always get last location from a cache in case update has not occurred
-                    HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
-                    HDC hDC = GetDC(hStreamWindow);
-                    DrawIconEx(hDC, streamLastCursorLocX, streamLastCursorLocY, NormalCursor, 0, 0, NULL, NULL, DI_DEFAULTSIZE | DI_NORMAL);
-                }
-                delete[] buffer;
-            }
-        }
-    }
-}
-
-void HandlePeerConnectionRequest(WPARAM wParam)
-{
-    //AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
-    if (p2p_sock == INVALID_SOCKET)
-    {
-        p2p_sock = accept(wParam, NULL, NULL);
-        if (p2p_sock == INVALID_SOCKET)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            return;
-        }
-
-        SetBlocking(p2p_sock, false);
-
-        // Create new thread for incoming P2P data
-        thread peerThread(ListenToPeerThread);
-        peerThread.detach();
-
-        sockaddr_in temp_addr;
-        int size = sizeof(temp_addr);
-        getpeername(p2p_sock, (LPSOCKADDR)&temp_addr, &size);
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(temp_addr.sin_addr));
-        AddOutputMsg(buffer);
-
-        ::EnableWindow(hDisconnectPeerButton, true);
-        ::EnableWindow(hSendPeerDataButton, true);
-        ::EnableWindow(hCaptureScreenButton, true);
-    }
-}
-
-void ConnectToPeerThread(sockaddr_in inAddr)
-{
-    if (p2p_sock == INVALID_SOCKET)
-    {
-        p2p_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (p2p_sock == INVALID_SOCKET)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            return;
-        }
-
-        // Set up our socket address structure
-        SOCKADDR_IN addr;
-        addr.sin_port = htons(GetPrimaryClientPort());
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
-
-        if (connect(p2p_sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            closesocket(p2p_sock);
-            return;
-        }
-
-        // Create new thread for incoming P2P data
-        thread peerThread(ListenToPeerThread);
-        peerThread.detach();
-
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
-        AddOutputMsg(buffer);
-
-        ::EnableWindow(hDisconnectPeerButton, true);
-        ::EnableWindow(hSendPeerDataButton, true);
-        ::EnableWindow(hCaptureScreenButton, true);
-    }
-}
-
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -484,11 +332,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             NULL);
 
         // Initialize and setup connection-based and connectionless services
-
-
-        InitWinsock();
-        SetupMulticastListener(hMain);
-        SetupConnectionListener(hMain);
+        NetworkManager::GetInstance().Init(hMain);
 
         setWindowFont(hOutputListBox);
         setWindowFont(hSendPeerDataButton);
@@ -496,28 +340,23 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         setWindowFont(hMulticastButton);
         setWindowFont(hCaptureScreenButton);
 
-        ::EnableWindow(hDisconnectPeerButton, false);
-        ::EnableWindow(hSendPeerDataButton, false);
-        ::EnableWindow(hCaptureScreenButton, false);
+        //::EnableWindow(hDisconnectPeerButton, false);
+        //::EnableWindow(hSendPeerDataButton, false);
+        //::EnableWindow(hCaptureScreenButton, false);
 
         break;
     case WM_MCST_SOCKET:
         switch (WSAGETSELECTEVENT(lParam))
         {
             case FD_READ:
-                if (p2p_sock == INVALID_SOCKET)
-                {
-                    sockaddr_in addr = GetMulticastSenderInfo();
-                    thread clientThread(ConnectToPeerThread, addr);
-                    clientThread.detach();
-                }
+                peerHandler->ConnectToPeer();
         }
         break;
     case WM_P2P_LISTEN_SOCKET:
         switch (WSAGETSELECTEVENT(lParam))
         {
             case FD_ACCEPT:
-                HandlePeerConnectionRequest(wParam);
+                peerHandler->HandlePeerConnectionRequest(wParam);
         }
         break;
     case WM_COMMAND:
@@ -530,7 +369,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             {
                 string identifier = "CLIENT_";
                 identifier.append(std::to_string(rand()));
-                SendMulticast((char*)identifier.c_str());
+                network->SendMulticast((char*)identifier.c_str());
             }
 			break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
@@ -556,7 +395,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (p2p_sock != INVALID_SOCKET)
             {
                 char * test = new char[256000];
-                Send(p2p_sock, test, 256000);
+                network->Send(p2p_sock, test, 256000);
                 delete[] test;
             }
             break;
@@ -621,7 +460,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         //{
         //    closesocket(p2p_lstn_sock);
         //}
-        CloseMulticast();
+        //network->LeaveMulticastGroup();
+
         WSACleanup();
         if (strSender != NULL)
         {

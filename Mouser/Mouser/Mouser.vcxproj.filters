@@ -16,9 +16,6 @@
     <Filter Include="Peer">
       <UniqueIdentifier>{a7b9f17f-c274-440c-a401-acafeadf06c4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ConnectionUtil">
-      <UniqueIdentifier>{d080c7ff-0b46-4cd1-81f2-f7aa0414b930}</UniqueIdentifier>
-    </Filter>
     <Filter Include="StreamUtil">
       <UniqueIdentifier>{5456e5c5-18d3-416e-b87b-13cdfabd14d5}</UniqueIdentifier>
     </Filter>
@@ -42,13 +39,13 @@
     <ClInclude Include="Peer.h">
       <Filter>Peer</Filter>
     </ClInclude>
-    <ClInclude Include="ConnectionUtil.h">
-      <Filter>ConnectionUtil</Filter>
-    </ClInclude>
     <ClInclude Include="StreamSender.h">
       <Filter>StreamUtil</Filter>
     </ClInclude>
     <ClInclude Include="NetworkManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PeerHandler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -62,13 +59,13 @@
     <ClCompile Include="Peer.cpp">
       <Filter>Peer</Filter>
     </ClCompile>
-    <ClCompile Include="ConnectionUtil.cpp">
-      <Filter>ConnectionUtil</Filter>
-    </ClCompile>
     <ClCompile Include="StreamSender.cpp">
       <Filter>StreamUtil</Filter>
     </ClCompile>
     <ClCompile Include="NetworkManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PeerHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
