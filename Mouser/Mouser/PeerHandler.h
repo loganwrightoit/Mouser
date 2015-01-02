@@ -18,7 +18,10 @@ class PeerHandler
 
     private:
 
-        PeerHandler() {};
+        PeerHandler()
+        {
+            m_peer_sock = INVALID_SOCKET;
+        };
 
         PeerHandler(PeerHandler const&);    // Singleton only
         void operator=(PeerHandler const&); // Singleton only

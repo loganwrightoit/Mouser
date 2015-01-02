@@ -15,7 +15,6 @@
 using namespace std;
 
 #define MAX_LOADSTRING 100
-#define DEFAULT_PORT 41000
 
 // Global Variables:
 HINSTANCE hInst;                        // current instance
@@ -29,14 +28,6 @@ SOCKET p2p_sock = INVALID_SOCKET;
 StreamSender *strSender = NULL;
 NetworkManager *network = &NetworkManager::GetInstance();
 PeerHandler *peerHandler = &PeerHandler::GetInstance();
-
-int streamLastCursorLocX = 10;
-int streamLastCursorLocY = 10;
-
-SOCKET GetPeerSocket()
-{
-    return p2p_sock;
-}
 
 HWND hMain;
 HWND hStreamWindow;
@@ -225,7 +216,7 @@ void DrawImage(HDC hdc, CImage image)
     imgRect.top = 0;
     imgRect.bottom = hWndHeight;
 
-    // Do corrections for aspect ratio here, and use stretch blt with more paramaters
+    // Do corrections for aspect ratio here, and use stretch blt
 
     SetStretchBltMode(hdc, HALFTONE); // Smooth resize
     image.StretchBlt(hdc, imgRect);
@@ -334,6 +325,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Initialize and setup connection-based and connectionless services
         NetworkManager::GetInstance().Init(hMain);
 
+        // Set window fonts
         setWindowFont(hOutputListBox);
         setWindowFont(hSendPeerDataButton);
         setWindowFont(hDisconnectPeerButton);

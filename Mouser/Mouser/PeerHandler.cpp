@@ -6,6 +6,8 @@
 
 void PeerHandler::ListenToPeerThread()
 {
+    AddOutputMsg(L"[DEBUG]: Listening for peer data...");
+
     /*
     while (m_peer_sock != INVALID_SOCKET)
     {
@@ -112,13 +114,13 @@ void PeerHandler::ConnectToPeerThread(sockaddr_in inAddr)
         return;
     }
 
-    // Create new thread for incoming P2P data
-    std::thread t(&PeerHandler::ListenToPeerThread, this);
-    t.detach();
-
     wchar_t buffer[256];
     swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
     AddOutputMsg(buffer);
+
+    // Create new thread for incoming P2P data
+    std::thread t(&PeerHandler::ListenToPeerThread, this);
+    t.detach();
 
     //::EnableWindow(hDisconnectPeerButton, true);
     //::EnableWindow(hSendPeerDataButton, true);
@@ -127,7 +129,6 @@ void PeerHandler::ConnectToPeerThread(sockaddr_in inAddr)
 
 void PeerHandler::HandlePeerConnectionRequest(WPARAM wParam)
 {
-    //AddOutputMsg(L"[P2P]: FD_ACCEPT event raised.");
     if (m_peer_sock == INVALID_SOCKET)
     {
         m_peer_sock = accept(wParam, NULL, NULL);

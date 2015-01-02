@@ -216,7 +216,7 @@ sockaddr_in NetworkManager::GetMulticastSenderInfo()
     else
     {
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs at %hs", buffer, inet_ntoa(addr.sin_addr));
+        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs", buffer, inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
     }
     return addr;
