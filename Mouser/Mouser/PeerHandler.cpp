@@ -1,14 +1,62 @@
 #include "stdafx.h"
 #include "PeerHandler.h"
-#include "Mouser.h"
-#include "NetworkManager.h"
 #include <thread>
 
+int PeerHandler::getNumPeers() const
+{
+    return peers.size();
+}
+
+void PeerHandler::disconnectPeer(Peer * peer)
+{
+    auto iter = peers.begin();
+    while (iter != peers.end())
+    {
+        if (*iter == peer)
+        {
+            peers.erase(iter);
+
+            sockaddr_in addr;
+            int size = sizeof(addr);
+            getpeername(peer->getSocket(), (sockaddr*)&addr, &size);
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: Peer disconnected at %hs.", inet_ntoa(addr.sin_addr));
+            AddOutputMsg(buffer);
+
+            delete peer;
+        }
+    }
+}
+
+Peer * PeerHandler::getPeer(int idx) const
+{
+    if (peers.size() >= idx)
+    {
+        return peers.at(idx);
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
+Peer * PeerHandler::getDefaultPeer() const
+{
+    if (peers.size() > 0)
+    {
+        return peers.at(0);
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
+/*
 void PeerHandler::ListenToPeerThread()
 {
     AddOutputMsg(L"[DEBUG]: Listening for peer data...");
 
-    /*
     while (m_peer_sock != INVALID_SOCKET)
     {
         u_int length = network->GetReceiveLength(m_peer_sock);
@@ -78,61 +126,59 @@ void PeerHandler::ListenToPeerThread()
             }
         }
     }
-    */
 }
+*/
 
-void PeerHandler::ConnectToPeer()
+void PeerHandler::connectToPeer()
 {
-    sockaddr_in inAddr = NetworkManager::GetInstance().GetMulticastSenderInfo();
-    std::thread t(&PeerHandler::ConnectToPeerThread, this, inAddr);
+    sockaddr_in inAddr = NetworkManager::getInstance().getMulticastSenderInfo();
+    std::thread t(&PeerHandler::connectToPeerThread, this, inAddr);
     t.detach();
 }
 
-void PeerHandler::ConnectToPeerThread(sockaddr_in inAddr)
+void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
 {
-    m_peer_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (m_peer_sock == INVALID_SOCKET)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        return;
-    }
+    //if (getDefaultPeer() == nullptr)
+    //{
+        SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sock == INVALID_SOCKET)
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+            return;
+        }
 
-    // Set up our socket address structure
-    SOCKADDR_IN addr;
-    addr.sin_port = htons(NetworkManager::GetInstance().GetPeerListenerPort());
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
+        // Set up our socket address structure
+        SOCKADDR_IN addr;
+        addr.sin_port = htons(NetworkManager::getInstance().getPeerListenerPort());
+        addr.sin_family = AF_INET;
+        addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
 
-    if (connect(m_peer_sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
-    {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
-        closesocket(m_peer_sock);
-        return;
-    }
+        if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
+        {
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
+            AddOutputMsg(buffer);
+            closesocket(sock);
+            return;
+        }
 
-    wchar_t buffer[256];
-    swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(addr.sin_addr));
-    AddOutputMsg(buffer);
+        // Add peer
+        peers.push_back(new Peer(sock));
 
-    // Create new thread for incoming P2P data
-    std::thread t(&PeerHandler::ListenToPeerThread, this);
-    t.detach();
-
-    //::EnableWindow(hDisconnectPeerButton, true);
-    //::EnableWindow(hSendPeerDataButton, true);
-    //::EnableWindow(hCaptureScreenButton, true);
+        //::EnableWindow(hDisconnectPeerButton, true);
+        //::EnableWindow(hSendPeerDataButton, true);
+        //::EnableWindow(hCaptureScreenButton, true);
+    //}
 }
 
-void PeerHandler::HandlePeerConnectionRequest(WPARAM wParam)
+void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
 {
-    if (m_peer_sock == INVALID_SOCKET)
+    if (getDefaultPeer() == nullptr)
     {
-        m_peer_sock = accept(wParam, NULL, NULL);
-        if (m_peer_sock == INVALID_SOCKET)
+        SOCKET sock = accept(wParam, NULL, NULL);
+        if (sock == INVALID_SOCKET)
         {
             wchar_t buffer[256];
             swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
@@ -140,18 +186,8 @@ void PeerHandler::HandlePeerConnectionRequest(WPARAM wParam)
             return;
         }
 
-        NetworkManager::GetInstance().SetBlocking(m_peer_sock, false);
-
-        // Create new thread for incoming P2P data
-        std::thread t(&PeerHandler::ListenToPeerThread, this);
-        t.detach();
-
-        sockaddr_in temp_addr;
-        int size = sizeof(temp_addr);
-        getpeername(m_peer_sock, (LPSOCKADDR)&temp_addr, &size);
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", inet_ntoa(temp_addr.sin_addr));
-        AddOutputMsg(buffer);
+        // Add peer
+        peers.push_back(new Peer(sock));
 
         //::EnableWindow(hDisconnectPeerButton, true);
         //::EnableWindow(hSendPeerDataButton, true);

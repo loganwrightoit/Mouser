@@ -1,15 +1,8 @@
 #include "stdafx.h"
-#include "Mouser.h"
-#include "stdafx.h"
-#include "ws2tcpip.h"
 #include "NetworkManager.h"
-#include <iostream>
+#include "ws2tcpip.h"
 #include <algorithm>
-
-using namespace std;
-
-#define PEER_LISTEN_PORT 41920
-const int DEFAULT_BUFFER_SIZE = 1464;
+#include <string>
 
 /*
 Multicast address ranges
@@ -21,24 +14,21 @@ Multicast address ranges
 239.255.0.0 to 239.255.255.255 Site-Local Scope
 */
 
-#define         MCST_ADDR   "239.255.92.163"
-#define         MCST_PORT   41921
-const int       MCST_TTL = 5; // Set higher to traverse routers
-ip_mreq         mreq;
+const char *         MCST_IP             = "239.255.92.163";
+const unsigned int   MCST_PORT           = 41921;
+const int            MCST_TTL            = 5; // Set higher to traverse routers
+const unsigned short PEER_LISTEN_PORT    = 41920;
+const int            DEFAULT_BUFFER_SIZE = 1464;
+struct ip_mreq       mreq;
 
-NetworkManager::~NetworkManager()
+void NetworkManager::init(const HWND hWnd)
 {
-    LeaveMulticastGroup();
+    startWinsock();
+    joinMulticastGroup(hWnd);
+    setupPeerListener(hWnd);
 }
 
-void NetworkManager::Init(HWND hWnd)
-{
-    StartWinsock();
-    JoinMulticastGroup(hWnd);
-    SetupPeerListener(hWnd);
-}
-
-USHORT NetworkManager::GetPeerListenerPort()
+unsigned short NetworkManager::getPeerListenerPort() const
 {
     return PEER_LISTEN_PORT;
 }
@@ -46,7 +36,7 @@ USHORT NetworkManager::GetPeerListenerPort()
 //
 // Initializes Winsock
 //
-void NetworkManager::StartWinsock()
+void NetworkManager::startWinsock()
 {
     WSADATA wsaData;
     if (WSAStartup(0x0202, &wsaData) != NO_ERROR) // Winsock 2.2
@@ -62,7 +52,7 @@ void NetworkManager::StartWinsock()
     }
 }
 
-SOCKET NetworkManager::GetPeerListenerSocket()
+SOCKET NetworkManager::getPeerListenerSocket() const
 {
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
@@ -85,24 +75,24 @@ SOCKET NetworkManager::GetPeerListenerSocket()
 //
 // Leaves the multicast group and closes the socket.
 //
-bool NetworkManager::LeaveMulticastGroup()
+bool NetworkManager::leaveMulticastGroup()
 {
-    if (setsockopt(m_mcst_sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) == SOCKET_ERROR)
+    if (setsockopt(_mcst_socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_DROP_MEMBERSHIP failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        closesocket(m_mcst_sock);
+        closesocket(_mcst_socket);
         return false;
     }
-    closesocket(m_mcst_sock);
+    closesocket(_mcst_socket);
     return true;
 }
 
 //
 // Gets a multicast socket.
 //
-SOCKET NetworkManager::GetMulticastSocket()
+SOCKET NetworkManager::getMulticastSocket() const
 {
     /* Create socket */
 
@@ -155,7 +145,7 @@ SOCKET NetworkManager::GetMulticastSocket()
 
     // Join the multicast group
 
-    mreq.imr_multiaddr.s_addr = inet_addr(MCST_ADDR);
+    mreq.imr_multiaddr.s_addr = inet_addr(MCST_IP);
     mreq.imr_interface.s_addr = INADDR_ANY;
     if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) == SOCKET_ERROR)
     {
@@ -172,18 +162,18 @@ SOCKET NetworkManager::GetMulticastSocket()
 //
 // Sends a multicast packet.
 //
-bool NetworkManager::SendMulticast(char * identifier)
+bool NetworkManager::sendMulticast(char * identifier)
 {
     sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr(MCST_ADDR);
+    addr.sin_addr.s_addr = inet_addr(MCST_IP);
     addr.sin_port = htons(MCST_PORT);
 
-    string s = "MouserMulticast|";
+    std::string s = "MouserMulticast|";
     s.append(identifier);
 
     //char * buffer = new char[s.length()];
-    if (sendto(m_mcst_sock, s.c_str(), s.length(), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
+    if (sendto(_mcst_socket, s.c_str(), s.length(), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: sendto() failed with error: %i", WSAGetLastError());
@@ -200,23 +190,23 @@ bool NetworkManager::SendMulticast(char * identifier)
 //
 // Receives a multicast packet and returns the host.
 //
-sockaddr_in NetworkManager::GetMulticastSenderInfo()
+sockaddr_in NetworkManager::getMulticastSenderInfo() const
 {
     sockaddr_in addr;
     int addrLen = sizeof(addr);
     char buffer[DEFAULT_BUFFER_SIZE] = "";
 
-    if (recvfrom(m_mcst_sock, buffer, sizeof(buffer), 0, (LPSOCKADDR)&addr, &addrLen) == SOCKET_ERROR)
+    if (recvfrom(_mcst_socket, buffer, sizeof(buffer), 0, (LPSOCKADDR)&addr, &addrLen) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Multicast]: recvfrom() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        closesocket(m_mcst_sock);
+        closesocket(_mcst_socket);
     }
     else
     {
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs", buffer, inet_ntoa(addr.sin_addr));
+        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
         AddOutputMsg(buffer);
     }
     return addr;
@@ -226,26 +216,37 @@ sockaddr_in NetworkManager::GetMulticastSenderInfo()
 // Transmit bytes over connection.
 // Returns true if bytes sent successfully.
 //
-bool NetworkManager::Send(SOCKET sock, CHAR * inBytes, u_int inSize)
+bool NetworkManager::sendPacket(SOCKET socket, Packet * pkt)
 {
-    u_int sendSize = inSize + sizeof(inSize);
-    char *toSend = new char[sendSize];
+    // Cache values
+    unsigned int dataSize = pkt->getSize();
+    Packet::Protocol protocol = pkt->getProtocol();
+
+    unsigned int lengthHeader = sizeof(protocol) + dataSize;
+    unsigned int sendSize = sizeof(unsigned int) /*Length header*/ + sizeof(protocol) + dataSize;
+    char * toSend = new char[sendSize];
 
     // Prepend message with four-byte length header
-    toSend[0] = (inSize & 0xff000000) >> 24;
-    toSend[1] = (inSize & 0xff0000) >> 16;
-    toSend[2] = (inSize & 0xff00) >> 8;
-    toSend[3] = (inSize & 0xff);
+    toSend[0] = (lengthHeader & 0xff000000) >> 24;
+    toSend[1] = (lengthHeader & 0xff0000) >> 16;
+    toSend[2] = (lengthHeader & 0xff00) >> 8;
+    toSend[3] = (lengthHeader & 0xff);
+
+    // Prepend protocol
+    toSend[4] = (protocol & 0xff000000) >> 24;
+    toSend[5] = (protocol & 0xff0000) >> 16;
+    toSend[6] = (protocol & 0xff00) >> 8;
+    toSend[7] = (protocol & 0xff);
 
     // Append data
-    memcpy_s(toSend + 4, sendSize, inBytes, inSize);
+    memcpy_s(toSend + 8, sendSize, pkt->getData(), dataSize);
 
     // Send the data
     int remaining = sendSize;
     int total = 0;
     while (remaining > 0)
     {
-        int result = send(sock, toSend + total, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
+        int result = send(socket, toSend + total, (std::min)(remaining, DEFAULT_BUFFER_SIZE), 0);
         bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
         if (result == SOCKET_ERROR && !blocking)
         {
@@ -262,42 +263,87 @@ bool NetworkManager::Send(SOCKET sock, CHAR * inBytes, u_int inSize)
         }
     }
 
-    // DEBUG
-    //wchar_t buffer[256];
-    //swprintf(buffer, 256, L"[P2P]: Sent %i bytes to peer.", total);
-    //AddOutputMsg(buffer);
-
     delete[] toSend;
     return true;
 }
 
-//
-// Gets length header (first four bytes).
-// Call Receive() after making this call to get char array.
-//
-u_int NetworkManager::GetReceiveLength(SOCKET sock)
+bool NetworkManager::isSocketReady(SOCKET sock) const
 {
-    u_int szRef = 0;
-    int result = recv(sock, (char*)&szRef, sizeof(szRef), 0);
+    bool res;
+    fd_set sready;
+    struct timeval nowait;
+
+    FD_ZERO(&sready);
+    FD_SET((unsigned int)sock, &sready);
+    memset((char *)&nowait, 0, sizeof(nowait));
+    res = select(sock, &sready, NULL, NULL, &nowait);
+
+    if (FD_ISSET(sock, &sready))
+        res = true;
+    else
+        res = false;
+
+
+    return res;
+}
+
+//
+// Blocks until data is received, returning a MouserPacket.
+// Delete packet instance when done processing data.
+//
+Packet * NetworkManager::getPacket(SOCKET socket)
+{
+    // Grab length of message (four bytes, usually)
+
+    int size = 0;
+    int result = recv(socket, (char*)&size, sizeof(size), 0);
     bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
-    if (result == SOCKET_ERROR && !blocking)
+    if (blocking)
     {
-        return result;
+        AddOutputMsg(L"[DEBUG]: doRcv() could not receive packet, would block.");
     }
 
-    return ntohl(szRef);
+    int bytesRemaining = ntohl(size);
+
+    if (result == SOCKET_ERROR && !blocking)
+    {
+        // Remove peer if connection dropped
+        if (bytesRemaining == 0)
+        {
+            return new Packet(Packet::Protocol::DISCONNECT, 0, 0);
+        }
+    }
+
+    // Grab protocol (four bytes)
+
+    int rawProtocol = 0;
+    int result1 = recv(socket, (char*)&rawProtocol, sizeof(rawProtocol), 0);
+    Packet::Protocol protocol = (Packet::Protocol) ntohl(rawProtocol);
+    bool blocking1 = WSAGetLastError() == WSAEWOULDBLOCK;
+    if (result1 == SOCKET_ERROR && !blocking1)
+    {
+        // Handle error if needed
+    }
+    bytesRemaining -= sizeof(protocol);
+
+    // Grab remaining data
+    char * data = new char[bytesRemaining];
+    doRcv(socket, data, bytesRemaining);
+
+    Packet * pkt = new Packet(protocol, data, bytesRemaining);
+    return pkt;
 }
 
 //
 // Receive byte stream.
 //
-bool NetworkManager::Receive(SOCKET sock, char * inBuffer, u_int recvLength)
+bool NetworkManager::doRcv(SOCKET socket, char * data, unsigned int recvLength)
 {
-    int total = 0;
+    unsigned int total = 0;
     while (total < recvLength)
     {
-        int size = (std::min)((int)(recvLength - total), DEFAULT_BUFFER_SIZE);
-        int result = recv(sock, (char*)(inBuffer + total), size, 0);
+        unsigned int size = (std::min)((int)(recvLength - total), DEFAULT_BUFFER_SIZE);
+        unsigned int result = recv(socket, (char*)(data + total), size, 0);
         bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
         if (result == SOCKET_ERROR && !blocking)
         {
@@ -321,11 +367,11 @@ bool NetworkManager::Receive(SOCKET sock, char * inBuffer, u_int recvLength)
 // Sets blocking mode of socket.
 // TRUE blocks, FALSE is non-blocking
 //
-void NetworkManager::SetBlocking(SOCKET sock, bool block)
+void NetworkManager::setBlocking(SOCKET socket, bool block)
 {
     block = !block;
     unsigned long mode = block;
-    if (ioctlsocket(sock, FIONBIO, &mode) != NO_ERROR)
+    if (ioctlsocket(socket, FIONBIO, &mode) != NO_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[Socket]: ioctlsocket() failed with error: %i", WSAGetLastError());
@@ -336,17 +382,17 @@ void NetworkManager::SetBlocking(SOCKET sock, bool block)
 //
 // Sets up UDP multicast listener.
 //
-void NetworkManager::JoinMulticastGroup(HWND hWnd)
+void NetworkManager::joinMulticastGroup(HWND hWnd)
 {
-    m_mcst_sock = GetMulticastSocket();
-    if (m_mcst_sock != INVALID_SOCKET)
+    _mcst_socket = getMulticastSocket();
+    if (_mcst_socket != INVALID_SOCKET)
     {
-        if (WSAAsyncSelect(m_mcst_sock, hWnd, WM_MCST_SOCKET, FD_READ) == SOCKET_ERROR)
+        if (WSAAsyncSelect(_mcst_socket, hWnd, WM_MCST_SOCKET, FD_READ) == SOCKET_ERROR)
         {
             wchar_t buffer[256];
             swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
             AddOutputMsg(buffer);
-            LeaveMulticastGroup();
+            leaveMulticastGroup();
         }
     }
 }
@@ -354,23 +400,23 @@ void NetworkManager::JoinMulticastGroup(HWND hWnd)
 //
 // Sets up TCP connection listener.
 //
-void NetworkManager::SetupPeerListener(HWND hWnd)
+void NetworkManager::setupPeerListener(HWND hWnd)
 {
-    m_p2p_lstn_sock = socket(PF_INET, SOCK_STREAM, 0);
+    _p2p_lstn_socket = socket(PF_INET, SOCK_STREAM, 0);
 
-    if (m_p2p_lstn_sock == INVALID_SOCKET)
+    if (_p2p_lstn_socket == INVALID_SOCKET)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
         return;
     }
-    if (WSAAsyncSelect(m_p2p_lstn_sock, hWnd, WM_P2P_LISTEN_SOCKET, (FD_CONNECT | FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
+    if (WSAAsyncSelect(_p2p_lstn_socket, hWnd, WM_P2P_LISTEN_SOCKET, (FD_CONNECT | FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        closesocket(m_p2p_lstn_sock);
+        closesocket(_p2p_lstn_socket);
         return;
     }
     sockaddr_in addr;
@@ -378,20 +424,20 @@ void NetworkManager::SetupPeerListener(HWND hWnd)
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(PEER_LISTEN_PORT);
 
-    if (::bind(m_p2p_lstn_sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
+    if (::bind(_p2p_lstn_socket, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        closesocket(m_p2p_lstn_sock);
+        closesocket(_p2p_lstn_socket);
         return;
     }
-    if (listen(m_p2p_lstn_sock, 5) == SOCKET_ERROR)
+    if (listen(_p2p_lstn_socket, 5) == SOCKET_ERROR)
     {
         wchar_t buffer[256];
         swprintf(buffer, 256, L"[P2P]: listen() failed with error: %i", WSAGetLastError());
         AddOutputMsg(buffer);
-        closesocket(m_p2p_lstn_sock);
+        closesocket(_p2p_lstn_socket);
         return;
     }
 }

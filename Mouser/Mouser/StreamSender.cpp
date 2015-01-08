@@ -1,14 +1,12 @@
 #include "stdafx.h"
 #include "StreamSender.h"
-#include "Mouser.h"
-#include <string>
-#include <atlimage.h>
-#include <assert.h>
+
+#include <atlimage.h> // for CImage
 
 StreamSender::StreamSender(SOCKET sock, HWND hWnd)
 {
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
-    GetEncoderClsid(L"image/png", &clsid);
+    getEncoderClsid(L"image/png", &clsid);
 
     RECT rect;
     GetWindowRect(hWnd, &rect);
@@ -35,7 +33,7 @@ StreamSender::~StreamSender()
     AddOutputMsg(L"[P2P]: Stream sender destroyed.");
 }
 
-int StreamSender::GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
+int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
 {
     UINT num = 0;
     UINT size = 0;
@@ -66,7 +64,7 @@ int StreamSender::GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
     free(pImageCodecInfo);
 }
 
-bool StreamSender::CaptureImageToFile(LPWSTR fileName)
+bool StreamSender::captureImageToFile(LPWSTR fileName)
 {
     hCaptureBitmap = CreateCompatibleBitmap(hSrcDC, scrWidth, scrHeight);
 
@@ -80,7 +78,7 @@ bool StreamSender::CaptureImageToFile(LPWSTR fileName)
 //
 // Sends bitmap (or converted format) through socket as byte array.
 //
-void StreamSender::CaptureAsStream()
+void StreamSender::captureAsStream()
 {
     // Prepare stream
     IStream *pStream;
@@ -100,7 +98,7 @@ void StreamSender::CaptureAsStream()
     IStream_Read(pStream, mem, liSize.QuadPart);
 
     // Send data
-    NetworkManager::GetInstance().Send(sock, mem, liSize.QuadPart);
+    //NetworkManager::getInstance().send(sock, mem, liSize.QuadPart);
 
     // Release memory
     image.Destroy();
@@ -111,13 +109,13 @@ void StreamSender::CaptureAsStream()
 bool stopStream = false;
 bool measureRate = true;
 
-void StreamSender::Start()
+void StreamSender::start()
 {
     u_long ticks = GetTickCount();
     int rate = 0;
     while (!stopStream)
     {
-        CaptureAsStream();
+        captureAsStream();
 
         if (measureRate)
         {
@@ -134,10 +132,10 @@ void StreamSender::Start()
         }
     }
 
-    Stop();
+    stop();
 }
 
-void StreamSender::Stop()
+void StreamSender::stop()
 {
     stopStream = true;
 }

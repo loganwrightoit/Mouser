@@ -13,12 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Peer">
-      <UniqueIdentifier>{a7b9f17f-c274-440c-a401-acafeadf06c4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="StreamUtil">
-      <UniqueIdentifier>{5456e5c5-18d3-416e-b87b-13cdfabd14d5}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -36,16 +30,19 @@
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Peer.h">
-      <Filter>Peer</Filter>
-    </ClInclude>
-    <ClInclude Include="StreamSender.h">
-      <Filter>StreamUtil</Filter>
-    </ClInclude>
     <ClInclude Include="NetworkManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PeerHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Packet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Peer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StreamSender.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -56,16 +53,19 @@
     <ClCompile Include="Mouser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Peer.cpp">
-      <Filter>Peer</Filter>
-    </ClCompile>
-    <ClCompile Include="StreamSender.cpp">
-      <Filter>StreamUtil</Filter>
-    </ClCompile>
     <ClCompile Include="NetworkManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="PeerHandler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Packet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Peer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StreamSender.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

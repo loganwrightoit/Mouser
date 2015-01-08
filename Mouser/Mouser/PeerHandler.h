@@ -1,32 +1,35 @@
 #pragma once
 
+#include <vector>
+
 class PeerHandler
 {
 
     public:
 
-        static PeerHandler& GetInstance()
+        static PeerHandler& getInstance()
         {
             static PeerHandler instance;
             return instance;
         }
 
-        void ConnectToPeer();
-        void ConnectToPeerThread(sockaddr_in inAddr);
-        void ListenToPeerThread();
-        void HandlePeerConnectionRequest(WPARAM wParam);
+        void disconnectPeer(Peer * peer);
+        int PeerHandler::getNumPeers() const;
+        Peer * getPeer(int idx) const;
+        Peer * getDefaultPeer() const; // For testing only, returns first peer in list
+        void connectToPeer();
+        void handlePeerConnectionRequest(WPARAM wParam);
 
     private:
 
-        PeerHandler()
-        {
-            m_peer_sock = INVALID_SOCKET;
-        };
+        PeerHandler() {};
+
+        void connectToPeerThread(sockaddr_in inAddr);
 
         PeerHandler(PeerHandler const&);    // Singleton only
         void operator=(PeerHandler const&); // Singleton only
 
-        SOCKET m_peer_sock;
+        std::vector<Peer*> peers;
 
 };
 

@@ -18,6 +18,12 @@
 #include <tchar.h>
 
 // TODO: reference additional headers your program requires here
+#include "Mouser.h"
+
+// Common class references
+#include "Peer.h"
+#include "Packet.h"
+
+// Static class instances
 #include "NetworkManager.h"
-#include "StreamSender.h"
 #include "PeerHandler.h"

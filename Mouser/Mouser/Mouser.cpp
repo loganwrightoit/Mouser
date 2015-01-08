@@ -7,9 +7,7 @@
 #include "stdafx.h"
 #include "Mouser.h"
 #include <string>
-#include <thread>
 #include <stdlib.h>
-#include <iostream>
 #include <atlimage.h> // IStream_ and CImage functions
 
 using namespace std;
@@ -24,10 +22,8 @@ HWND hOutputListBox;
 HWND hCaptureScreenButton;
 HWND hSendPeerDataButton;
 HWND hDisconnectPeerButton;
-SOCKET p2p_sock = INVALID_SOCKET;
-StreamSender *strSender = NULL;
-NetworkManager *network = &NetworkManager::GetInstance();
-PeerHandler *peerHandler = &PeerHandler::GetInstance();
+NetworkManager *network = &NetworkManager::getInstance();
+PeerHandler *peerHandler = &PeerHandler::getInstance();
 
 HWND hMain;
 HWND hStreamWindow;
@@ -323,7 +319,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             NULL);
 
         // Initialize and setup connection-based and connectionless services
-        NetworkManager::GetInstance().Init(hMain);
+        NetworkManager::getInstance().init(hMain);
 
         // Set window fonts
         setWindowFont(hOutputListBox);
@@ -341,97 +337,69 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         switch (WSAGETSELECTEVENT(lParam))
         {
             case FD_READ:
-                peerHandler->ConnectToPeer();
+                peerHandler->connectToPeer();
         }
         break;
     case WM_P2P_LISTEN_SOCKET:
         switch (WSAGETSELECTEVENT(lParam))
         {
             case FD_ACCEPT:
-                peerHandler->HandlePeerConnectionRequest(wParam);
+                peerHandler->handlePeerConnectionRequest(wParam);
         }
         break;
     case WM_COMMAND:
         wmId    = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
+
         // Parse the menu selections:
         switch (wmId)
         {
         case IDC_MAIN_MULTICAST_DISC_BUTTON:
-            {
-                string identifier = "CLIENT_";
-                identifier.append(std::to_string(rand()));
-                network->SendMulticast((char*)identifier.c_str());
-            }
-			break;
+        {
+            std::string identifier = "CLIENT_";
+            identifier.append(std::to_string(rand()));
+            network->sendMulticast((char*)identifier.c_str());
+        }
+            break;
         case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
-            if (p2p_sock != INVALID_SOCKET)
+            /*
+            if (strSender == NULL)
             {
-                if (strSender == NULL)
-                {
-                    strSender = new StreamSender(p2p_sock, GetDesktopWindow());
-                    thread streamThread(&StreamSender::Start, strSender);
-                    streamThread.detach();
-                    SetWindowText(hCaptureScreenButton, L"Stop Streaming");
-                }
-                else
-                {
-                    strSender->Stop();
-                    strSender->~StreamSender();
-                    strSender = NULL;
-                    SetWindowText(hCaptureScreenButton, L"Start Streaming");
-                }
-            }
-            break;
-        case IDC_MAIN_SEND_PEER_DATA_BUTTON:
-            if (p2p_sock != INVALID_SOCKET)
-            {
-                char * test = new char[256000];
-                network->Send(p2p_sock, test, 256000);
-                delete[] test;
-            }
-            break;
-        case IDC_MAIN_DISCONNECT_PEER_BUTTON:
-            if (p2p_sock != INVALID_SOCKET)
-            {
-                if (shutdown(p2p_sock, SD_SEND) == SOCKET_ERROR)
-                {
-                    wchar_t buffer[256];
-                    swprintf(buffer, 256, L"[P2P]: shutdown() failed with error: %i", WSAGetLastError());
-                    AddOutputMsg(buffer);
-                }
-                if (closesocket(p2p_sock) == SOCKET_ERROR)
-                {
-                    wchar_t buffer[256];
-                    swprintf(buffer, 256, L"[P2P]: closesocket() failed with error: %i", WSAGetLastError());
-                    AddOutputMsg(buffer);
-                }
-                else
-                {
-                    AddOutputMsg(L"[P2P]: Connection closed.");
-                }
-
-                // Disable button and change text
-                ::EnableWindow(hDisconnectPeerButton, false);
-                ::EnableWindow(hSendPeerDataButton, false);
-                ::EnableWindow(hCaptureScreenButton, false);
-                SetWindowText(hCaptureScreenButton, L"Start Streaming");
-
+                strSender = new StreamSender(p2p_sock, GetDesktopWindow());
+                thread streamThread(&StreamSender::Start, strSender);
+                streamThread.detach();
+                SetWindowText(hCaptureScreenButton, L"Stop Streaming");
             }
             else
             {
-                AddOutputMsg(L"[P2P]: Must connect to a peer before disconnecting.");
+                strSender->Stop();
+                strSender->~StreamSender();
+                strSender = NULL;
+                SetWindowText(hCaptureScreenButton, L"Start Streaming");
             }
-            p2p_sock = INVALID_SOCKET;
+            */
+            break;
+        case IDC_MAIN_SEND_PEER_DATA_BUTTON:
+            {
+                if (peerHandler->getDefaultPeer() != nullptr)
+                {
+                    peerHandler->getDefaultPeer()->sendStreamCursor();
+                }
+            }
+            break;
+        case IDC_MAIN_DISCONNECT_PEER_BUTTON:
+            peerHandler->disconnectPeer(peerHandler->getDefaultPeer());
             break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
             break;
         case IDM_EXIT:
+            /*
             if (strSender != NULL)
             {
                 strSender->~StreamSender();
             }
+            */
             DestroyWindow(hWnd);
             break;
         default:
@@ -443,11 +411,13 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
+        /*
         if (p2p_sock != INVALID_SOCKET)
         {
             shutdown(p2p_sock, SD_BOTH);
             closesocket(p2p_sock);
         }
+        */
         //if (p2p_lstn_sock != INVALID_SOCKET)
         //{
         //    closesocket(p2p_lstn_sock);
@@ -455,10 +425,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         //network->LeaveMulticastGroup();
 
         WSACleanup();
+        /*
         if (strSender != NULL)
         {
             strSender->~StreamSender();
         }
+        */
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:

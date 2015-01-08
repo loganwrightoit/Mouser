@@ -1,9 +1,10 @@
 #pragma once
+#pragma comment (lib,"Gdiplus.lib")
 
 #include <objidl.h>
 #include <gdiplus.h>
+
 using namespace Gdiplus;
-#pragma comment (lib,"Gdiplus.lib")
 
 class StreamSender
 {
@@ -13,15 +14,15 @@ class StreamSender
         StreamSender(SOCKET sock, HWND hWnd);
         ~StreamSender();
 
-        void Start();
-        void Stop();
+        void start();
+        void stop();
         
     private:
 
-        int GetEncoderClsid(const WCHAR* format, CLSID* pClsid);
-        void CaptureAsStream();
-        void ReceiveBitmapAsStream();
-        bool CaptureImageToFile(LPWSTR fileName);
+        int getEncoderClsid(const WCHAR * format, CLSID * pClsid);
+        void captureAsStream();
+        void receiveBitmapAsStream();
+        bool captureImageToFile(LPWSTR fileName);
 
         SOCKET              sock;
         ULONG_PTR           gdiplusToken;
