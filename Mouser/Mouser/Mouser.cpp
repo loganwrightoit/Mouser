@@ -32,6 +32,7 @@ HWND hStreamWindow;
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    MainWndProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK    PeerWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    StreamWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
@@ -77,10 +78,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
     WNDCLASSEX wMainClass;
+    WNDCLASSEX wPeerClass;
     WNDCLASSEX wStreamClass;
 
     // May be unnecessary
     memset(&wMainClass, 0, sizeof(WNDCLASSEX));
+    memset(&wPeerClass, 0, sizeof(WNDCLASSEX));
     memset(&wStreamClass, 0, sizeof(WNDCLASSEX));
 
     wMainClass.cbSize = sizeof(WNDCLASSEX);
@@ -96,6 +99,20 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wMainClass.lpszClassName = szWindowClass;
     wMainClass.hIconSm = LoadIcon(wMainClass.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
+    // Peer window
+    wPeerClass.cbSize = sizeof(WNDCLASSEX);
+    wPeerClass.style = CS_HREDRAW | CS_VREDRAW;
+    wPeerClass.lpfnWndProc = (WNDPROC)PeerWndProc;
+    wPeerClass.cbClsExtra = NULL;
+    wPeerClass.cbWndExtra = NULL;
+    wPeerClass.hInstance = hInstance;
+    wPeerClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
+    wPeerClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wPeerClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wPeerClass.lpszMenuName = NULL;
+    wPeerClass.lpszClassName = L"PeerClass";
+    wPeerClass.hIconSm = NULL;
+
     // Stream window
     wStreamClass.cbSize = sizeof(WNDCLASSEX);
     wStreamClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -110,9 +127,14 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wStreamClass.lpszClassName = L"StreamClass";
     wStreamClass.hIconSm = NULL;
 
-    RegisterClassEx(&wStreamClass);
+    return RegisterClassEx(&wMainClass) &
+           RegisterClassEx(&wPeerClass) &
+           RegisterClassEx(&wStreamClass);
+}
 
-    return RegisterClassEx(&wMainClass);
+HINSTANCE getHInst()
+{
+    return hInst;
 }
 
 void CenterWindow(HWND hWnd)
@@ -155,6 +177,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        hInstance,           // hInstance
        NULL);               // lpParam
 
+   /*
    hStreamWindow = CreateWindow(
        L"StreamClass",      // lpClassName
        L"Streaming Window", // lpWindowName,
@@ -167,11 +190,18 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        NULL,                // hMenu
        hInstance,           // hInstance
        NULL);               // lpParam
+       */
 
-   if (!hMain || !hStreamWindow)
+   if (!hMain)// || !hStreamWindow)
    {
       return FALSE;
    }
+
+
+   // DEBUG
+   wchar_t buffer[256];
+   swprintf(buffer, 256, L"[DEBUG]: nCmdShow: %d", nCmdShow);
+   OutputDebugString(buffer);
 
    CenterWindow(hMain);
    ShowWindow(hMain, nCmdShow);
@@ -438,6 +468,78 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);
+    }
+    return 0;
+}
+
+// Message handler for peer window.
+LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    int wmId, wmEvent;
+    PAINTSTRUCT ps;
+    HDC hdc;
+    Peer* peer = (Peer*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+
+    if (peer == NULL)
+    {
+        return DefWindowProc(hWnd, msg, wParam, lParam);
+    }
+    else
+    {
+        switch (msg)
+        {
+        case WM_COMMAND:
+            wmId = LOWORD(wParam);
+            wmEvent = HIWORD(wParam);
+
+            // Parse the menu selections:
+            switch (wmId)
+            {
+
+            case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
+                /*
+                if (strSender == NULL)
+                {
+                strSender = new StreamSender(p2p_sock, GetDesktopWindow());
+                thread streamThread(&StreamSender::Start, strSender);
+                streamThread.detach();
+                SetWindowText(hCaptureScreenButton, L"Stop Streaming");
+                }
+                else
+                {
+                strSender->Stop();
+                strSender->~StreamSender();
+                strSender = NULL;
+                SetWindowText(hCaptureScreenButton, L"Start Streaming");
+                }
+                */
+                break;
+            case IDC_MAIN_SEND_PEER_DATA_BUTTON:
+                peer->sendStreamCursor();
+                break;
+            case IDM_EXIT:
+                /*
+                if (strSender != NULL)
+                {
+                strSender->~StreamSender();
+                }
+                */
+                DestroyWindow(hWnd);
+                break;
+            default:
+                return DefWindowProc(hWnd, msg, wParam, lParam);
+            }
+            break;
+        case WM_PAINT:
+            hdc = BeginPaint(hWnd, &ps);
+            EndPaint(hWnd, &ps);
+            break;
+        case WM_DESTROY:
+            AddOutputMsg(L"[P2P]: Peer window closed.");
+            break;
+        default:
+            return DefWindowProc(hWnd, msg, wParam, lParam);
+        }
     }
     return 0;
 }

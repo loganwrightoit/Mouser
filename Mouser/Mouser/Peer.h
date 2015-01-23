@@ -21,6 +21,8 @@ class Peer
         Peer(const Peer&); //not implemented anywhere
         void operator=(const Peer&); //not implemented anywhere
 
+        void AddChat(LPWSTR msg);
+
         void rcvThread();
 
         void getStreamOpen(Packet * pkt);
@@ -29,8 +31,10 @@ class Peer
         void getStreamCursor(Packet * pkt);
 
         SOCKET _socket;
-        HWND _hWnd_stream;
+        HWND _hWnd;
         HWND _hWnd_chat;
+        HWND _hWnd_sendData;
+        HWND _hWnd_stream;
         POINT _cursor;
 
 };

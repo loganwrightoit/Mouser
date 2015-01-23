@@ -3,8 +3,62 @@
 #include <thread>
 
 Peer::Peer(SOCKET peer_socket = 0)
-: _socket(peer_socket), _cursor(POINT{ 0, 0 }), _hWnd_stream(0), _hWnd_chat(0)
+: _socket(peer_socket), _cursor(POINT{ 0, 0 })
 {
+    // Create parent peer window
+    _hWnd = CreateWindowEx(
+        WS_EX_CLIENTEDGE,
+        L"PeerClass",
+        L"Peer Window",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 300, 390,
+        NULL, NULL, getHInst(), NULL);
+
+    // Add class pointer to main handle as lParam to decipher where messages should go
+    SetWindowLongPtr(_hWnd, GWLP_USERDATA, (LONG_PTR)this);
+
+    // Create output edit box
+    _hWnd_chat = CreateWindowEx(WS_EX_CLIENTEDGE,
+        L"LISTBOX",
+        L"",
+        WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+        0,
+        0,
+        300,
+        300,
+        _hWnd,
+        (HMENU)IDC_PEER_CHAT_LISTBOX,
+        GetModuleHandle(NULL),
+        NULL);
+
+    // Create send data button
+    _hWnd_sendData = CreateWindowEx(NULL,
+        L"BUTTON",
+        L"Send Data",
+        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+        0, // x padding
+        300, // y padding
+        300, // width
+        30,  // height
+        _hWnd,
+        (HMENU)IDC_MAIN_SEND_PEER_DATA_BUTTON,
+        GetModuleHandle(NULL),
+        NULL);
+
+    // Create separate stream window
+    /*
+    _hWnd_stream = CreateWindowEx(
+        WS_EX_CLIENTEDGE,
+        L"StreamClass",
+        L"Streaming Window",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 240, 120,
+        NULL, NULL, getHInst(), NULL);
+        */
+
+    // Show peer window
+    ShowWindow(_hWnd, SW_SHOWDEFAULT);
+
     // Start receive thread
     std::thread t(&Peer::rcvThread, this);
     t.detach();
@@ -15,7 +69,7 @@ Peer::~Peer()
     shutdown(_socket, SD_BOTH);
     closesocket(_socket);
 
-    if (_hWnd_chat)
+    if (_hWnd)
     {
         //DestroyWindow(_hWnd_chat);
     }
@@ -30,6 +84,11 @@ SOCKET Peer::getSocket() const
     return _socket;
 }
 
+void Peer::AddChat(LPWSTR msg)
+{
+    SendMessage(_hWnd_chat, LB_ADDSTRING, 0, (LPARAM)msg);
+}
+
 void Peer::rcvThread()
 {
     // Notify output window of new peer connection
@@ -39,6 +98,9 @@ void Peer::rcvThread()
     wchar_t buffer[256];
     swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs:%d.", inet_ntoa(addr.sin_addr), _socket);
     AddOutputMsg(buffer);
+
+    // Send notification to peer window
+    AddChat(L"[INFO]: Connected to peer.");
 
     while (1)
     {
