@@ -138,59 +138,45 @@ void PeerHandler::connectToPeer()
 
 void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
 {
-    //if (getDefaultPeer() == nullptr)
-    //{
-        SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (sock == INVALID_SOCKET)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            return;
-        }
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock == INVALID_SOCKET)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        return;
+    }
 
-        // Set up our socket address structure
-        SOCKADDR_IN addr;
-        addr.sin_port = htons(NetworkManager::getInstance().getPeerListenerPort());
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
+    // Set up our socket address structure
+    SOCKADDR_IN addr;
+    addr.sin_port = htons(NetworkManager::getInstance().getPeerListenerPort());
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inAddr.sin_addr.S_un.S_addr;
 
-        if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            closesocket(sock);
-            return;
-        }
+    if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
+    {
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        closesocket(sock);
+        return;
+    }
 
-        // Add peer
-        peers.push_back(new Peer(sock));
-
-        //::EnableWindow(hDisconnectPeerButton, true);
-        //::EnableWindow(hSendPeerDataButton, true);
-        //::EnableWindow(hCaptureScreenButton, true);
-    //}
+    // Add peer
+    peers.push_back(new Peer(sock));
 }
 
 void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
 {
-    if (getDefaultPeer() == nullptr)
+    SOCKET sock = accept(wParam, NULL, NULL);
+    if (sock == INVALID_SOCKET)
     {
-        SOCKET sock = accept(wParam, NULL, NULL);
-        if (sock == INVALID_SOCKET)
-        {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
-            return;
-        }
-
-        // Add peer
-        peers.push_back(new Peer(sock));
-
-        //::EnableWindow(hDisconnectPeerButton, true);
-        //::EnableWindow(hSendPeerDataButton, true);
-        //::EnableWindow(hCaptureScreenButton, true);
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
+        AddOutputMsg(buffer);
+        return;
     }
+
+    // Add peer
+    peers.push_back(new Peer(sock));
 }

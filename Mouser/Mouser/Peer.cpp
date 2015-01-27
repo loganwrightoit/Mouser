@@ -8,13 +8,15 @@ Peer::Peer(SOCKET peer_socket = 0)
     // Create parent peer window
     _hWnd = CreateWindowEx(
         WS_EX_CLIENTEDGE,
-        L"PeerClass",
+        (LPCWSTR) CLS_NAME_PEER,
         L"Peer Window",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 300, 390,
         NULL, NULL, getHInst(), NULL);
 
-    // Add class pointer to main handle as lParam to decipher where messages should go
+    ShowWindow(_hWnd, SW_SHOW);
+
+    // Add class pointer to window handle for message processing
     SetWindowLongPtr(_hWnd, GWLP_USERDATA, (LONG_PTR)this);
 
     // Create output edit box
@@ -49,15 +51,12 @@ Peer::Peer(SOCKET peer_socket = 0)
     /*
     _hWnd_stream = CreateWindowEx(
         WS_EX_CLIENTEDGE,
-        L"StreamClass",
+        (LPCWSTR) CLS_NAME_STREAM,
         L"Streaming Window",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT, 240, 120,
         NULL, NULL, getHInst(), NULL);
         */
-
-    // Show peer window
-    ShowWindow(_hWnd, SW_SHOWDEFAULT);
 
     // Start receive thread
     std::thread t(&Peer::rcvThread, this);
@@ -98,7 +97,7 @@ void Peer::rcvThread()
     wchar_t buffer[256];
     swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs:%d.", inet_ntoa(addr.sin_addr), _socket);
     AddOutputMsg(buffer);
-
+    
     // Send notification to peer window
     AddChat(L"[INFO]: Connected to peer.");
 
@@ -106,9 +105,6 @@ void Peer::rcvThread()
     {
         if (NetworkManager::getInstance().isSocketReady(_socket)) // Seems to be CPU intensive
         {
-            // Need to check if shutdown command received,
-            // otherwise thread could continue a long time.
-
             Packet * pkt = nullptr;
 
             try

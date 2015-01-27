@@ -110,7 +110,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wPeerClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     wPeerClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
     wPeerClass.lpszMenuName = NULL;
-    wPeerClass.lpszClassName = L"PeerClass";
+    wPeerClass.lpszClassName = (LPCWSTR) CLS_NAME_PEER;
     wPeerClass.hIconSm = NULL;
 
     // Stream window
@@ -124,7 +124,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wStreamClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     wStreamClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
     wStreamClass.lpszMenuName = NULL;
-    wStreamClass.lpszClassName = L"StreamClass";
+    wStreamClass.lpszClassName = (LPCWSTR) CLS_NAME_STREAM;
     wStreamClass.hIconSm = NULL;
 
     return RegisterClassEx(&wMainClass) &
@@ -469,6 +469,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
+
     return 0;
 }
 
@@ -478,16 +479,16 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
-    Peer* peer = (Peer*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
-    if (peer == NULL)
+    Peer* peer = (Peer*) GetWindowLongPtr(hWnd, GWLP_USERDATA);
+    if (peer == nullptr)
     {
+        AddOutputMsg(L"[DEBUG]: Peer window has nullptr.");
         return DefWindowProc(hWnd, msg, wParam, lParam);
     }
-    else
+
+    switch (msg)
     {
-        switch (msg)
-        {
         case WM_COMMAND:
             wmId = LOWORD(wParam);
             wmEvent = HIWORD(wParam);
@@ -535,12 +536,13 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             EndPaint(hWnd, &ps);
             break;
         case WM_DESTROY:
+            PostQuitMessage(0);
             AddOutputMsg(L"[P2P]: Peer window closed.");
             break;
         default:
             return DefWindowProc(hWnd, msg, wParam, lParam);
-        }
     }
+
     return 0;
 }
 
@@ -562,11 +564,13 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
             EndPaint(hWnd, &ps);
             break;
         case WM_DESTROY:
+            PostQuitMessage(0);
             AddOutputMsg(L"[P2P]: Stream closed.");
             break;
         default:
             return DefWindowProc(hWnd, msg, wParam, lParam);
     }
+
     return 0;
 }
 
@@ -574,6 +578,7 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
+
     switch (message)
     {
     case WM_INITDIALOG:
@@ -587,5 +592,6 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+
     return (INT_PTR)FALSE;
 }
