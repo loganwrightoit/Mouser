@@ -27,6 +27,9 @@ HWND hMouserOutputListBox;
 HWND hMouserPeerListBox;
 HWND hMouserPeerLabel;
 HWND hMouserOutputLabel;
+HWND hPeerChatEditBox;
+HWND hPeerChatButton;
+HWND hPeerChatListBox;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
 
@@ -118,7 +121,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wPeerClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wPeerClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     wPeerClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
-    wPeerClass.lpszMenuName = NULL;
+    wPeerClass.lpszMenuName = MAKEINTRESOURCE(IDC_PEER);
     wPeerClass.lpszClassName = szPeerClass;
     wPeerClass.hIconSm = NULL;
 
@@ -132,7 +135,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wStreamClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wStreamClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     wStreamClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
-    wStreamClass.lpszMenuName = NULL;
+    wStreamClass.lpszMenuName = MAKEINTRESOURCE(IDC_STREAM);
     wStreamClass.lpszClassName = szStreamClass;
     wStreamClass.hIconSm = NULL;
 
@@ -175,8 +178,8 @@ HWND getWindow(WindowType type, int nCmdShow)
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            300,
-            390,
+            400,
+            345,
             NULL,
             NULL,
             hInst,
@@ -294,7 +297,6 @@ image.StretchBlt(hdc, imgRect);
 //  WM_COMMAND    - process the application menu
 //  WM_PAINT    - Paint the main window
 //  WM_DESTROY    - post a quit message and return
-//
 //
 LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -502,6 +504,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+//
+// Updates peer listbox when a peer connects or disconnects.
+//
 void updatePeerListBoxData()
 {
     std::vector<Peer*> peers = peerHandler->getPeers();
@@ -532,18 +537,87 @@ void updatePeerListBoxData()
     }
 }
 
+//
 // Message handler for peer window.
+//
 LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    Peer* peer = (Peer*) GetWindowLongPtr(hWnd, GWL_USERDATA);
+    if (peer == nullptr && msg != WM_CREATE)
+    {
+        return DefWindowProc(hWnd, msg, wParam, lParam);
+    }
+
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
 
+    int width = 100;
+    RECT rect;
+    if (GetWindowRect(hWnd, &rect))
+    {
+        width = rect.right - rect.left;
+    }
+
     switch (msg)
     {
+    case WM_CREATE:
+
+        // Create output edit box
+        hPeerChatListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+            L"LISTBOX",
+            L"",
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+            5,
+            5,
+            width - 10,
+            280,
+            hWnd,
+            (HMENU)IDC_PEER_CHAT_LISTBOX,
+            hInst,
+            NULL);
+
+        setWindowFont(hPeerChatListBox);
+
+        // Create send data button
+        hPeerChatButton = CreateWindowEx(NULL,
+            L"BUTTON",
+            L"Send",
+            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+            5,
+            290,
+            (width - 10) * 0.2F,
+            30,
+            hWnd,
+            (HMENU)IDC_PEER_CHAT_BUTTON,
+            hInst,
+            NULL);
+
+        setWindowFont(hPeerChatButton);
+
+        // Create output edit box
+        hPeerChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+            L"EDIT",
+            L"",
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+            (5 + (width - 10) * 0.2F) + 5,
+            290,
+            (width - 15) * 0.8F,
+            30,
+            hWnd,
+            (HMENU)IDC_PEER_CHAT_EDITBOX,
+            hInst,
+            NULL);
+
+        setWindowFont(hPeerChatEditBox);
+
+        break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         EndPaint(hWnd, &ps);
+        break;
+    case WM_DESTROY:
+        peer->clearHwnd();
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -552,7 +626,9 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+//
 // Message handler for stream window.
+//
 LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     int wmId, wmEvent;
@@ -569,7 +645,7 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
-        PostQuitMessage(0);
+        //PostQuitMessage(0);
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -578,7 +654,9 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     return 0;
 }
 
+//
 // Message handler for about box.
+//
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);

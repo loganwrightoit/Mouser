@@ -3,7 +3,7 @@
 #include <thread>
 
 Peer::Peer(SOCKET peer_socket = 0)
-: _socket(peer_socket), _cursor(POINT{ 0, 0 })
+: _socket(peer_socket), _cursor(POINT{ 0, 0 }), _hWnd(0), _hWnd_stream(0)
 {
     // Start receive thread
     std::thread t(&Peer::rcvThread, this);
@@ -25,44 +25,27 @@ Peer::~Peer()
     }
 }
 
+void Peer::clearHwnd()
+{
+    _hWnd = 0;
+}
+
 void Peer::openChatWindow()
 {
-    // Create peer window
-    _hWnd = getWindow(WindowType::PeerWin);
+    // If window exists, make active
+    if (_hWnd != NULL)
+    {
+        ShowWindow(_hWnd, SW_RESTORE);
+        SetFocus(_hWnd);
+    }
+    else
+    {
+        // Create peer window
+        _hWnd = getWindow(WindowType::PeerWin);
 
-    // Add class pointer to window handle for message processing
-    SetWindowLongPtr(_hWnd, GWLP_USERDATA, (LONG_PTR)this);
-
-    // Create controls in processor
-    /*
-    // Create output edit box
-    hChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
-        L"LISTBOX",
-        L"",
-        WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-        0,
-        0,
-        300,
-        300,
-        _hWnd,
-        (HMENU)IDC_PEER_CHAT_LISTBOX,
-        GetModuleHandle(NULL),
-        NULL);
-
-    // Create send data button
-    _hWnd_sendData = CreateWindowEx(NULL,
-        L"BUTTON",
-        L"Send Data",
-        WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-        0, // x padding
-        300, // y padding
-        300, // width
-        30,  // height
-        _hWnd,
-        NULL,
-        GetModuleHandle(NULL),
-        NULL);
-    */
+        // Add class pointer to window handle for message processing
+        SetWindowLongPtr(_hWnd, GWLP_USERDATA, (LONG_PTR)this);
+    }
 }
 
 void Peer::openStreamWindow()
@@ -92,17 +75,6 @@ void Peer::rcvThread()
     wchar_t buffer[256];
     swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", ip);
     AddOutputMsg(buffer);
-
-    /*
-    const size_t cSize = strlen(ip) + 1;
-    std::wstring wc(cSize, L'#');
-    mbstowcs(&wc[0], ip, cSize);
-
-    // Add peer item to peer list in Mouser GUI
-    HWND hPeers = getPeerListBox();
-    int index = SendMessage(hPeers, LB_ADDSTRING, 0, (LPARAM)wc.c_str());
-    SendMessage(hPeers, LB_SETITEMDATA, (WPARAM)index, (LPARAM)this);
-    */
 
     while (1)
     {
@@ -201,7 +173,6 @@ void Peer::sendStreamCursor()
             Packet * pkt = new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor));
             NetworkManager::getInstance().sendPacket(_socket, pkt);
 
-            // TODO: Figure out why I can't free this memory
             delete pkt;
         }
     }

@@ -7,11 +7,6 @@ std::vector<Peer*> PeerHandler::getPeers() const
     return peers;
 }
 
-int PeerHandler::getNumPeers() const
-{
-    return peers.size();
-}
-
 void PeerHandler::disconnectPeer(Peer * peer)
 {
     auto iter = peers.begin();
@@ -35,18 +30,6 @@ void PeerHandler::disconnectPeer(Peer * peer)
 
     // Update main GUI peer listbox
     updatePeerListBoxData();
-}
-
-Peer * PeerHandler::getPeer(int idx) const
-{
-    if (peers.size() >= idx)
-    {
-        return peers.at(idx);
-    }
-    else
-    {
-        return nullptr;
-    }
 }
 
 /*

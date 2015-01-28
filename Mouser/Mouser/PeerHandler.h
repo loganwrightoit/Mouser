@@ -13,11 +13,9 @@ class PeerHandler
             return instance;
         }
 
-        void disconnectPeer(Peer * peer);
-        int PeerHandler::getNumPeers() const;
-        std::vector<Peer*> getPeers() const;
-        Peer * getPeer(int idx) const;
         void connectToPeer();
+        void disconnectPeer(Peer * peer);
+        std::vector<Peer*> getPeers() const;
         void handlePeerConnectionRequest(WPARAM wParam);
 
     private:
@@ -28,9 +26,6 @@ class PeerHandler
 
         PeerHandler(PeerHandler const&);    // Singleton only
         void operator=(PeerHandler const&); // Singleton only
-
-        void addPeerToListBox(Peer* peer);
-        void removePeerFromListbox(Peer * peer);
 
         std::vector<Peer*> peers;
 

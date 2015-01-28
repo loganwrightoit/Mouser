@@ -19,6 +19,8 @@ class Peer
         void openChatWindow();
         void openStreamWindow();
 
+        void clearHwnd();
+
     private:
 
         Peer(const Peer&); //not implemented anywhere
