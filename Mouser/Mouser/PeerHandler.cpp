@@ -2,6 +2,11 @@
 #include "PeerHandler.h"
 #include <thread>
 
+std::vector<Peer*> PeerHandler::getPeers() const
+{
+    return peers;
+}
+
 int PeerHandler::getNumPeers() const
 {
     return peers.size();
@@ -14,6 +19,7 @@ void PeerHandler::disconnectPeer(Peer * peer)
     {
         if (*iter == peer)
         {
+            // Erase peer from vector
             peers.erase(iter);
 
             sockaddr_in addr;
@@ -26,6 +32,9 @@ void PeerHandler::disconnectPeer(Peer * peer)
             delete peer;
         }
     }
+
+    // Update main GUI peer listbox
+    updatePeerListBoxData();
 }
 
 Peer * PeerHandler::getPeer(int idx) const
@@ -33,18 +42,6 @@ Peer * PeerHandler::getPeer(int idx) const
     if (peers.size() >= idx)
     {
         return peers.at(idx);
-    }
-    else
-    {
-        return nullptr;
-    }
-}
-
-Peer * PeerHandler::getDefaultPeer() const
-{
-    if (peers.size() > 0)
-    {
-        return peers.at(0);
     }
     else
     {
@@ -162,8 +159,11 @@ void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
         return;
     }
 
-    // Add peer
+    // Add peer to vector
     peers.push_back(new Peer(sock));
+
+    // Update main GUI peer listbox
+    updatePeerListBoxData();
 }
 
 void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
@@ -179,4 +179,7 @@ void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
 
     // Add peer
     peers.push_back(new Peer(sock));
+
+    // Update main GUI peer listbox
+    updatePeerListBoxData();
 }

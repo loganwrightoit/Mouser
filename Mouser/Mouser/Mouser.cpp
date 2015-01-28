@@ -286,11 +286,6 @@ image.StretchBlt(hdc, imgRect);
 }
 */
 
-HWND getPeerList()
-{
-    return hMouserPeerListBox;
-}
-
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -357,14 +352,14 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             WS_EX_CLIENTEDGE,
             L"LISTBOX",
             NULL,
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS,
-            5,                  // X Padding
-            30,                 // Y Padding
-            (width - 5) * 0.3F, // Width
-            400,                // Height
-            hWnd,               // Parent window
-            NULL,                  // 
-            GetModuleHandle(NULL),
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
+            5,                            // X Padding
+            30,                           // Y Padding
+            (width - 5) * 0.3F,           // Width
+            400,                          // Height
+            hWnd,                         // Parent window
+            (HMENU)IDC_MAIN_PEER_LISTBOX,
+            hInst,
             NULL);
 
         setWindowFont(hMouserPeerListBox);
@@ -380,8 +375,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             (width - 5) * 0.7F - 30,
             400,
             hWnd,
-            NULL,
-            GetModuleHandle(NULL),
+            (HMENU)IDC_MAIN_OUTPUT_LISTBOX,
+            hInst,
             NULL);
 
         setWindowFont(hMouserOutputListBox);
@@ -445,29 +440,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case IDC_MAIN_PEER_LISTBOX:
             switch (wmEvent)
             {
-                case LBN_SELCHANGE:
-                    {
-                        /*
-                        HWND hwndList = GetDlgItem(hDlg, IDC_LISTBOX_EXAMPLE);
-
-                        // Get selected index.
-                        int lbItem = (int)SendMessage(hwndList, LB_GETCURSEL, 0, 0);
-
-                        // Get item data.
-                        int i = (int)SendMessage(hwndList, LB_GETITEMDATA, lbItem, 0);
-
-                        // Do something with the data from Roster[i]
-                        TCHAR buff[MAX_PATH];
-                        StringCbPrintf(buff, ARRAYSIZE(buff),
-                            TEXT("Position: %s\nGames played: %d\nGoals: %d"),
-                            Roster[i].achPosition, Roster[i].nGamesPlayed,
-                            Roster[i].nGoalsScored);
-
-                        SetDlgItemText(hWnd, IDC_STATISTICS, buff);
-                        return TRUE;
-                        */
-                    }
-                    break;
                 case LBN_DBLCLK:
                     {
                         HWND hwndList = GetDlgItem(hWnd, IDC_MAIN_PEER_LISTBOX);
@@ -477,10 +449,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
                         // Get item data.
                         Peer* peer = (Peer*)SendMessage(hwndList, LB_GETITEMDATA, idx, 0);
-
-                        wchar_t buffer[256];
-                        swprintf(buffer, 256, L"[DEBUG]: Double-clicked peer socket: %d", peer->getSocket());
-                        AddOutputMsg(buffer);
 
                         peer->openChatWindow();
                     }
@@ -534,6 +502,36 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+void updatePeerListBoxData()
+{
+    std::vector<Peer*> peers = peerHandler->getPeers();
+
+    // Erase all peers from listbox
+    SendMessage(hMouserPeerListBox, LB_RESETCONTENT, 0, 0);
+
+    // Add updated peers to listbox
+    auto iter = peers.begin();
+    while (iter != peers.end())
+    {
+        // Gather peer info
+        sockaddr_in addr;
+        int size = sizeof(addr);
+        getpeername((*iter)->getSocket(), (sockaddr*)&addr, &size);
+        char* ip = inet_ntoa(addr.sin_addr);
+
+        // Get peer string identifier
+        const size_t szStr = strlen(ip) + 1;
+        std::wstring ident(szStr, L'#');
+        mbstowcs(&ident[0], ip, szStr);
+
+        // Add peer to listbox
+        int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)ident.c_str());
+        SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
+
+        ++iter;
+    }
+}
+
 // Message handler for peer window.
 LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -546,9 +544,6 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         EndPaint(hWnd, &ps);
-        break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);

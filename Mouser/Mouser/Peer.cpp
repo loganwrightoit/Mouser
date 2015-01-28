@@ -82,10 +82,10 @@ void Peer::AddChat(LPWSTR msg)
 
 void Peer::rcvThread()
 {
+    // Gather peer info
     sockaddr_in addr;
     int size = sizeof(addr);
     getpeername(_socket, (sockaddr*)&addr, &size);
-
     char* ip = inet_ntoa(addr.sin_addr);
 
     // Notify output window of new peer connection
@@ -93,14 +93,16 @@ void Peer::rcvThread()
     swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", ip);
     AddOutputMsg(buffer);
 
+    /*
     const size_t cSize = strlen(ip) + 1;
     std::wstring wc(cSize, L'#');
     mbstowcs(&wc[0], ip, cSize);
 
     // Add peer item to peer list in Mouser GUI
-    HWND hPeers = getPeerList();
+    HWND hPeers = getPeerListBox();
     int index = SendMessage(hPeers, LB_ADDSTRING, 0, (LPARAM)wc.c_str());
     SendMessage(hPeers, LB_SETITEMDATA, (WPARAM)index, (LPARAM)this);
+    */
 
     while (1)
     {
