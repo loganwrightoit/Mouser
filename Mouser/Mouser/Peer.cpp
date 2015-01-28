@@ -5,22 +5,38 @@
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _cursor(POINT{ 0, 0 })
 {
-    // Create parent peer window
-    _hWnd = CreateWindowEx(
-        WS_EX_CLIENTEDGE,
-        (LPCWSTR) CLS_NAME_PEER,
-        L"Peer Window",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 300, 390,
-        NULL, NULL, getHInst(), NULL);
+    // Start receive thread
+    std::thread t(&Peer::rcvThread, this);
+    t.detach();
+}
 
-    ShowWindow(_hWnd, SW_SHOW);
+Peer::~Peer()
+{
+    shutdown(_socket, SD_BOTH);
+    closesocket(_socket);
+
+    if (_hWnd)
+    {
+        //DestroyWindow(_hWnd);
+    }
+    if (_hWnd_stream)
+    {
+        //DestroyWindow(_hWnd_stream);
+    }
+}
+
+void Peer::openChatWindow()
+{
+    // Create peer window
+    _hWnd = getWindow(WindowType::PeerWin);
 
     // Add class pointer to window handle for message processing
     SetWindowLongPtr(_hWnd, GWLP_USERDATA, (LONG_PTR)this);
 
+    // Create controls in processor
+    /*
     // Create output edit box
-    _hWnd_chat = CreateWindowEx(WS_EX_CLIENTEDGE,
+    hChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
         L"LISTBOX",
         L"",
         WS_CHILD | WS_VISIBLE | WS_VSCROLL,
@@ -43,39 +59,15 @@ Peer::Peer(SOCKET peer_socket = 0)
         300, // width
         30,  // height
         _hWnd,
-        (HMENU)IDC_MAIN_SEND_PEER_DATA_BUTTON,
+        NULL,
         GetModuleHandle(NULL),
         NULL);
-
-    // Create separate stream window
-    /*
-    _hWnd_stream = CreateWindowEx(
-        WS_EX_CLIENTEDGE,
-        (LPCWSTR) CLS_NAME_STREAM,
-        L"Streaming Window",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 240, 120,
-        NULL, NULL, getHInst(), NULL);
-        */
-
-    // Start receive thread
-    std::thread t(&Peer::rcvThread, this);
-    t.detach();
+    */
 }
 
-Peer::~Peer()
+void Peer::openStreamWindow()
 {
-    shutdown(_socket, SD_BOTH);
-    closesocket(_socket);
-
-    if (_hWnd)
-    {
-        //DestroyWindow(_hWnd_chat);
-    }
-    if (_hWnd_stream)
-    {
-        //DestroyWindow(_hWnd_chat);
-    }
+    _hWnd_stream = getWindow(WindowType::StreamWin);
 }
 
 SOCKET Peer::getSocket() const
@@ -85,21 +77,30 @@ SOCKET Peer::getSocket() const
 
 void Peer::AddChat(LPWSTR msg)
 {
-    SendMessage(_hWnd_chat, LB_ADDSTRING, 0, (LPARAM)msg);
+    //SendMessage(hPeerChatListBox, LB_ADDSTRING, 0, (LPARAM)msg);
 }
 
 void Peer::rcvThread()
 {
-    // Notify output window of new peer connection
     sockaddr_in addr;
     int size = sizeof(addr);
     getpeername(_socket, (sockaddr*)&addr, &size);
+
+    char* ip = inet_ntoa(addr.sin_addr);
+
+    // Notify output window of new peer connection
     wchar_t buffer[256];
-    swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs:%d.", inet_ntoa(addr.sin_addr), _socket);
+    swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", ip);
     AddOutputMsg(buffer);
-    
-    // Send notification to peer window
-    AddChat(L"[INFO]: Connected to peer.");
+
+    const size_t cSize = strlen(ip) + 1;
+    std::wstring wc(cSize, L'#');
+    mbstowcs(&wc[0], ip, cSize);
+
+    // Add peer item to peer list in Mouser GUI
+    HWND hPeers = getPeerList();
+    int index = SendMessage(hPeers, LB_ADDSTRING, 0, (LPARAM)wc.c_str());
+    SendMessage(hPeers, LB_SETITEMDATA, (WPARAM)index, (LPARAM)this);
 
     while (1)
     {

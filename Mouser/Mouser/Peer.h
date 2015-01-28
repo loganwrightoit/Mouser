@@ -16,11 +16,14 @@ class Peer
         void sendStreamCursor();
         SOCKET getSocket() const;
 
+        void openChatWindow();
+        void openStreamWindow();
+
     private:
 
         Peer(const Peer&); //not implemented anywhere
         void operator=(const Peer&); //not implemented anywhere
-
+        
         void AddChat(LPWSTR msg);
 
         void rcvThread();
@@ -32,8 +35,6 @@ class Peer
 
         SOCKET _socket;
         HWND _hWnd;
-        HWND _hWnd_chat;
-        HWND _hWnd_sendData;
         HWND _hWnd_stream;
         POINT _cursor;
 
