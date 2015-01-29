@@ -17,6 +17,7 @@ class PeerHandler
         void disconnectPeer(Peer * peer);
         std::vector<Peer*> getPeers() const;
         void handlePeerConnectionRequest(WPARAM wParam);
+        Peer* getPeer(HWND hWnd);
 
     private:
 

@@ -17,11 +17,11 @@ Peer::~Peer()
 
     if (_hWnd)
     {
-        //DestroyWindow(_hWnd);
+        DestroyWindow(_hWnd);
     }
     if (_hWnd_stream)
     {
-        //DestroyWindow(_hWnd_stream);
+        DestroyWindow(_hWnd_stream);
     }
 }
 
@@ -60,7 +60,10 @@ SOCKET Peer::getSocket() const
 
 void Peer::AddChat(LPWSTR msg)
 {
-    //SendMessage(hPeerChatListBox, LB_ADDSTRING, 0, (LPARAM)msg);
+    //int idx = SendMessage(hPeerChatListBox, LB_ADDSTRING, 0, (LPARAM)msg);
+
+    // Scroll to new message
+    //SendMessage(hPeerChatListBox, LB_SETTOPINDEX, idx, 0);
 }
 
 void Peer::rcvThread()

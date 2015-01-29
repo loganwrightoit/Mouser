@@ -12,7 +12,8 @@
 
 using namespace std;
 
-#define MAX_LOADSTRING 100
+const int MAX_LOADSTRING = 100;
+const int MAX_CHAT_LENGTH = 512;
 
 // Global Variables:
 HINSTANCE hInst;                     // current instance
@@ -40,6 +41,8 @@ LRESULT CALLBACK    MainWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    PeerWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    StreamWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+bool                isPeerChatSendCommand(MSG msg);
+void                sendChatToPeer(HWND hWnd);
 void setWindowFont(HWND hWnd);
 void centerWindow(HWND hWnd);
 
@@ -74,6 +77,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     {
         if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
         {
+            // Detect ENTER command in peer chat editbox
+            if (isPeerChatSendCommand(msg))
+            {
+                continue;
+            }
+
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
@@ -142,6 +151,43 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassEx(&wMouserClass) &
            RegisterClassEx(&wPeerClass) &
            RegisterClassEx(&wStreamClass);
+}
+
+bool isPeerChatSendCommand(MSG msg)
+{
+    // Detect ENTER send in peer chat editbox
+    HWND hWnd = GetFocus();
+    if (hWnd == hPeerChatEditBox)
+    {
+        if (msg.message == WM_KEYDOWN && msg.wParam == VK_RETURN)
+        {
+            sendChatToPeer(hWnd);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void sendChatToPeer(HWND hWnd)
+{
+    Peer* peer = peerHandler->getPeer(hWnd);
+    if (peer != nullptr)
+    {
+        // Check if there is text to be sent to peer
+        wchar_t text[MAX_CHAT_LENGTH];
+        GetWindowText(hPeerChatEditBox, text, MAX_CHAT_LENGTH);
+        if (wcslen(text) > 0)
+        {
+            // Send text to peer
+            wchar_t buffer[256];
+            swprintf(buffer, 256, L"[DEBUG]: Chat (to socket %d): %hs", peer->getSocket(), text);
+            AddOutputMsg(buffer);
+
+            // Clear text from control
+            SetWindowText(hWnd, L"");
+        }
+    }
 }
 
 // Creates, shows, and updates window using WindowType
@@ -263,7 +309,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
 void AddOutputMsg(LPWSTR msg)
 {
-    SendMessage(hMouserOutputListBox, LB_ADDSTRING, 0, (LPARAM)msg);
+    int idx = SendMessage(hMouserOutputListBox, LB_ADDSTRING, 0, (LPARAM)msg);
+
+    // Scroll to new message
+    SendMessage(hMouserOutputListBox, LB_SETTOPINDEX, idx, 0);
 }
 
 /*
@@ -366,7 +415,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         setWindowFont(hMouserPeerListBox);
 
-        // Create output edit box
+        // Create output listbox
         hMouserOutputListBox = CreateWindowEx(
             WS_EX_CLIENTEDGE,
             L"LISTBOX",
@@ -542,7 +591,7 @@ void updatePeerListBoxData()
 //
 LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    Peer* peer = (Peer*) GetWindowLongPtr(hWnd, GWL_USERDATA);
+    Peer* peer = peerHandler->getPeer(hWnd);
     if (peer == nullptr && msg != WM_CREATE)
     {
         return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -610,7 +659,25 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             NULL);
 
         setWindowFont(hPeerChatEditBox);
+        SendMessage(hPeerChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
 
+        break;
+    case WM_COMMAND:
+        wmId = LOWORD(wParam);
+        wmEvent = HIWORD(wParam);
+
+        switch (wmId)
+        {
+            case IDC_PEER_CHAT_BUTTON:
+                sendChatToPeer(hWnd);
+                break;
+            case IDC_PEER_CHAT_EDITBOX:
+                // If real-time chat is enabled, need to send text here on keypress
+                break;
+            case IDC_PEER_CHAT_LISTBOX:
+                // Listbox is passive, nothing really to do here
+                break;
+        }
         break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);

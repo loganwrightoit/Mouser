@@ -7,6 +7,16 @@ std::vector<Peer*> PeerHandler::getPeers() const
     return peers;
 }
 
+//
+// Returns peer associated with peer window or control.
+//
+Peer* PeerHandler::getPeer(HWND _In_hWnd)
+{
+    HWND hWnd = GetAncestor(_In_hWnd, GA_ROOT);
+    Peer* peer = (Peer*) GetWindowLongPtr(hWnd, GWL_USERDATA);
+    return peer;
+}
+
 void PeerHandler::disconnectPeer(Peer * peer)
 {
     auto iter = peers.begin();
