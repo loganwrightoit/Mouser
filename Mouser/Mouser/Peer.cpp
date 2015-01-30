@@ -61,17 +61,17 @@ SOCKET Peer::getSocket() const
 
 void Peer::AddChat(LPWSTR msg)
 {
-    AddOutputMsg(msg);
+    openChatWindow();
 
     // Find peer chat output box
     HWND hWnd = GetDlgItem(_hWnd, IDC_PEER_CHAT_LISTBOX);
-    //if (hWnd)
-    //{
+    if (hWnd)
+    {
         int idx = SendMessage(hWnd, LB_ADDSTRING, 0, (LPARAM)msg);
 
         // Scroll to new message
         SendMessage(hWnd, LB_SETTOPINDEX, idx, 0);
-    //}
+    }
 }
 
 void Peer::rcvThread()
@@ -140,8 +140,7 @@ void Peer::getChatText(Packet* pkt)
     wchar_t *msg = new wchar_t[szMsg];
     MultiByteToWideChar(CP_ACP, 0, pkt->getData(), -1, (LPWSTR)msg, szMsg);
 
-    AddOutputMsg(L"[DEBUG]: Received chat message:");
-    AddOutputMsg(msg);
+    AddChat(msg);
 
     delete[] msg;
 }
@@ -163,8 +162,7 @@ void Peer::getStreamClose(Packet* pkt)
 
 void Peer::sendChatMsg(wchar_t* msg)
 {
-    AddOutputMsg(L"[DEBUG]: Attempting to send message:");
-    AddOutputMsg(msg);
+    AddChat(msg);
 
     // Determine size needed for char array conversion
     size_t buffer_size;
