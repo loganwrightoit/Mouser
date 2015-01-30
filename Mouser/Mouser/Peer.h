@@ -19,6 +19,7 @@ class Peer
         SOCKET getSocket() const;
 
         HWND getRoot();
+        wchar_t* getIdentifier();
 
         void openChatWindow();
         void openStreamWindow();

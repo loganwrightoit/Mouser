@@ -44,6 +44,11 @@ void Peer::openChatWindow()
         // Create peer window
         _hWnd = getWindow(WindowType::PeerWin);
 
+        // Set focus to edit control upon creation
+        HWND editCtrl = GetDlgItem(_hWnd, IDC_PEER_CHAT_EDITBOX);
+        SetFocus(editCtrl);
+        SendDlgItemMessage(editCtrl, IDC_PEER_CHAT_EDITBOX, EM_SETSEL, 0, -1);
+
         // Add class pointer to window handle for message processing
         SetWindowLongPtr(_hWnd, GWLP_USERDATA, (LONG_PTR)this);
     }
@@ -65,7 +70,7 @@ void Peer::AddChat(LPWSTR msg)
 
     // Find peer chat output box
     HWND hWnd = GetDlgItem(_hWnd, IDC_PEER_CHAT_LISTBOX);
-    if (hWnd)
+    if (hWnd != NULL)
     {
         int idx = SendMessage(hWnd, LB_ADDSTRING, 0, (LPARAM)msg);
 
@@ -134,13 +139,22 @@ void Peer::rcvThread()
     }
 }
 
+wchar_t* Peer::getIdentifier()
+{
+
+}
+
 void Peer::getChatText(Packet* pkt)
 {
     int szMsg = MultiByteToWideChar(CP_ACP, 0, pkt->getData(), -1, NULL, 0);
     wchar_t *msg = new wchar_t[szMsg];
     MultiByteToWideChar(CP_ACP, 0, pkt->getData(), -1, (LPWSTR)msg, szMsg);
 
-    AddChat(msg);
+    // Append peer identifier to message
+    std::wstring wstr(L"Peer: ");
+    wstr.append(msg);
+
+    AddChat((LPWSTR)wstr.c_str());
 
     delete[] msg;
 }
@@ -162,7 +176,11 @@ void Peer::getStreamClose(Packet* pkt)
 
 void Peer::sendChatMsg(wchar_t* msg)
 {
-    AddChat(msg);
+    // Append peer identifier to message
+    std::wstring wstr(L"Me: ");
+    wstr.append(msg);
+
+    AddChat((LPWSTR)wstr.c_str());
 
     // Determine size needed for char array conversion
     size_t buffer_size;
@@ -176,9 +194,9 @@ void Peer::sendChatMsg(wchar_t* msg)
     Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer, buffer_size);
     NetworkManager::getInstance().sendPacket(_socket, pkt);
 
-    delete buffer;
+    //delete buffer;
 
-    //delete pkt;
+    delete pkt;
 }
 
 void Peer::sendStreamImage()
