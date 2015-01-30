@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Peer.h"
 #include <thread>
+#include <string>
 
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _cursor(POINT{ 0, 0 }), _hWnd(0), _hWnd_stream(0)
@@ -60,10 +61,17 @@ SOCKET Peer::getSocket() const
 
 void Peer::AddChat(LPWSTR msg)
 {
-    //int idx = SendMessage(hPeerChatListBox, LB_ADDSTRING, 0, (LPARAM)msg);
+    AddOutputMsg(msg);
 
-    // Scroll to new message
-    //SendMessage(hPeerChatListBox, LB_SETTOPINDEX, idx, 0);
+    // Find peer chat output box
+    HWND hWnd = GetDlgItem(_hWnd, IDC_PEER_CHAT_LISTBOX);
+    //if (hWnd)
+    //{
+        int idx = SendMessage(hWnd, LB_ADDSTRING, 0, (LPARAM)msg);
+
+        // Scroll to new message
+        SendMessage(hWnd, LB_SETTOPINDEX, idx, 0);
+    //}
 }
 
 void Peer::rcvThread()
@@ -106,6 +114,9 @@ void Peer::rcvThread()
                 case Packet::STREAM_CURSOR:
                     getStreamCursor(pkt);
                     break;
+                case Packet::CHAT_TEXT:
+                    getChatText(pkt);
+                    break;
                 }
             }
             catch (std::exception) {}
@@ -123,6 +134,23 @@ void Peer::rcvThread()
     }
 }
 
+void Peer::getChatText(Packet* pkt)
+{
+    int szMsg = MultiByteToWideChar(CP_ACP, 0, pkt->getData(), -1, NULL, 0);
+    wchar_t *msg = new wchar_t[szMsg];
+    MultiByteToWideChar(CP_ACP, 0, pkt->getData(), -1, (LPWSTR)msg, szMsg);
+
+    AddOutputMsg(L"[DEBUG]: Received chat message:");
+    AddOutputMsg(msg);
+
+    delete[] msg;
+}
+
+HWND Peer::getRoot()
+{
+    return _hWnd;
+}
+
 void Peer::getStreamOpen(Packet* pkt)
 {
 
@@ -131,6 +159,28 @@ void Peer::getStreamOpen(Packet* pkt)
 void Peer::getStreamClose(Packet* pkt)
 {
 
+}
+
+void Peer::sendChatMsg(wchar_t* msg)
+{
+    AddOutputMsg(L"[DEBUG]: Attempting to send message:");
+    AddOutputMsg(msg);
+
+    // Determine size needed for char array conversion
+    size_t buffer_size;
+    wcstombs_s(&buffer_size, NULL, 0, msg, _TRUNCATE);
+
+    // Convert wide char array to char array
+    char* buffer = new char[buffer_size];
+    wcstombs_s(&buffer_size, buffer, buffer_size, msg, _TRUNCATE);
+
+    // Construct and send packet
+    Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer, buffer_size);
+    NetworkManager::getInstance().sendPacket(_socket, pkt);
+
+    delete buffer;
+
+    //delete pkt;
 }
 
 void Peer::sendStreamImage()

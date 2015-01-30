@@ -2,6 +2,7 @@
 
 #include "WinSock2.h"
 
+static const int MAX_CHAT_LENGTH = 512;
 class Packet;
 
 class Peer
@@ -14,7 +15,10 @@ class Peer
 
         void sendStreamImage();
         void sendStreamCursor();
+        void sendChatMsg(wchar_t* msg);
         SOCKET getSocket() const;
+
+        HWND getRoot();
 
         void openChatWindow();
         void openStreamWindow();
@@ -30,10 +34,11 @@ class Peer
 
         void rcvThread();
 
-        void getStreamOpen(Packet * pkt);
-        void getStreamClose(Packet * pkt);
-        void getStreamImage(Packet * pkt);
-        void getStreamCursor(Packet * pkt);
+        void getStreamOpen(Packet* pkt);
+        void getStreamClose(Packet* pkt);
+        void getStreamImage(Packet* pkt);
+        void getStreamCursor(Packet* pkt);
+        void getChatText(Packet* pkt);
 
         SOCKET _socket;
         HWND _hWnd;

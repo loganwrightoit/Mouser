@@ -13,7 +13,8 @@ class Packet
             STREAM_BEGIN,
             STREAM_END,
             STREAM_IMAGE,
-            STREAM_CURSOR
+            STREAM_CURSOR,
+            CHAT_TEXT
         };
 
         /// <summary>

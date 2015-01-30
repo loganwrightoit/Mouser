@@ -13,7 +13,6 @@
 using namespace std;
 
 const int MAX_LOADSTRING = 100;
-const int MAX_CHAT_LENGTH = 512;
 
 // Global Variables:
 HINSTANCE hInst;                     // current instance
@@ -180,12 +179,14 @@ void sendChatToPeer(HWND hWnd)
         if (wcslen(text) > 0)
         {
             // Send text to peer
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[DEBUG]: Chat (to socket %d): %hs", peer->getSocket(), text);
-            AddOutputMsg(buffer);
+            //wchar_t buffer[256];
+            //swprintf(buffer, 256, L"[DEBUG]: Chat (to socket %d): %hs", peer->getSocket(), text);
+            //AddOutputMsg(buffer);
+            
+            peer->sendChatMsg(text);
 
             // Clear text from control
-            SetWindowText(hWnd, L"");
+            SetWindowText(GetDlgItem(peer->getRoot(), IDC_PEER_CHAT_EDITBOX), L"");
         }
     }
 }
