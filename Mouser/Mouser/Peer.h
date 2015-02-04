@@ -21,6 +21,9 @@ class Peer
         HWND getRoot();
         wchar_t* getIdentifier();
 
+
+        void setInputFocus();
+        void setChatWindow(HWND hWnd);
         void openChatWindow();
         void openStreamWindow();
 

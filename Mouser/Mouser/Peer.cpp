@@ -26,6 +26,11 @@ Peer::~Peer()
     }
 }
 
+void Peer::setChatWindow(HWND hWnd)
+{
+    _hWnd = hWnd;
+}
+
 void Peer::clearHwnd()
 {
     _hWnd = 0;
@@ -41,22 +46,24 @@ void Peer::openChatWindow()
     }
     else
     {
-        // Create peer window
-        _hWnd = getWindow(WindowType::PeerWin);
-
-        // Set focus to edit control upon creation
-        HWND editCtrl = GetDlgItem(_hWnd, IDC_PEER_CHAT_EDITBOX);
-        SetFocus(editCtrl);
-        SendDlgItemMessage(editCtrl, IDC_PEER_CHAT_EDITBOX, EM_SETSEL, 0, -1);
-
-        // Add class pointer to window handle for message processing
-        SetWindowLongPtr(_hWnd, GWLP_USERDATA, (LONG_PTR)this);
+        HWND root = getRootWindow();
+        if (SendMessage(root, WM_EVENT_OPEN_PEER_CHAT, (WPARAM)this, NULL))
+        {
+            setInputFocus();
+        }
     }
+}
+
+void Peer::setInputFocus()
+{
+    HWND editCtrl = GetDlgItem(_hWnd, IDC_PEER_CHAT_EDITBOX);
+    SetFocus(editCtrl);
+    SendDlgItemMessage(editCtrl, IDC_PEER_CHAT_EDITBOX, EM_SETSEL, 0, -1);
 }
 
 void Peer::openStreamWindow()
 {
-    _hWnd_stream = getWindow(WindowType::StreamWin);
+    //_hWnd_stream = getWindow(WindowType::StreamWin);
 }
 
 SOCKET Peer::getSocket() const
@@ -193,6 +200,9 @@ void Peer::sendChatMsg(wchar_t* msg)
     // Construct and send packet
     Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer, buffer_size);
     NetworkManager::getInstance().sendPacket(_socket, pkt);
+
+    // Set focus to edit control again
+    setInputFocus();
 
     //delete buffer;
 

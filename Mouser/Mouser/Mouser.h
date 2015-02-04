@@ -9,6 +9,6 @@ enum WindowType
     StreamWin,
 };
 
+HWND getRootWindow();
 void updatePeerListBoxData();
-HWND getWindow(WindowType type, int nCmdShow = SW_SHOWNORMAL);
 void AddOutputMsg(LPWSTR msg);

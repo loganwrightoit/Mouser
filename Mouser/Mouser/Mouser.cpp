@@ -50,6 +50,17 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
+	/*
+		DPI-Awareness was introduced in Windows Vista, causing system metrics
+		to return virtual windows properties by default.  Windows XP has
+		no need for this, but Vista and beyond require calling this method to
+		enable capturing actual screen dimensions.
+	*/
+	try {
+		SetProcessDPIAware();
+	}
+	catch (exception) {}
+
     MSG msg;
     HACCEL hAccelTable;
 
@@ -152,6 +163,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
            RegisterClassEx(&wStreamClass);
 }
 
+HWND getRootWindow()
+{
+    return hMouser;
+}
+
 bool isPeerChatSendCommand(MSG msg)
 {
     // Detect ENTER send in peer chat editbox
@@ -192,7 +208,7 @@ void sendChatToPeer(HWND hWnd)
 }
 
 // Creates, shows, and updates window using WindowType
-HWND getWindow(WindowType type, int nCmdShow)
+HWND getWindow(WindowType type, void* data = nullptr)
 {
     HWND hWnd;
 
@@ -215,7 +231,7 @@ HWND getWindow(WindowType type, int nCmdShow)
             NULL,                // hWndParent
             NULL,                // hMenu
             hInst,               // hInstance
-            NULL);               // lpParam
+            data);               // lpParam
         break;
     case PeerWin:
         hWnd = CreateWindowEx(
@@ -230,7 +246,7 @@ HWND getWindow(WindowType type, int nCmdShow)
             NULL,
             NULL,
             hInst,
-            NULL);
+            data);
         break;
     case StreamWin:
         hWnd = CreateWindowEx(
@@ -245,13 +261,13 @@ HWND getWindow(WindowType type, int nCmdShow)
             NULL,
             NULL,
             hInst,
-            NULL);
+            data);
         break;
     }
 
     setWindowFont(hWnd);
     centerWindow(hWnd);
-    ShowWindow(hWnd, nCmdShow);
+    ShowWindow(hWnd, SW_SHOWNORMAL);
     UpdateWindow(hWnd);
 
     return hWnd;
@@ -300,7 +316,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     hInst = hInstance; // Store instance handle in our global variable
 
     // Create main window
-    if (!(hMouser = getWindow(WindowType::MouserWin, nCmdShow)))
+    if (!(hMouser = getWindow(WindowType::MouserWin)))
     {
         return FALSE;
     }
@@ -456,6 +472,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
         }
         break;
+    case WM_EVENT_OPEN_PEER_CHAT:
+        return getWindow(WindowType::PeerWin, (Peer*)wParam) != NULL;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
@@ -592,10 +610,17 @@ void updatePeerListBoxData()
 //
 LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    Peer* peer = peerHandler->getPeer(hWnd);
-    if (peer == nullptr && msg != WM_CREATE)
+    Peer* peer;
+    if (msg == WM_NCCREATE)
     {
-        return DefWindowProc(hWnd, msg, wParam, lParam);
+        CREATESTRUCT* pCreate = (CREATESTRUCT*)lParam;
+        peer = (Peer*)pCreate->lpCreateParams;
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)peer);
+        peer->setChatWindow(hWnd);
+    }
+    else
+    {
+        peer = (Peer*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
     }
 
     int wmId, wmEvent;
