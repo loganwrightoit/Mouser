@@ -16,6 +16,7 @@ const int MAX_LOADSTRING = 100;
 
 // Global Variables:
 HINSTANCE hInst;                     // current instance
+float dpiScale = 1.0f;
 TCHAR szMouserTitle[MAX_LOADSTRING];   // The title bar text
 TCHAR szPeerTitle[MAX_LOADSTRING];   // The title bar text
 TCHAR szStreamTitle[MAX_LOADSTRING]; // The title bar text
@@ -30,6 +31,8 @@ HWND hMouserOutputLabel;
 HWND hPeerChatEditBox;
 HWND hPeerChatButton;
 HWND hPeerChatListBox;
+HWND hPeerChatStreamButton;
+HWND hPeerChatIsTypingLabel;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
 
@@ -60,6 +63,11 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 		SetProcessDPIAware();
 	}
 	catch (exception) {}
+
+    // Set program DPI scale
+    HDC hdc = GetDC(GetDesktopWindow());
+    dpiScale = GetDeviceCaps(hdc, LOGPIXELSX) / 96.0f;
+    ReleaseDC(GetDesktopWindow(), hdc);
 
     MSG msg;
     HACCEL hAccelTable;
@@ -226,8 +234,8 @@ HWND getWindow(WindowType type, void* data = nullptr)
             WS_OVERLAPPEDWINDOW, // dwStyle
             CW_USEDEFAULT,       // x
             CW_USEDEFAULT,       // y
-            500,                 // width
-            475,                 // height
+            500 * dpiScale,                 // width
+            475 * dpiScale,                 // height
             NULL,                // hWndParent
             NULL,                // hMenu
             hInst,               // hInstance
@@ -241,8 +249,8 @@ HWND getWindow(WindowType type, void* data = nullptr)
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            520,
-            370,
+            520 * dpiScale,
+            380 * dpiScale,
             NULL,
             NULL,
             hInst,
@@ -256,8 +264,8 @@ HWND getWindow(WindowType type, void* data = nullptr)
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            240,
-            120,
+            240 * dpiScale,
+            120 * dpiScale,
             NULL,
             NULL,
             hInst,
@@ -370,91 +378,92 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     PAINTSTRUCT ps;
     HDC hdc;
 
-    int width = 100;
-    RECT rect;
-    if (GetWindowRect(hWnd, &rect))
-    {
-        width = rect.right - rect.left;
-    }
-
     switch (msg)
     {
     case WM_CREATE:
+        {
+            // Set dimensions for window
+            int width = 100 * dpiScale;
+            RECT rect;
+            if (GetWindowRect(hWnd, &rect))
+            {
+                width = rect.right - rect.left;
+            }
 
-        // Add peer label
-        hMouserPeerLabel = CreateWindowEx(
-            SS_CENTER,
-            L"STATIC",
-            NULL,
-            WS_CHILD | WS_VISIBLE,
-            5,
-            5,
-            (width - 5) * 0.3F,
-            30,
-            hWnd,
-            NULL,
-            hInst,
-            NULL);
+            // Add peer label
+            hMouserPeerLabel = CreateWindowEx(
+                SS_CENTER,
+                L"STATIC",
+                NULL,
+                WS_CHILD | WS_VISIBLE,
+                5 * dpiScale,
+                5 * dpiScale,
+                (width - 5 * dpiScale) * 0.3F,
+                30 * dpiScale,
+                hWnd,
+                NULL,
+                hInst,
+                NULL);
 
-        SetWindowTextW(hMouserPeerLabel, L"Peers");
+            SetWindowTextW(hMouserPeerLabel, L"Peers");
 
-        // Add output label
-        hMouserOutputLabel = CreateWindowEx(
-            SS_CENTER,
-            L"STATIC",
-            NULL,
-            WS_CHILD | WS_VISIBLE,
-            10 + width * 0.3F,
-            5,
-            (width - 5) * 0.7F - 30,
-            30,
-            hWnd,
-            NULL,
-            hInst,
-            NULL);
+            // Add output label
+            hMouserOutputLabel = CreateWindowEx(
+                SS_CENTER,
+                L"STATIC",
+                NULL,
+                WS_CHILD | WS_VISIBLE,
+                10 * dpiScale + width * 0.3F,
+                5 * dpiScale,
+                (width - 5 * dpiScale) * 0.7F - 30 * dpiScale,
+                30 * dpiScale,
+                hWnd,
+                NULL,
+                hInst,
+                NULL);
 
-        SetWindowTextW(hMouserOutputLabel, L"Output");
+            SetWindowTextW(hMouserOutputLabel, L"Output");
 
-        // Create listbox for peers
-        hMouserPeerListBox = CreateWindowEx(
-            WS_EX_CLIENTEDGE,
-            L"LISTBOX",
-            NULL,
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
-            5,                            // X Padding
-            30,                           // Y Padding
-            (width - 5) * 0.3F,           // Width
-            400,                          // Height
-            hWnd,                         // Parent window
-            (HMENU)IDC_MAIN_PEER_LISTBOX,
-            hInst,
-            NULL);
+            // Create listbox for peers
+            hMouserPeerListBox = CreateWindowEx(
+                WS_EX_CLIENTEDGE,
+                L"LISTBOX",
+                NULL,
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
+                5 * dpiScale,                            // X Padding
+                30 * dpiScale,                           // Y Padding
+                (width - 5 * dpiScale) * 0.3F,           // Width
+                400 * dpiScale,                          // Height
+                hWnd,                         // Parent window
+                (HMENU)IDC_MAIN_PEER_LISTBOX,
+                hInst,
+                NULL);
 
-        setWindowFont(hMouserPeerListBox);
+            setWindowFont(hMouserPeerListBox);
 
-        // Create output listbox
-        hMouserOutputListBox = CreateWindowEx(
-            WS_EX_CLIENTEDGE,
-            L"LISTBOX",
-            NULL,
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL,
-            10 + width * 0.3F,
-            30,
-            (width - 5) * 0.7F - 30,
-            400,
-            hWnd,
-            (HMENU)IDC_MAIN_OUTPUT_LISTBOX,
-            hInst,
-            NULL);
+            // Create output listbox
+            hMouserOutputListBox = CreateWindowEx(
+                WS_EX_CLIENTEDGE,
+                L"LISTBOX",
+                NULL,
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL,
+                10 * dpiScale + width * 0.3F,
+                30 * dpiScale,
+                (width - 5 * dpiScale) * 0.7F - 30 * dpiScale,
+                400 * dpiScale,
+                hWnd,
+                (HMENU)IDC_MAIN_OUTPUT_LISTBOX,
+                hInst,
+                NULL);
 
-        setWindowFont(hMouserOutputListBox);
+            setWindowFont(hMouserOutputListBox);
 
-        // Initialize and setup connection-based and connectionless services
-        NetworkManager::getInstance().init(hWnd);
+            // Initialize and setup connection-based and connectionless services
+            NetworkManager::getInstance().init(hWnd);
 
-        // Send out multicast to discover peers
-        NetworkManager::getInstance().sendMulticast("Mouser|PEER_DISC");
-
+            // Send out multicast to discover peers
+            NetworkManager::getInstance().sendMulticast("Mouser|PEER_DISC");
+        }
         break;
     case WM_MCST_SOCKET:
         switch (WSAGETSELECTEVENT(lParam))
@@ -605,6 +614,14 @@ void updatePeerListBoxData()
     }
 }
 
+UINT lastIsTypingTick = 0;
+
+void CALLBACK hideChatIsTypingLabel(HWND hWnd, UINT msg, UINT timerId, DWORD dwTime)
+{
+    HWND isTypingLabel = GetDlgItem(hWnd, IDC_PEER_CHAT_IS_TYPING_LABEL);
+    ShowWindow(isTypingLabel, SW_HIDE);
+}
+
 //
 // Message handler for peer window.
 //
@@ -627,66 +644,98 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     PAINTSTRUCT ps;
     HDC hdc;
 
-    int width = 100;
-    RECT rect;
-    if (GetWindowRect(hWnd, &rect))
-    {
-        width = rect.right - rect.left;
-    }
-
     switch (msg)
     {
     case WM_CREATE:
+        {
+            int width = 100;
+            RECT rect;
+            if (GetWindowRect(hWnd, &rect))
+            {
+                width = rect.right - rect.left;
+            }
 
-        // Create output edit box
-        hPeerChatListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
-            L"LISTBOX",
-            L"",
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-            5,
-            5,
-            width - 30,
-            280,
-            hWnd,
-            (HMENU)IDC_PEER_CHAT_LISTBOX,
-            hInst,
-            NULL);
+            // Create output edit box
+            hPeerChatListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+                L"LISTBOX",
+                L"",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+                5 * dpiScale,
+                5 * dpiScale,
+                width - 30 * dpiScale,
+                280 * dpiScale,
+                hWnd,
+                (HMENU)IDC_PEER_CHAT_LISTBOX,
+                hInst,
+                NULL);
 
-        setWindowFont(hPeerChatListBox);
+            setWindowFont(hPeerChatListBox);
 
-        // Create send data button
-        hPeerChatButton = CreateWindowEx(NULL,
-            L"BUTTON",
-            L"Send",
-            WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-            5,
-            290,
-            (width - 10) * 0.2F,
-            30,
-            hWnd,
-            (HMENU)IDC_PEER_CHAT_BUTTON,
-            hInst,
-            NULL);
+            // Create send data button
+            hPeerChatButton = CreateWindowEx(NULL,
+                L"BUTTON",
+                L"Send",
+                WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                5 * dpiScale,
+                300 * dpiScale,
+                (width - 10 * dpiScale) * 0.2F,
+                30 * dpiScale,
+                hWnd,
+                (HMENU)IDC_PEER_CHAT_BUTTON,
+                hInst,
+                NULL);
 
-        setWindowFont(hPeerChatButton);
+            setWindowFont(hPeerChatButton);
 
-        // Create output edit box
-        hPeerChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
-            L"EDIT",
-            L"",
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-            (5 + (width - 10) * 0.2F) + 5,
-            290,
-            (width - 40) * 0.8F,
-            30,
-            hWnd,
-            (HMENU)IDC_PEER_CHAT_EDITBOX,
-            hInst,
-            NULL);
+            // Create output edit box
+            hPeerChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+                L"EDIT",
+                L"",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+                (5 * dpiScale + (width - 10 * dpiScale) * 0.2F) + 5 * dpiScale,
+                300 * dpiScale,
+                (width - 40 * dpiScale) * 0.6F,
+                30 * dpiScale,
+                hWnd,
+                (HMENU)IDC_PEER_CHAT_EDITBOX,
+                hInst,
+                NULL);
 
-        setWindowFont(hPeerChatEditBox);
-        SendMessage(hPeerChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
+            setWindowFont(hPeerChatEditBox);
+            SendMessage(hPeerChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
 
+            // Create stream button
+            hPeerChatStreamButton = CreateWindowEx(NULL,
+                L"BUTTON",
+                L"Stream",
+                WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+                (width - 10 * dpiScale) * 0.8F,
+                300 * dpiScale,
+                (width - 10 * dpiScale) * 0.2F,
+                30 * dpiScale,
+                hWnd,
+                (HMENU)IDC_PEER_CHAT_STREAM_BUTTON,
+                hInst,
+                NULL);
+
+            setWindowFont(hPeerChatStreamButton);
+
+            hPeerChatIsTypingLabel = CreateWindowEx(NULL,
+                L"STATIC",
+                L"Peer is typing...",
+                WS_CHILD,
+                5 * dpiScale,
+                280 * dpiScale,
+                width - 20 * dpiScale,
+                20 * dpiScale,
+                hWnd,
+                (HMENU)IDC_PEER_CHAT_IS_TYPING_LABEL,
+                hInst,
+                NULL);
+
+            setWindowFont(hPeerChatIsTypingLabel);
+
+        }
         break;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
@@ -699,6 +748,23 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
             case IDC_PEER_CHAT_EDITBOX:
                 // If real-time chat is enabled, need to send text here on keypress
+                // For now, it's only "Peer is typing..." indicator sent once per second
+                {
+                    UINT ticks = GetTickCount();
+                    if ((ticks - lastIsTypingTick) > 1000)
+                    {
+                        Packet* pkt = new Packet(Packet::CHAT_IS_TYPING);
+                        NetworkManager::getInstance().sendPacket(peer->getSocket(), pkt);
+                        delete pkt;
+
+                        //SetTimer(hWnd, 0, 1000, (TIMERPROC)&hideChatIsTypingLabel);
+
+                        //HWND isTypingLabel = GetDlgItem(hWnd, IDC_PEER_CHAT_IS_TYPING_LABEL);
+                        //ShowWindow(isTypingLabel, SW_SHOW);
+
+                        lastIsTypingTick = ticks;
+                    }
+                }
                 break;
             case IDC_PEER_CHAT_LISTBOX:
                 // Listbox is passive, nothing really to do here

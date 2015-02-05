@@ -7,7 +7,7 @@ class Packet;
 
 class Peer
 {
-
+    
     public:
 
         Peer(SOCKET sock);
@@ -43,6 +43,7 @@ class Peer
         void getStreamImage(Packet* pkt);
         void getStreamCursor(Packet* pkt);
         void getChatText(Packet* pkt);
+        void getChatIsTyping(Packet* pkt);
 
         SOCKET _socket;
         HWND _hWnd;
@@ -50,4 +51,3 @@ class Peer
         POINT _cursor;
 
 };
-

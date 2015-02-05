@@ -9,6 +9,7 @@ enum WindowType
     StreamWin,
 };
 
+void CALLBACK hideChatIsTypingLabel(HWND hWnd, UINT msg, UINT timerId, DWORD dwTime);
 HWND getRootWindow();
 void updatePeerListBoxData();
 void AddOutputMsg(LPWSTR msg);

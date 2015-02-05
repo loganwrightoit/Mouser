@@ -129,6 +129,9 @@ void Peer::rcvThread()
                 case Packet::CHAT_TEXT:
                     getChatText(pkt);
                     break;
+                case Packet::CHAT_IS_TYPING:
+                    getChatIsTyping(pkt);
+                    break;
                 }
             }
             catch (std::exception) {}
@@ -149,6 +152,16 @@ void Peer::rcvThread()
 wchar_t* Peer::getIdentifier()
 {
 
+}
+
+void Peer::getChatIsTyping(Packet* pkt)
+{
+    // Show "Peer is typing..." label
+    HWND isTypingLabel = GetDlgItem(_hWnd, IDC_PEER_CHAT_IS_TYPING_LABEL);
+    ShowWindow(isTypingLabel, SW_SHOW);
+
+    // Set timer to hide label after 1 second
+    SetTimer(_hWnd, 0, 1000, (TIMERPROC)&hideChatIsTypingLabel);
 }
 
 void Peer::getChatText(Packet* pkt)

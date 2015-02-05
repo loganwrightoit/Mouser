@@ -14,7 +14,8 @@ class Packet
             STREAM_END,
             STREAM_IMAGE,
             STREAM_CURSOR,
-            CHAT_TEXT
+            CHAT_TEXT,
+            CHAT_IS_TYPING
         };
 
         /// <summary>
@@ -26,7 +27,7 @@ class Packet
         ///         This should save on memory and needless try / catch statements.
         ///     </para>
         /// </summary>
-        Packet(Protocol protocol, char * data, unsigned int size);
+        Packet(Protocol protocol, char * data = nullptr, unsigned int size = 0);
         ~Packet();
 
         Protocol getProtocol() const;

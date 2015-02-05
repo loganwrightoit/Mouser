@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "Packet.h"
 
-Packet::Packet(Protocol protocol, char * data = nullptr, unsigned int size = 0)
+Packet::Packet(Protocol protocol, char * data, unsigned int size)
 : _protocol(protocol), _data(data), _size(size) {}
 
 Packet::~Packet()
