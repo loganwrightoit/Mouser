@@ -1,6 +1,7 @@
 #pragma once
 
 #include "WinSock2.h"
+#include <map>
 
 static const int MAX_CHAT_LENGTH = 512;
 class Packet;
@@ -45,9 +46,10 @@ class Peer
         void getChatText(Packet* pkt);
         void getChatIsTyping(Packet* pkt);
         void getName(Packet* pkt);
-        
-        char* toMultiByteArray(wchar_t* wstr);
-        wchar_t* multiByteToWideCharArray(char* str);
+
+        std::pair<char*, size_t> encode_utf8(wchar_t* wstr);
+        wchar_t* encode_utf16(char* str);
+
         wchar_t* getUserName();
 
         wchar_t* _name;

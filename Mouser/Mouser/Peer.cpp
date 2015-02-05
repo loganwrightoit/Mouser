@@ -108,11 +108,10 @@ wchar_t* Peer::getUserName()
 
 void Peer::sendName()
 {
-    wchar_t* name = getUserName();
-    char* buffer = toMultiByteArray(name);
+    std::pair<char*, size_t> buffer = encode_utf8(getUserName());
 
     // Send name to peer
-    Packet* pkt = new Packet(Packet::NAME, buffer, wcslen(name));
+    Packet* pkt = new Packet(Packet::NAME, buffer.first, buffer.second);
     NetworkManager::getInstance().sendPacket(_socket, pkt);
     delete pkt;
 }
@@ -193,7 +192,7 @@ wchar_t* Peer::getName()
 
 void Peer::getName(Packet* pkt)
 {
-    _name = multiByteToWideCharArray(pkt->getData());
+    _name = encode_utf16(pkt->getData());
 
     // Update peer list
     updatePeerListBoxData();
@@ -218,7 +217,7 @@ void Peer::getChatText(Packet* pkt)
     // Kill timer, if exists
     KillTimer(_hWnd, IDT_TIMER_PEER_IS_TYPING);
 
-    wchar_t* msg = multiByteToWideCharArray(pkt->getData());
+    wchar_t *msg = encode_utf16(pkt->getData());
 
     // Append peer identifier to message
     std::wstring colon(L": ");
@@ -244,23 +243,24 @@ void Peer::getStreamClose(Packet* pkt)
 
 }
 
-char* Peer::toMultiByteArray(wchar_t* wstr)
+std::pair<char*, size_t> Peer::encode_utf8(wchar_t* wstr)
 {
+    // Determine size needed for char array conversion
     size_t buffer_size;
     wcstombs_s(&buffer_size, NULL, 0, wstr, _TRUNCATE);
 
-    int sz = WideCharToMultiByte(CP_UTF8, 0, wstr, buffer_size, NULL, 0, NULL, NULL);
+    // Convert wide char array to char array
     char* buffer = new char[buffer_size];
-    WideCharToMultiByte(CP_UTF8, 0, wstr, buffer_size, buffer, sz, NULL, NULL);
+    wcstombs_s(&buffer_size, buffer, buffer_size, wstr, _TRUNCATE);
 
-    return buffer;
+    return std::make_pair(buffer, buffer_size);
 }
 
-wchar_t* Peer::multiByteToWideCharArray(char* str)
+wchar_t* Peer::encode_utf16(char* data)
 {
-    int szMsg = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+    int szMsg = MultiByteToWideChar(CP_ACP, 0, data, -1, NULL, 0);
     wchar_t *buffer = new wchar_t[szMsg];
-    MultiByteToWideChar(CP_ACP, 0, str, -1, (LPWSTR)buffer, szMsg);
+    MultiByteToWideChar(CP_ACP, 0, data, -1, (LPWSTR)buffer, szMsg);
 
     return buffer;
 }
@@ -274,15 +274,10 @@ void Peer::sendChatMsg(wchar_t* msg)
 
     AddChat((LPWSTR)wstr.c_str());
 
-    // Determine size needed for char array conversion
-    size_t buffer_size;
-    wcstombs_s(&buffer_size, NULL, 0, msg, _TRUNCATE);
-
-    // Convert wide char array to char array
-    char* buffer = toMultiByteArray(msg);
+    std::pair<char*, size_t> buffer = encode_utf8(msg);
 
     // Construct and send packet
-    Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer, buffer_size);
+    Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second);
     NetworkManager::getInstance().sendPacket(_socket, pkt);
 
     // Set focus to edit control again
