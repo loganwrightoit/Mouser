@@ -1,6 +1,8 @@
 #pragma once
 
 #include "WinSock2.h"
+#include "StreamSender.h"
+#include <atlimage.h> // IStream_ and CImage functions
 #include <map>
 
 static const int MAX_CHAT_LENGTH = 512;
@@ -21,14 +23,18 @@ class Peer
         SOCKET getSocket() const;
 
         HWND getRoot();
+        HWND getStream();
+
         wchar_t* getName();
         
         void setInputFocus();
         void setChatWindow(HWND hWnd);
+        void setStreamWindow(HWND hWnd);
+        void streamTo();
         void openChatWindow();
         void openStreamWindow();
 
-        void clearHwnd();
+        void onDestroyRoot();
 
     private:
 
@@ -38,6 +44,8 @@ class Peer
         void AddChat(LPWSTR msg);
 
         void rcvThread();
+
+        void DrawImage(HDC hdc, CImage image);
 
         void getStreamOpen(Packet* pkt);
         void getStreamClose(Packet* pkt);
@@ -57,5 +65,6 @@ class Peer
         HWND _hWnd;
         HWND _hWnd_stream;
         POINT _cursor;
+        StreamSender* _streamSender;
 
 };

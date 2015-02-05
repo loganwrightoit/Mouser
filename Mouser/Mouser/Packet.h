@@ -10,8 +10,6 @@ class Packet
         enum Protocol
         {
             DISCONNECT,
-            STREAM_BEGIN,
-            STREAM_END,
             STREAM_IMAGE,
             STREAM_CURSOR,
             CHAT_TEXT,

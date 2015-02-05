@@ -1,31 +1,23 @@
 #include "stdafx.h"
 #include "StreamSender.h"
+#include <thread>
 
 #include <atlimage.h> // for CImage
 
-StreamSender::StreamSender(SOCKET sock, HWND hWnd)
+StreamSender::StreamSender(SOCKET socket, HWND hWnd)
 {
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
     getEncoderClsid(L"image/png", &clsid);
 
-    RECT rect;
-    GetWindowRect(hWnd, &rect);
-    scrWidth = rect.right - rect.left;
-    scrHeight = rect.bottom - rect.top;
-
-    this->sock = sock;
-    this->hWnd = hWnd;
-    this->hSrcDC = GetDC(hWnd);
-    this->hDestDC = CreateCompatibleDC(hSrcDC);
-    this->hCaptureBitmap = CreateCompatibleBitmap(hSrcDC, scrWidth, scrHeight);
-    SelectObject(hDestDC, hCaptureBitmap);
+    _socket = socket;
+    _hWnd = hWnd;
     
     AddOutputMsg(L"[P2P]: Stream sender created.");
 }
 
 StreamSender::~StreamSender()
 {
-    ReleaseDC(hWnd, hSrcDC);
+    ReleaseDC(_hWnd, hSrcDC);
     DeleteDC(hDestDC);
     DeleteObject(hCaptureBitmap);
     GdiplusShutdown(gdiplusToken);
@@ -93,46 +85,49 @@ void StreamSender::captureAsStream()
     // Copy capture bytes to array
     ULARGE_INTEGER liSize;
     IStream_Size(pStream, &liSize);
-    char * mem = new char[liSize.QuadPart];
+    char * data = new char[liSize.QuadPart];
     IStream_Reset(pStream);
-    IStream_Read(pStream, mem, liSize.QuadPart);
+    IStream_Read(pStream, data, liSize.QuadPart);
 
     // Send data
-    //NetworkManager::getInstance().send(sock, mem, liSize.QuadPart);
+    Packet* pkt = new Packet(Packet::STREAM_IMAGE, data, liSize.QuadPart);
+    NetworkManager::getInstance().sendPacket(_socket, pkt);
+    delete pkt;
 
     // Release memory
     image.Destroy();
-    delete[] mem;
     pStream->Release();
 }
 
 bool stopStream = false;
-bool measureRate = true;
 
-void StreamSender::start()
+void StreamSender::stream(HWND hWnd)
 {
+    std::thread t(&StreamSender::startCaptureThread, this, hWnd);
+    t.detach();
+}
+
+//
+//  Pass window that should be captured.
+//
+void StreamSender::startCaptureThread(HWND hWnd)
+{
+    RECT rect;
+    GetWindowRect(hWnd, &rect);
+    scrWidth = rect.right - rect.left;
+    scrHeight = rect.bottom - rect.top;
+
+    this->hSrcDC = GetDC(hWnd);
+    this->hDestDC = CreateCompatibleDC(hSrcDC);
+    this->hCaptureBitmap = CreateCompatibleBitmap(hSrcDC, scrWidth, scrHeight);
+    SelectObject(hDestDC, hCaptureBitmap);
+
     u_long ticks = GetTickCount();
     int rate = 0;
     while (!stopStream)
     {
         captureAsStream();
-
-        if (measureRate)
-        {
-            ++rate;
-            u_long curTicks = GetTickCount();
-            u_long elapsed = curTicks - ticks;
-            if (elapsed > 1000)
-            {
-                wchar_t buffer[256];
-                swprintf(buffer, 256, L"[P2P]: Capturing at %i frames per second.", rate);
-                AddOutputMsg(buffer);
-                measureRate = false;
-            }
-        }
     }
-
-    stop();
 }
 
 void StreamSender::stop()

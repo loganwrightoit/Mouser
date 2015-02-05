@@ -11,10 +11,10 @@ class StreamSender
 
     public:
 
-        StreamSender(SOCKET sock, HWND hWnd);
+        StreamSender(SOCKET socket, HWND hWnd);
         ~StreamSender();
 
-        void start();
+        void stream(HWND hWnd);
         void stop();
         
     private:
@@ -24,11 +24,13 @@ class StreamSender
         void receiveBitmapAsStream();
         bool captureImageToFile(LPWSTR fileName);
 
-        SOCKET              sock;
+        void startCaptureThread(HWND hWnd);
+
+        SOCKET              _socket;
+        HWND                _hWnd;
         ULONG_PTR           gdiplusToken;
         GdiplusStartupInput gdiplusStartupInput;
         CLSID               clsid;
-        HWND                hWnd;
         HDC                 hSrcDC;
         HDC                 hDestDC;
         HBITMAP             hCaptureBitmap;

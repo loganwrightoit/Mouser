@@ -3,9 +3,10 @@
 #include <thread>
 #include <string>
 #include "Lmcons.h" // UNLEN
+#include "math.h"
 
 Peer::Peer(SOCKET peer_socket = 0)
-: _socket(peer_socket), _cursor(POINT{ 0, 0 }), _hWnd(0), _hWnd_stream(0)
+: _socket(peer_socket), _cursor(POINT{ 0, 0 }), _hWnd(0), _hWnd_stream(0), _streamSender(0)
 {
     _name = L"Unknown";
 
@@ -33,14 +34,39 @@ Peer::~Peer()
     }
 }
 
+HWND Peer::getStream()
+{
+    return _hWnd_stream;
+}
+
 void Peer::setChatWindow(HWND hWnd)
 {
     _hWnd = hWnd;
 }
 
-void Peer::clearHwnd()
+void Peer::setStreamWindow(HWND hWnd)
+{
+    _hWnd_stream = hWnd;
+}
+
+void Peer::onDestroyRoot()
 {
     _hWnd = 0;
+
+    if (_streamSender != nullptr)
+    {
+        _streamSender->stop();
+        _streamSender->~StreamSender();
+    }
+
+    _hWnd_stream = 0;
+}
+
+void Peer::setInputFocus()
+{
+    HWND editCtrl = GetDlgItem(_hWnd, IDC_PEER_CHAT_EDITBOX);
+    SetFocus(editCtrl);
+    SendDlgItemMessage(editCtrl, IDC_PEER_CHAT_EDITBOX, EM_SETSEL, 0, -1);
 }
 
 void Peer::openChatWindow()
@@ -61,16 +87,25 @@ void Peer::openChatWindow()
     }
 }
 
-void Peer::setInputFocus()
+void Peer::streamTo()
 {
-    HWND editCtrl = GetDlgItem(_hWnd, IDC_PEER_CHAT_EDITBOX);
-    SetFocus(editCtrl);
-    SendDlgItemMessage(editCtrl, IDC_PEER_CHAT_EDITBOX, EM_SETSEL, 0, -1);
+    _streamSender = new StreamSender(_socket, _hWnd_stream);
+    _streamSender->stream(GetDesktopWindow());
 }
 
 void Peer::openStreamWindow()
 {
-    //_hWnd_stream = getWindow(WindowType::StreamWin);
+    // If window exists, make active
+    if (_hWnd_stream != NULL)
+    {
+        ShowWindow(_hWnd_stream, SW_RESTORE);
+        SetFocus(_hWnd_stream);
+    }
+    else
+    {
+        HWND root = getRootWindow();
+        SendMessage(root, WM_EVENT_OPEN_PEER_STREAM, (WPARAM)this, NULL);
+    }
 }
 
 SOCKET Peer::getSocket() const
@@ -147,12 +182,6 @@ void Peer::rcvThread()
                 case Packet::DISCONNECT:
                     PeerHandler::getInstance().disconnectPeer(this);
                     return;
-                case Packet::STREAM_BEGIN:
-                    getStreamOpen(pkt);
-                    break;
-                case Packet::STREAM_END:
-                    getStreamClose(pkt);
-                    break;
                 case Packet::STREAM_IMAGE:
                     getStreamImage(pkt);
                     break;
@@ -233,16 +262,6 @@ HWND Peer::getRoot()
     return _hWnd;
 }
 
-void Peer::getStreamOpen(Packet* pkt)
-{
-
-}
-
-void Peer::getStreamClose(Packet* pkt)
-{
-
-}
-
 std::pair<char*, size_t> Peer::encode_utf8(wchar_t* wstr)
 {
     // Determine size needed for char array conversion
@@ -286,26 +305,69 @@ void Peer::sendChatMsg(wchar_t* msg)
     delete pkt;
 }
 
-void Peer::sendStreamImage()
+void Peer::DrawImage(HDC hdc, CImage image)
 {
+    // Image size determined by window width and height
+    RECT dest;
+    GetWindowRect(_hWnd_stream, &dest);
 
+    int img_cx = image.GetWidth();
+    int img_cy = image.GetHeight();
+
+    float ratio = min((float)(dest.right - dest.left) / img_cx, (float)(dest.bottom - dest.top) / img_cy);
+
+    // Compute the necessary size of the image:
+    CSize szSrc;
+    szSrc.cx = (LONG)(img_cx * ratio);
+    szSrc.cy = (LONG)(img_cy * ratio);
+
+    // Create rect for drawing
+    CRect src(CPoint(0, 0), szSrc);
+
+    // Center the rect
+    src.OffsetRect(((dest.right - dest.left) - szSrc.cx) / 2, ((dest.bottom - dest.top) - szSrc.cy) / 2);
+
+    // Draw the image
+    SetStretchBltMode(hdc, HALFTONE);
+    image.StretchBlt(hdc, src);
 }
 
 void Peer::getStreamImage(Packet* pkt)
 {
-    /*
+    bool setInitialSize = false;
+    if (!_hWnd_stream)
+    {
+        openStreamWindow();
+        setInitialSize = true;
+    }
+
+    // For now, assume data is CImage stream data
     IStream *pStream;
     HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
-    IStream_Write(pStream, buffer, length);
+    IStream_Write(pStream, pkt->getData(), pkt->getSize());
+
     // Create image from stream
     CImage image;
     image.Load(pStream);
-    // Draw to window
-    HDC hdc = GetDC(hStreamWindow);
-    image.BitBlt(hdc, 0, 0);
-    ReleaseDC(hStreamWindow, hdc);
+
+    // Adjust window size if set to image size
+    RECT strRect;
+    GetWindowRect(_hWnd_stream, &strRect);
+    int strWidth = strRect.right - strRect.left;
+    int strHeight = strRect.top - strRect.bottom;
+
+    if (setInitialSize)
+    {
+        MoveWindow(_hWnd_stream, strRect.left, strRect.top, image.GetWidth(), image.GetHeight(), false);
+        centerWindow(_hWnd_stream);
+    }
+
+    // Draw image to screen
+    HDC hdc = GetDC(_hWnd_stream);
+    DrawImage(hdc, image); // Uses stretch blt method
+
+    ReleaseDC(_hWnd_stream, hdc);
     pStream->Release();
-    */
 }
 
 void Peer::sendStreamCursor()

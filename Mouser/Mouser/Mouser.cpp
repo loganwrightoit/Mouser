@@ -46,7 +46,6 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 bool                isPeerChatSendCommand(MSG msg);
 void                sendChatToPeer(HWND hWnd);
 void setWindowFont(HWND hWnd);
-void centerWindow(HWND hWnd);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPTSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -133,7 +132,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wMouserClass.hInstance = hInstance;
     wMouserClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wMouserClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wMouserClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200)); // Default: (HBRUSH)(COLOR_WINDOW+1)
+    wMouserClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200));
     wMouserClass.lpszMenuName = MAKEINTRESOURCE(IDC_MOUSER);
     wMouserClass.lpszClassName = szMouserClass;
     wMouserClass.hIconSm = LoadIcon(wMouserClass.hInstance, MAKEINTRESOURCE(IDI_SMALL));
@@ -147,7 +146,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wPeerClass.hInstance = hInstance;
     wPeerClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wPeerClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wPeerClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wPeerClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200));
     wPeerClass.lpszMenuName = MAKEINTRESOURCE(IDC_PEER);
     wPeerClass.lpszClassName = szPeerClass;
     wPeerClass.hIconSm = NULL;
@@ -161,7 +160,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wStreamClass.hInstance = hInstance;
     wStreamClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wStreamClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wStreamClass.hbrBackground = (HBRUSH)COLOR_WINDOW;
+    wStreamClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200));
     wStreamClass.lpszMenuName = MAKEINTRESOURCE(IDC_STREAM);
     wStreamClass.lpszClassName = szStreamClass;
     wStreamClass.hIconSm = NULL;
@@ -201,12 +200,7 @@ void sendChatToPeer(HWND hWnd)
         wchar_t text[MAX_CHAT_LENGTH];
         GetWindowText(hPeerChatEditBox, text, MAX_CHAT_LENGTH);
         if (wcslen(text) > 0)
-        {
-            // Send text to peer
-            //wchar_t buffer[256];
-            //swprintf(buffer, 256, L"[DEBUG]: Chat (to socket %d): %hs", peer->getSocket(), text);
-            //AddOutputMsg(buffer);
-            
+        {            
             peer->sendChatMsg(text);
 
             // Clear text from control
@@ -340,29 +334,6 @@ void AddOutputMsg(LPWSTR msg)
     SendMessage(hMouserOutputListBox, LB_SETTOPINDEX, idx, 0);
 }
 
-/*
-void DrawImage(HDC hdc, CImage image)
-{
-// Image size determined by window width and height
-RECT hWndRect;
-GetWindowRect(hStreamWindow, &hWndRect);
-int hWndWidth = hWndRect.right - hWndRect.left;
-int hWndHeight = hWndRect.bottom - hWndRect.top;
-
-// Construct resized rect for image
-RECT imgRect;
-imgRect.left = 0;
-imgRect.right = hWndWidth;
-imgRect.top = 0;
-imgRect.bottom = hWndHeight;
-
-// Do corrections for aspect ratio here, and use stretch blt
-
-SetStretchBltMode(hdc, HALFTONE); // Smooth resize
-image.StretchBlt(hdc, imgRect);
-}
-*/
-
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -483,6 +454,8 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_EVENT_OPEN_PEER_CHAT:
         return getWindow(WindowType::PeerWin, (Peer*)wParam) != NULL;
+    case WM_EVENT_OPEN_PEER_STREAM:
+        return getWindow(WindowType::StreamWin, (Peer*)wParam) != NULL;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
@@ -490,32 +463,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Parse the menu selections:
         switch (wmId)
         {
-            /*
-        case IDC_MAIN_CAPTURE_SCREEN_BUTTON:
-            if (strSender == NULL)
-            {
-                strSender = new StreamSender(p2p_sock, GetDesktopWindow());
-                thread streamThread(&StreamSender::Start, strSender);
-                streamThread.detach();
-                SetWindowText(hCaptureScreenButton, L"Stop Streaming");
-            }
-            else
-            {
-                strSender->Stop();
-                strSender->~StreamSender();
-                strSender = NULL;
-                SetWindowText(hCaptureScreenButton, L"Start Streaming");
-            }
-            break;
-            */
-            /*
-        case IDC_MAIN_SEND_PEER_DATA_BUTTON:
-            if (peerHandler->getDefaultPeer() != nullptr)
-            {
-                peerHandler->getDefaultPeer()->sendStreamCursor();
-            }
-            break;
-            */
         case IDC_MAIN_PEER_LISTBOX:
             switch (wmEvent)
             {
@@ -549,26 +496,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         EndPaint(hWnd, &ps);
         break;
     case WM_CLOSE:
-        /*
-        if (p2p_sock != INVALID_SOCKET)
-        {
-        shutdown(p2p_sock, SD_BOTH);
-        closesocket(p2p_sock);
-        }
-        */
-        //if (p2p_lstn_sock != INVALID_SOCKET)
-        //{
-        //    closesocket(p2p_lstn_sock);
-        //}
-        //network->LeaveMulticastGroup();
-
         WSACleanup();
-        /*
-        if (strSender != NULL)
-        {
-        strSender->~StreamSender();
-        }
-        */
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:
@@ -753,6 +681,9 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             case IDC_PEER_CHAT_LISTBOX:
                 // Listbox is passive, nothing really to do here
                 break;
+            case IDC_PEER_CHAT_STREAM_BUTTON:
+                peer->streamTo();
+                break;
         }
         break;
     case WM_PAINT:
@@ -760,7 +691,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
-        peer->clearHwnd();
+        peer->onDestroyRoot();
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -774,21 +705,31 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 //
 LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    Peer* peer;
+    if (msg == WM_NCCREATE)
+    {
+        CREATESTRUCT* pCreate = (CREATESTRUCT*)lParam;
+        peer = (Peer*)pCreate->lpCreateParams;
+        SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)peer);
+        peer->setStreamWindow(hWnd);
+    }
+    else
+    {
+        peer = (Peer*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+    }
+
     int wmId, wmEvent;
     PAINTSTRUCT ps;
     HDC hdc;
 
     switch (msg)
     {
-    case WM_ERASEBKGND:
-        return FALSE;
-        break;
     case WM_PAINT:
         hdc = BeginPaint(hWnd, &ps);
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
-        //PostQuitMessage(0);
+        PostQuitMessage(0);
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);
