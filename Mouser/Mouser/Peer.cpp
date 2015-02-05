@@ -2,10 +2,13 @@
 #include "Peer.h"
 #include <thread>
 #include <string>
+#include "Lmcons.h" // UNLEN
 
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _cursor(POINT{ 0, 0 }), _hWnd(0), _hWnd_stream(0)
 {
+    _name = L"Unknown";
+
     // Start receive thread
     std::thread t(&Peer::rcvThread, this);
     t.detach();
@@ -23,6 +26,10 @@ Peer::~Peer()
     if (_hWnd_stream)
     {
         DestroyWindow(_hWnd_stream);
+    }
+    if (_name)
+    {
+        delete[] _name;
     }
 }
 
@@ -86,8 +93,35 @@ void Peer::AddChat(LPWSTR msg)
     }
 }
 
+wchar_t* Peer::getUserName()
+{
+    // Send user name to peer
+    wchar_t name[UNLEN + 1];
+    DWORD szName = sizeof(name);
+    if (GetUserName(name, &szName))
+    {
+        return name;
+    }
+
+    return L"Unknown";
+}
+
+void Peer::sendName()
+{
+    wchar_t* name = getUserName();
+    char* buffer = toMultiByteArray(name);
+
+    // Send name to peer
+    Packet* pkt = new Packet(Packet::NAME, buffer, wcslen(name));
+    NetworkManager::getInstance().sendPacket(_socket, pkt);
+    delete pkt;
+}
+
 void Peer::rcvThread()
 {
+    // Send peer name
+    sendName();
+
     // Gather peer info
     sockaddr_in addr;
     int size = sizeof(addr);
@@ -132,6 +166,9 @@ void Peer::rcvThread()
                 case Packet::CHAT_IS_TYPING:
                     getChatIsTyping(pkt);
                     break;
+                case Packet::NAME:
+                    getName(pkt);
+                    break;
                 }
             }
             catch (std::exception) {}
@@ -149,9 +186,17 @@ void Peer::rcvThread()
     }
 }
 
-wchar_t* Peer::getIdentifier()
+wchar_t* Peer::getName()
 {
+    return _name;
+}
 
+void Peer::getName(Packet* pkt)
+{
+    _name = multiByteToWideCharArray(pkt->getData());
+
+    // Update peer list
+    updatePeerListBoxData();
 }
 
 void Peer::getChatIsTyping(Packet* pkt)
@@ -161,20 +206,25 @@ void Peer::getChatIsTyping(Packet* pkt)
     ShowWindow(isTypingLabel, SW_SHOW);
 
     // Set timer to hide label after 1 second
-    SetTimer(_hWnd, 0, 1000, (TIMERPROC)&hideChatIsTypingLabel);
+    SetTimer(_hWnd, IDT_TIMER_PEER_IS_TYPING, 1000, (TIMERPROC)&hideChatIsTypingLabel);
 }
 
 void Peer::getChatText(Packet* pkt)
 {
-    int szMsg = MultiByteToWideChar(CP_ACP, 0, pkt->getData(), -1, NULL, 0);
-    wchar_t *msg = new wchar_t[szMsg];
-    MultiByteToWideChar(CP_ACP, 0, pkt->getData(), -1, (LPWSTR)msg, szMsg);
+    // Hide "Peer is typing..." label
+    HWND isTypingLabel = GetDlgItem(_hWnd, IDC_PEER_CHAT_IS_TYPING_LABEL);
+    ShowWindow(isTypingLabel, SW_HIDE);
+
+    // Kill timer, if exists
+    KillTimer(_hWnd, IDT_TIMER_PEER_IS_TYPING);
+
+    wchar_t* msg = multiByteToWideCharArray(pkt->getData());
 
     // Append peer identifier to message
-    std::wstring wstr(L"Peer: ");
-    wstr.append(msg);
+    std::wstring colon(L": ");
+    std::wstring str = _name + colon + msg;
 
-    AddChat((LPWSTR)wstr.c_str());
+    AddChat((LPWSTR)str.c_str());
 
     delete[] msg;
 }
@@ -194,10 +244,32 @@ void Peer::getStreamClose(Packet* pkt)
 
 }
 
+char* Peer::toMultiByteArray(wchar_t* wstr)
+{
+    size_t buffer_size;
+    wcstombs_s(&buffer_size, NULL, 0, wstr, _TRUNCATE);
+
+    int sz = WideCharToMultiByte(CP_UTF8, 0, wstr, buffer_size, NULL, 0, NULL, NULL);
+    char* buffer = new char[buffer_size];
+    WideCharToMultiByte(CP_UTF8, 0, wstr, buffer_size, buffer, sz, NULL, NULL);
+
+    return buffer;
+}
+
+wchar_t* Peer::multiByteToWideCharArray(char* str)
+{
+    int szMsg = MultiByteToWideChar(CP_ACP, 0, str, -1, NULL, 0);
+    wchar_t *buffer = new wchar_t[szMsg];
+    MultiByteToWideChar(CP_ACP, 0, str, -1, (LPWSTR)buffer, szMsg);
+
+    return buffer;
+}
+
 void Peer::sendChatMsg(wchar_t* msg)
 {
     // Append peer identifier to message
-    std::wstring wstr(L"Me: ");
+    std::wstring wstr(getUserName());
+    wstr.append(L": ");
     wstr.append(msg);
 
     AddChat((LPWSTR)wstr.c_str());
@@ -207,8 +279,7 @@ void Peer::sendChatMsg(wchar_t* msg)
     wcstombs_s(&buffer_size, NULL, 0, msg, _TRUNCATE);
 
     // Convert wide char array to char array
-    char* buffer = new char[buffer_size];
-    wcstombs_s(&buffer_size, buffer, buffer_size, msg, _TRUNCATE);
+    char* buffer = toMultiByteArray(msg);
 
     // Construct and send packet
     Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer, buffer_size);
@@ -216,8 +287,6 @@ void Peer::sendChatMsg(wchar_t* msg)
 
     // Set focus to edit control again
     setInputFocus();
-
-    //delete buffer;
 
     delete pkt;
 }

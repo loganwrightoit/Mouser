@@ -15,7 +15,8 @@ class Packet
             STREAM_IMAGE,
             STREAM_CURSOR,
             CHAT_TEXT,
-            CHAT_IS_TYPING
+            CHAT_IS_TYPING,
+            NAME
         };
 
         /// <summary>

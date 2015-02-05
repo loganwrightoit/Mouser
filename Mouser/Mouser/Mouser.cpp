@@ -595,19 +595,8 @@ void updatePeerListBoxData()
     auto iter = peers.begin();
     while (iter != peers.end())
     {
-        // Gather peer info
-        sockaddr_in addr;
-        int size = sizeof(addr);
-        getpeername((*iter)->getSocket(), (sockaddr*)&addr, &size);
-        char* ip = inet_ntoa(addr.sin_addr);
-
-        // Get peer string identifier
-        const size_t szStr = strlen(ip) + 1;
-        std::wstring ident(szStr, L'#');
-        mbstowcs(&ident[0], ip, szStr);
-
         // Add peer to listbox
-        int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)ident.c_str());
+        int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
         SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
 
         ++iter;
@@ -751,16 +740,11 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 // For now, it's only "Peer is typing..." indicator sent once per second
                 {
                     UINT ticks = GetTickCount();
-                    if ((ticks - lastIsTypingTick) > 1000)
+                    if ((ticks - lastIsTypingTick) > 500)
                     {
                         Packet* pkt = new Packet(Packet::CHAT_IS_TYPING);
                         NetworkManager::getInstance().sendPacket(peer->getSocket(), pkt);
                         delete pkt;
-
-                        //SetTimer(hWnd, 0, 1000, (TIMERPROC)&hideChatIsTypingLabel);
-
-                        //HWND isTypingLabel = GetDlgItem(hWnd, IDC_PEER_CHAT_IS_TYPING_LABEL);
-                        //ShowWindow(isTypingLabel, SW_SHOW);
 
                         lastIsTypingTick = ticks;
                     }

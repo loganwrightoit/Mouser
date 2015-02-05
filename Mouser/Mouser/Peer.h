@@ -16,12 +16,12 @@ class Peer
         void sendStreamImage();
         void sendStreamCursor();
         void sendChatMsg(wchar_t* msg);
+        void sendName();
         SOCKET getSocket() const;
 
         HWND getRoot();
-        wchar_t* getIdentifier();
-
-
+        wchar_t* getName();
+        
         void setInputFocus();
         void setChatWindow(HWND hWnd);
         void openChatWindow();
@@ -44,7 +44,13 @@ class Peer
         void getStreamCursor(Packet* pkt);
         void getChatText(Packet* pkt);
         void getChatIsTyping(Packet* pkt);
+        void getName(Packet* pkt);
+        
+        char* toMultiByteArray(wchar_t* wstr);
+        wchar_t* multiByteToWideCharArray(char* str);
+        wchar_t* getUserName();
 
+        wchar_t* _name;
         SOCKET _socket;
         HWND _hWnd;
         HWND _hWnd_stream;
