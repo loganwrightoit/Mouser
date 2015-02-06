@@ -11,8 +11,12 @@ Peer::Peer(SOCKET peer_socket = 0)
     _name = L"Unknown";
 
     // Start receive thread
-    std::thread t(&Peer::rcvThread, this);
-    t.detach();
+    std::thread rt(&Peer::rcvThread, this);
+    rt.detach();
+
+    // Start send thread
+    std::thread st(&Peer::sendThread, this);
+    st.detach();
 }
 
 Peer::~Peer()
@@ -87,9 +91,36 @@ void Peer::openChatWindow()
     }
 }
 
+void Peer::sendPacket(Packet* pkt)
+{
+    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
+}
+
+//
+// Single-threaded use only by main thread!
+//
+void Peer::queuePacket(Packet* pkt)
+{
+    sendQueue.push(pkt);
+}
+
+void Peer::sendThread()
+{
+    while (1)
+    {
+        if (sendQueue.size() > 0)
+        {
+            Packet* pkt = sendQueue.front();
+            NetworkManager::getInstance().sendPacket(_socket, pkt);
+            delete pkt;
+            sendQueue.pop();
+        }
+    }
+}
+
 void Peer::streamTo()
 {
-    _streamSender = new StreamSender(_socket, _hWnd_stream);
+    _streamSender = new StreamSender(this, _hWnd_stream);
     _streamSender->stream(GetDesktopWindow());
 }
 
@@ -147,8 +178,10 @@ void Peer::sendName()
 
     // Send name to peer
     Packet* pkt = new Packet(Packet::NAME, buffer.first, buffer.second);
-    NetworkManager::getInstance().sendPacket(_socket, pkt);
-    delete pkt;
+    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
+
+    //NetworkManager::getInstance().sendPacket(_socket, pkt);
+    //delete pkt;
 }
 
 void Peer::rcvThread()
@@ -257,6 +290,11 @@ void Peer::getChatText(Packet* pkt)
     delete[] msg;
 }
 
+size_t Peer::getQueueSize() const
+{
+    return sendQueue.size();
+}
+
 HWND Peer::getRoot()
 {
     return _hWnd;
@@ -297,12 +335,14 @@ void Peer::sendChatMsg(wchar_t* msg)
 
     // Construct and send packet
     Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second);
-    NetworkManager::getInstance().sendPacket(_socket, pkt);
+    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
+
+    //NetworkManager::getInstance().sendPacket(_socket, pkt);
 
     // Set focus to edit control again
     setInputFocus();
 
-    delete pkt;
+    //delete pkt;
 }
 
 void Peer::DrawImage(HDC hdc, CImage image)
@@ -389,9 +429,10 @@ void Peer::sendStreamCursor()
 
             // Construct and send packet
             Packet * pkt = new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor));
-            NetworkManager::getInstance().sendPacket(_socket, pkt);
+            SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
+            //NetworkManager::getInstance().sendPacket(_socket, pkt);
 
-            delete pkt;
+            //delete pkt;
         }
     }
 }

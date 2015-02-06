@@ -654,6 +654,9 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         }
         break;
+    case WM_EVENT_SEND_PACKET:
+        peer->queuePacket((Packet*)wParam);
+        break;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
@@ -665,15 +668,12 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
             case IDC_PEER_CHAT_EDITBOX:
                 // If real-time chat is enabled, need to send text here on keypress
-                // For now, it's only "Peer is typing..." indicator sent once per second
+                // For now, it's only "Peer is typing..." indicator
                 {
                     UINT ticks = GetTickCount();
                     if ((ticks - lastIsTypingTick) > 500)
                     {
-                        Packet* pkt = new Packet(Packet::CHAT_IS_TYPING);
-                        NetworkManager::getInstance().sendPacket(peer->getSocket(), pkt);
-                        delete pkt;
-
+                        peer->sendPacket(new Packet(Packet::CHAT_IS_TYPING));
                         lastIsTypingTick = ticks;
                     }
                 }

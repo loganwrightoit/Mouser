@@ -11,7 +11,7 @@ class StreamSender
 
     public:
 
-        StreamSender(SOCKET socket, HWND hWnd);
+        StreamSender(void* peer, HWND hWnd);
         ~StreamSender();
 
         void stream(HWND hWnd);
@@ -26,7 +26,7 @@ class StreamSender
 
         void startCaptureThread(HWND hWnd);
 
-        SOCKET              _socket;
+        void*               _peer;
         HWND                _hWnd;
         ULONG_PTR           gdiplusToken;
         GdiplusStartupInput gdiplusStartupInput;

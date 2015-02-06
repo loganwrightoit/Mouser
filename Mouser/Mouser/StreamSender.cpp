@@ -1,18 +1,18 @@
 #include "stdafx.h"
 #include "StreamSender.h"
 #include <thread>
+#include "Peer.h"
+#include <string>
 
 #include <atlimage.h> // for CImage
 
-StreamSender::StreamSender(SOCKET socket, HWND hWnd)
+StreamSender::StreamSender(void* peer, HWND hWnd)
 {
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
     getEncoderClsid(L"image/png", &clsid);
 
-    _socket = socket;
+    _peer = peer;
     _hWnd = hWnd;
-    
-    AddOutputMsg(L"[P2P]: Stream sender created.");
 }
 
 StreamSender::~StreamSender()
@@ -21,8 +21,6 @@ StreamSender::~StreamSender()
     DeleteDC(hDestDC);
     DeleteObject(hCaptureBitmap);
     GdiplusShutdown(gdiplusToken);
-
-    AddOutputMsg(L"[P2P]: Stream sender destroyed.");
 }
 
 int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
@@ -90,9 +88,7 @@ void StreamSender::captureAsStream()
     IStream_Read(pStream, data, liSize.QuadPart);
 
     // Send data
-    Packet* pkt = new Packet(Packet::STREAM_IMAGE, data, liSize.QuadPart);
-    NetworkManager::getInstance().sendPacket(_socket, pkt);
-    delete pkt;
+    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, liSize.QuadPart));
 
     // Release memory
     image.Destroy();
@@ -126,7 +122,14 @@ void StreamSender::startCaptureThread(HWND hWnd)
     int rate = 0;
     while (!stopStream)
     {
-        captureAsStream();
+        if ((((Peer*)_peer)->getQueueSize() < 5))
+        {
+            std::wstring str(L"[DEBUG]: queueSize(): ");
+            str.append(std::to_wstring(((Peer*)_peer)->getQueueSize()));
+            str.append(L"\n");
+            AddOutputMsg((LPWSTR)str.c_str());
+            captureAsStream();
+        }
     }
 }
 
