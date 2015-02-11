@@ -55,7 +55,6 @@ class Peer
 
         void DrawImage(HDC hdc, CImage image);
 
-        void getStreamStop();
         void getStreamOpen(Packet* pkt);
         void getStreamClose(Packet* pkt);
         void getStreamImage(Packet* pkt);

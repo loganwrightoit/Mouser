@@ -216,7 +216,7 @@ void Peer::rcvThread()
 
     while (1)
     {
-        if (NetworkManager::getInstance().isSocketReady(_socket)) // Seems to be CPU intensive
+        if (NetworkManager::getInstance().isSocketReady(_socket, SD_RECEIVE)) // Seems to be CPU intensive
         {
             Packet * pkt = nullptr;
 
@@ -229,9 +229,6 @@ void Peer::rcvThread()
                 case Packet::DISCONNECT:
                     PeerHandler::getInstance().disconnectPeer(this);
                     return;
-                case Packet::STREAM_STOP:
-                    getStreamStop();
-                    break;
                 case Packet::STREAM_IMAGE:
                     getStreamImage(pkt);
                     break;
@@ -275,16 +272,6 @@ void Peer::getName(Packet* pkt)
 
     // Update peer list
     updatePeerListBoxData();
-}
-
-void Peer::getStreamStop()
-{
-    if (_hWnd_stream != NULL)
-    {
-        _streamSender->stop();
-        _cursorUtil->stop();
-        DestroyWindow(_hWnd_stream);
-    }
 }
 
 void Peer::getChatIsTyping(Packet* pkt)

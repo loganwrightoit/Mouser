@@ -11,7 +11,6 @@ class Packet
         {
             DISCONNECT,
             STREAM_IMAGE,
-            STREAM_STOP,
             STREAM_CURSOR,
             CHAT_TEXT,
             CHAT_IS_TYPING,

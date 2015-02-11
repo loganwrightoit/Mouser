@@ -267,7 +267,7 @@ bool NetworkManager::sendPacket(SOCKET socket, Packet * pkt)
     return true;
 }
 
-bool NetworkManager::isSocketReady(SOCKET sock) const
+bool NetworkManager::isSocketReady(SOCKET sock, int channel) const
 {
     bool res;
     fd_set sready;
@@ -301,6 +301,7 @@ Packet * NetworkManager::getPacket(SOCKET socket)
     if (blocking)
     {
         AddOutputMsg(L"[DEBUG]: doRcv() could not receive packet, would block.");
+        return nullptr;
     }
 
     int bytesRemaining = ntohl(size);

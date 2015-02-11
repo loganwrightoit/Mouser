@@ -27,7 +27,7 @@ class NetworkManager
         void setBlocking(SOCKET socket, bool block);
         sockaddr_in getMulticastSenderInfo() const;
         unsigned short getPeerListenerPort() const;
-        bool isSocketReady(SOCKET socket) const;
+        bool isSocketReady(SOCKET socket, int channel) const;
 
     private:
 

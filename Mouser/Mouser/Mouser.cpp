@@ -548,6 +548,32 @@ void CALLBACK hideChatIsTypingLabel(HWND hWnd, UINT msg, UINT timerId, DWORD dwT
     ShowWindow(isTypingLabel, SW_HIDE);
 }
 
+WNDPROC wpOrigEditProc;
+
+// Subclass procedure 
+LRESULT APIENTRY EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    Peer* peer = (Peer*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
+    switch (uMsg)
+    {
+    case WM_KEYDOWN: // Naturally ignores ENTER keypress
+        // If real-time chat is enabled, need to send text here on keypress
+        // For now, it's only "Peer is typing..." indicator
+        {
+            UINT ticks = GetTickCount();
+            if ((ticks - lastIsTypingTick) > 500)
+            {
+                peer->sendPacket(new Packet(Packet::CHAT_IS_TYPING));
+                lastIsTypingTick = ticks;
+            }
+        }
+        break;
+    }
+
+    return CallWindowProc(wpOrigEditProc, hwnd, uMsg, wParam, lParam);
+}
+
 //
 // Message handler for peer window.
 //
@@ -627,6 +653,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 hInst,
                 NULL);
 
+            // Subclass the edit control.
+            wpOrigEditProc = (WNDPROC)SetWindowLong(hPeerChatEditBox, GWL_WNDPROC, (LONG)EditSubclassProc);
+            SetWindowLongPtr(hPeerChatEditBox, GWLP_USERDATA, (LONG_PTR)peer);
+
             setWindowFont(hPeerChatEditBox);
             SendMessage(hPeerChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
 
@@ -669,27 +699,15 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         switch (wmId)
         {
-            case IDC_PEER_CHAT_BUTTON:
-                sendChatToPeer(hWnd);
-                break;
-            case IDC_PEER_CHAT_EDITBOX:
-                // If real-time chat is enabled, need to send text here on keypress
-                // For now, it's only "Peer is typing..." indicator
-                {
-                    UINT ticks = GetTickCount();
-                    if ((ticks - lastIsTypingTick) > 500)
-                    {
-                        peer->sendPacket(new Packet(Packet::CHAT_IS_TYPING));
-                        lastIsTypingTick = ticks;
-                    }
-                }
-                break;
-            case IDC_PEER_CHAT_LISTBOX:
-                // Listbox is passive, nothing really to do here
-                break;
-            case IDC_PEER_CHAT_STREAM_BUTTON:
-                peer->streamTo();
-                break;
+        case IDC_PEER_CHAT_BUTTON:
+            sendChatToPeer(hWnd);
+            break;
+        case IDC_PEER_CHAT_LISTBOX:
+            // Listbox is passive, nothing really to do here
+            break;
+        case IDC_PEER_CHAT_STREAM_BUTTON:
+            peer->streamTo();
+            break;
         }
         break;
     case WM_PAINT:
@@ -697,6 +715,8 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
+        // Remove the subclass from the edit control. 
+        SetWindowLong(hPeerChatEditBox, GWL_WNDPROC, (LONG)wpOrigEditProc);
         peer->onDestroyRoot();
         break;
     default:
@@ -735,7 +755,6 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
-        peer->sendPacket(new Packet(Packet::STREAM_STOP));
         PostQuitMessage(0);
         break;
     default:
