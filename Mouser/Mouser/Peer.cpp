@@ -246,6 +246,8 @@ void Peer::rcvThread()
             getName(pkt);
             break;
         }
+
+        delete pkt;
     }
 }
 
