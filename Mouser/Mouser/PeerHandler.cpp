@@ -28,7 +28,7 @@ void PeerHandler::disconnectPeer(Peer * peer)
             int size = sizeof(addr);
             getpeername(peer->getSocket(), (sockaddr*)&addr, &size);
             wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: Peer disconnected at %hs.", inet_ntoa(addr.sin_addr));
+            swprintf(buffer, 256, L"[P2P]: Peer disconnected at %hs", inet_ntoa(addr.sin_addr));
             AddOutputMsg(buffer);
 
             // Erase peer from vector
@@ -73,6 +73,12 @@ void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
         return;
     }
 
+    // Clear windows events on socket, which seem to be inherited
+    WSAAsyncSelect(sock, getRootWindow(), 0, 0);
+
+    // Set socket to blocking
+    NetworkManager::getInstance().setBlocking(sock, true);
+
     // Add peer to vector
     peers.push_back(new Peer(sock));
 
@@ -90,6 +96,12 @@ void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
         AddOutputMsg(buffer);
         return;
     }
+
+    // Clear windows events on socket, which seem to be inherited
+    WSAAsyncSelect(sock, getRootWindow(), 0, 0);
+
+    // Set socket to blocking
+    NetworkManager::getInstance().setBlocking(sock, true);
 
     // Add peer
     peers.push_back(new Peer(sock));

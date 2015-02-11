@@ -14,8 +14,8 @@ Peer::Peer(SOCKET peer_socket = 0)
     sendName();
 
     // Start send thread
-    std::thread st(&Peer::sendThread, this);
-    st.detach();
+    //std::thread st(&Peer::sendThread, this);
+    //st.detach();
 
     // Start receive thread
     std::thread rt(&Peer::rcvThread, this);
@@ -103,30 +103,24 @@ void Peer::openChatWindow()
     }
 }
 
-void Peer::sendPacket(Packet* pkt)
-{
-    SendMessage(getRootWindow(), WM_EVENT_SEND_PACKET, (WPARAM)&std::make_pair(this, pkt), NULL);
-}
+//void Peer::sendPacket(Packet* pkt)
+//{
+//    SendMessage(getRootWindow(), WM_EVENT_SEND_PACKET, (WPARAM)&std::make_pair(this, pkt), NULL);
+//}
 
 //
 // Single-threaded use only by main thread!
 //
-void Peer::queuePacket(Packet* pkt)
+void Peer::sendPacket(Packet* pkt)
 {
-    sendQueue.push(pkt);
-}
+    //sendQueue.push(pkt);
 
-void Peer::sendThread()
-{
-    while (1)
+    if (NetworkManager::getInstance().isSocketReady(_socket, FD_WRITE))
     {
-        if (sendQueue.size() > 0)
-        {
-            Packet* pkt = sendQueue.front();
-            NetworkManager::getInstance().sendPacket(_socket, pkt);
-            delete pkt;
-            sendQueue.pop();
-        }
+        //Packet* pkt = sendQueue.front();
+        NetworkManager::getInstance().sendPacket(_socket, pkt);
+        delete pkt;
+        //sendQueue.pop();
     }
 }
 
@@ -216,47 +210,31 @@ void Peer::rcvThread()
 
     while (1)
     {
-        if (NetworkManager::getInstance().isSocketReady(_socket, SD_RECEIVE)) // Seems to be CPU intensive
+        Packet* pkt = NetworkManager::getInstance().getPacket(_socket);
+
+        switch (pkt->getProtocol())
         {
-            Packet * pkt = nullptr;
-
-            try
-            {
-                pkt = NetworkManager::getInstance().getPacket(_socket);
-
-                switch (pkt->getProtocol())
-                {
-                case Packet::DISCONNECT:
-                    PeerHandler::getInstance().disconnectPeer(this);
-                    return;
-                case Packet::STREAM_IMAGE:
-                    getStreamImage(pkt);
-                    break;
-                case Packet::STREAM_CURSOR:
-                    getStreamCursor(pkt);
-                    break;
-                case Packet::CHAT_TEXT:
-                    getChatText(pkt);
-                    break;
-                case Packet::CHAT_IS_TYPING:
-                    getChatIsTyping(pkt);
-                    break;
-                case Packet::NAME:
-                    getName(pkt);
-                    break;
-                }
-            }
-            catch (std::exception) {}
-
-            if (pkt != nullptr)
-            {
-                delete pkt;
-            }
-            else
-            {
-                PeerHandler::getInstance().disconnectPeer(this);
-                return;
-            }
+        case Packet::DISCONNECT:
+            PeerHandler::getInstance().disconnectPeer(this);
+            return;
+        case Packet::STREAM_CLOSE:
+            getStreamClose();
+            break;
+        case Packet::STREAM_IMAGE:
+            getStreamImage(pkt);
+            break;
+        case Packet::STREAM_CURSOR:
+            getStreamCursor(pkt);
+            break;
+        case Packet::CHAT_TEXT:
+            getChatText(pkt);
+            break;
+        case Packet::CHAT_IS_TYPING:
+            getChatIsTyping(pkt);
+            break;
+        case Packet::NAME:
+            getName(pkt);
+            break;
         }
     }
 }
@@ -264,6 +242,11 @@ void Peer::rcvThread()
 wchar_t* Peer::getName()
 {
     return _name;
+}
+
+void Peer::getStreamClose()
+{
+    DestroyWindow(_hWnd_stream);
 }
 
 void Peer::getName(Packet* pkt)
@@ -304,10 +287,12 @@ void Peer::getChatText(Packet* pkt)
     delete[] msg;
 }
 
+/*
 size_t Peer::getQueueSize() const
 {
     return sendQueue.size();
 }
+*/
 
 HWND Peer::getRoot()
 {

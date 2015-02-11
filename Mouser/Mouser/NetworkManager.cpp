@@ -276,7 +276,7 @@ bool NetworkManager::isSocketReady(SOCKET sock, int channel) const
     FD_ZERO(&sready);
     FD_SET((unsigned int)sock, &sready);
     memset((char *)&nowait, 0, sizeof(nowait));
-    res = select(sock, &sready, NULL, NULL, &nowait);
+    res = select(sock, (channel == FD_READ ? &sready : NULL), (channel == FD_WRITE ? &sready : NULL), NULL, &nowait);
 
     if (FD_ISSET(sock, &sready))
         res = true;

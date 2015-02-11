@@ -12,6 +12,7 @@ class Packet
             DISCONNECT,
             STREAM_IMAGE,
             STREAM_CURSOR,
+            STREAM_CLOSE,
             CHAT_TEXT,
             CHAT_IS_TYPING,
             NAME

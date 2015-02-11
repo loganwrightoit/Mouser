@@ -452,12 +452,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
         }
         break;
-    case WM_EVENT_SEND_PACKET:
-        {
-            auto pair = (std::pair<Peer*, Packet*>*)wParam;
-            pair->first->queuePacket(pair->second);
-        }
-        break;
     case WM_EVENT_OPEN_PEER_CHAT:
         return getWindow(WindowType::PeerWin, (Peer*)wParam) != NULL;
     case WM_EVENT_OPEN_PEER_STREAM:
