@@ -452,6 +452,12 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
         }
         break;
+    case WM_EVENT_SEND_PACKET:
+        {
+            auto pair = (std::pair<Peer*, Packet*>*)wParam;
+            pair->first->queuePacket(pair->second);
+        }
+        break;
     case WM_EVENT_OPEN_PEER_CHAT:
         return getWindow(WindowType::PeerWin, (Peer*)wParam) != NULL;
     case WM_EVENT_OPEN_PEER_STREAM:
@@ -523,10 +529,13 @@ void updatePeerListBoxData()
     auto iter = peers.begin();
     while (iter != peers.end())
     {
-        // Add peer to listbox
-        int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
-        SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
-
+        // Only display name if it's known
+        if (wcscmp((*iter)->getName(), L"Unknown") != 0)
+        {
+            // Add peer to listbox
+            int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
+            SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
+        }
         ++iter;
     }
 }
@@ -654,9 +663,6 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         }
         break;
-    case WM_EVENT_SEND_PACKET:
-        peer->queuePacket((Packet*)wParam);
-        break;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
@@ -729,6 +735,7 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
         EndPaint(hWnd, &ps);
         break;
     case WM_DESTROY:
+        peer->sendPacket(new Packet(Packet::STREAM_STOP));
         PostQuitMessage(0);
         break;
     default:

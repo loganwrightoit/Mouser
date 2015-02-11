@@ -124,10 +124,10 @@ void StreamSender::startCaptureThread(HWND hWnd)
     {
         if ((((Peer*)_peer)->getQueueSize() < 4))
         {
-            std::wstring str(L"[DEBUG]: queueSize(): ");
-            str.append(std::to_wstring(((Peer*)_peer)->getQueueSize()));
-            str.append(L"\n");
-            AddOutputMsg((LPWSTR)str.c_str());
+            //std::wstring str(L"[DEBUG]: queueSize(): ");
+            //str.append(std::to_wstring(((Peer*)_peer)->getQueueSize()));
+            //str.append(L"\n");
+            //AddOutputMsg((LPWSTR)str.c_str());
             captureAsStream();
         }
     }

@@ -6,17 +6,20 @@
 #include "math.h"
 
 Peer::Peer(SOCKET peer_socket = 0)
-: _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0)
+: _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0), _streaming(false)
 {
-    _name = L"Unknown";
+    _name = L"";
 
-    // Start receive thread
-    std::thread rt(&Peer::rcvThread, this);
-    rt.detach();
+    // Send peer name
+    sendName();
 
     // Start send thread
     std::thread st(&Peer::sendThread, this);
     st.detach();
+
+    // Start receive thread
+    std::thread rt(&Peer::rcvThread, this);
+    rt.detach();
 }
 
 Peer::~Peer()
@@ -93,8 +96,7 @@ void Peer::openChatWindow()
     }
     else
     {
-        HWND root = getRootWindow();
-        if (SendMessage(root, WM_EVENT_OPEN_PEER_CHAT, (WPARAM)this, NULL))
+        if (SendMessage(getRootWindow(), WM_EVENT_OPEN_PEER_CHAT, (WPARAM)this, NULL))
         {
             setInputFocus();
         }
@@ -103,7 +105,7 @@ void Peer::openChatWindow()
 
 void Peer::sendPacket(Packet* pkt)
 {
-    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
+    SendMessage(getRootWindow(), WM_EVENT_SEND_PACKET, (WPARAM)&std::make_pair(this, pkt), NULL);
 }
 
 //
@@ -130,13 +132,17 @@ void Peer::sendThread()
 
 void Peer::streamTo()
 {
-    HWND hWnd = GetDesktopWindow();
+    if (!_streaming)
+    {
+        _streaming = true;
+        HWND hWnd = GetDesktopWindow();
 
-    _streamSender = new StreamSender(this, _hWnd_stream);
-    _streamSender->stream(hWnd);
+        _cursorUtil = new CursorUtil(this, hWnd);
+        _cursorUtil->stream(60);
 
-    _cursorUtil = new CursorUtil(this, hWnd);
-    _cursorUtil->stream(60);
+        _streamSender = new StreamSender(this, _hWnd_stream);
+        _streamSender->stream(hWnd);
+    }
 }
 
 void Peer::openStreamWindow()
@@ -192,14 +198,11 @@ void Peer::sendName()
     std::pair<char*, size_t> buffer = encode_utf8(getUserName());
 
     // Send name to peer
-    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM) new Packet(Packet::NAME, buffer.first, buffer.second), NULL);
+    sendPacket(new Packet(Packet::NAME, buffer.first, buffer.second));
 }
 
 void Peer::rcvThread()
 {
-    // Send peer name
-    sendName();
-
     // Gather peer info
     sockaddr_in addr;
     int size = sizeof(addr);
@@ -226,6 +229,9 @@ void Peer::rcvThread()
                 case Packet::DISCONNECT:
                     PeerHandler::getInstance().disconnectPeer(this);
                     return;
+                case Packet::STREAM_STOP:
+                    getStreamStop();
+                    break;
                 case Packet::STREAM_IMAGE:
                     getStreamImage(pkt);
                     break;
@@ -269,6 +275,16 @@ void Peer::getName(Packet* pkt)
 
     // Update peer list
     updatePeerListBoxData();
+}
+
+void Peer::getStreamStop()
+{
+    if (_hWnd_stream != NULL)
+    {
+        _streamSender->stop();
+        _cursorUtil->stop();
+        DestroyWindow(_hWnd_stream);
+    }
 }
 
 void Peer::getChatIsTyping(Packet* pkt)
@@ -345,7 +361,7 @@ void Peer::sendChatMsg(wchar_t* msg)
     std::pair<char*, size_t> buffer = encode_utf8(msg);
 
     // Construct and send packet
-    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM) new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second), NULL);
+    sendPacket(new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second));
 
     // Set focus to edit control again
     setInputFocus();
@@ -422,12 +438,6 @@ void Peer::getStreamCursor(Packet * pkt)
     {
         POINT cursor = _cursorUtil->getCursor();
         std::memcpy(&cursor, pkt->getData(), sizeof(cursor));
-
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: Received cursor location: %d, %d", cursor.x, cursor.y);
-        AddOutputMsg(buffer);
-
-        // Draw static cursor on screen after blit
 
         // Need to handle resizing
 

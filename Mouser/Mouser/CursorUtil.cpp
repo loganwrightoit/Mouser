@@ -2,7 +2,7 @@
 #include "CursorUtil.h"
 #include <thread>
 
-CursorUtil::CursorUtil(void* peer, HWND hWnd) : _streaming(false)
+CursorUtil::CursorUtil(void* peer, HWND hWnd) : _cursor({ 0, 0 }), _streaming(false)
 {
     _peer = peer;
     _hWnd = hWnd;
@@ -53,7 +53,7 @@ void CursorUtil::streamThread(int sendRate)
                     std::memcpy(data, &_cursor, sizeof(_cursor));
 
                     // Construct and send packet
-                    SendMessage(((Peer*)_peer)->getRoot(), WM_EVENT_SEND_PACKET, (WPARAM) new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor)), NULL);
+                    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor)));
                 }
             }
 
