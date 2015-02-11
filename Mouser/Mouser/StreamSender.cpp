@@ -122,7 +122,7 @@ void StreamSender::startCaptureThread(HWND hWnd)
     int rate = 0;
     while (!stopStream)
     {
-        if ((((Peer*)_peer)->getQueueSize() < 5))
+        if ((((Peer*)_peer)->getQueueSize() < 4))
         {
             std::wstring str(L"[DEBUG]: queueSize(): ");
             str.append(std::to_wstring(((Peer*)_peer)->getQueueSize()));

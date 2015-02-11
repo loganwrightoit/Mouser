@@ -6,7 +6,7 @@
 #include "math.h"
 
 Peer::Peer(SOCKET peer_socket = 0)
-: _socket(peer_socket), _cursor(POINT{ 0, 0 }), _hWnd(0), _hWnd_stream(0), _streamSender(0)
+: _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0)
 {
     _name = L"Unknown";
 
@@ -23,6 +23,16 @@ Peer::~Peer()
 {
     shutdown(_socket, SD_BOTH);
     closesocket(_socket);
+
+    // Stop peer cursor and image streams
+    _streamSender->stop();
+    _cursorUtil->stop();
+
+    // Clear queue
+    //if (!sendQueue.empty())
+    //{
+    //    auto iter = sendQueue.front
+    //}
 
     if (_hWnd)
     {
@@ -120,8 +130,13 @@ void Peer::sendThread()
 
 void Peer::streamTo()
 {
+    HWND hWnd = GetDesktopWindow();
+
     _streamSender = new StreamSender(this, _hWnd_stream);
-    _streamSender->stream(GetDesktopWindow());
+    _streamSender->stream(hWnd);
+
+    _cursorUtil = new CursorUtil(this, hWnd);
+    _cursorUtil->stream(60);
 }
 
 void Peer::openStreamWindow()
@@ -177,11 +192,7 @@ void Peer::sendName()
     std::pair<char*, size_t> buffer = encode_utf8(getUserName());
 
     // Send name to peer
-    Packet* pkt = new Packet(Packet::NAME, buffer.first, buffer.second);
-    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
-
-    //NetworkManager::getInstance().sendPacket(_socket, pkt);
-    //delete pkt;
+    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM) new Packet(Packet::NAME, buffer.first, buffer.second), NULL);
 }
 
 void Peer::rcvThread()
@@ -334,15 +345,10 @@ void Peer::sendChatMsg(wchar_t* msg)
     std::pair<char*, size_t> buffer = encode_utf8(msg);
 
     // Construct and send packet
-    Packet* pkt = new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second);
-    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
-
-    //NetworkManager::getInstance().sendPacket(_socket, pkt);
+    SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM) new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second), NULL);
 
     // Set focus to edit control again
     setInputFocus();
-
-    //delete pkt;
 }
 
 void Peer::DrawImage(HDC hdc, CImage image)
@@ -410,44 +416,25 @@ void Peer::getStreamImage(Packet* pkt)
     pStream->Release();
 }
 
-void Peer::sendStreamCursor()
-{
-    POINT p;
-    GetCursorPos(&p);
-    HWND hWnd = GetDesktopWindow();
-    if (ScreenToClient(hWnd, &p))
-    {
-        // Only send update if cursor location changed
-        if (_cursor.x != p.x || _cursor.y != p.y)
-        {
-            _cursor.x = p.x;
-            _cursor.y = p.y;
-
-            // Convert struct to char array
-            char * data = new char[sizeof(_cursor)];
-            std::memcpy(data, &_cursor, sizeof(_cursor));
-
-            // Construct and send packet
-            Packet * pkt = new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor));
-            SendMessage(_hWnd, WM_EVENT_SEND_PACKET, (WPARAM)pkt, NULL);
-            //NetworkManager::getInstance().sendPacket(_socket, pkt);
-
-            //delete pkt;
-        }
-    }
-}
-
 void Peer::getStreamCursor(Packet * pkt)
 {
-    std::memcpy(&_cursor, pkt->getData(), sizeof(_cursor));
+    if (_hWnd_stream)
+    {
+        POINT cursor = _cursorUtil->getCursor();
+        std::memcpy(&cursor, pkt->getData(), sizeof(cursor));
 
-    wchar_t buffer[256];
-    swprintf(buffer, 256, L"[P2P]: Received cursor location: %d, %d", _cursor.x, _cursor.y);
-    AddOutputMsg(buffer);
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"[P2P]: Received cursor location: %d, %d", cursor.x, cursor.y);
+        AddOutputMsg(buffer);
 
-    // Draw static cursor on screen after blit
-    // Always get last location from a cache in case update has not occurred
-    HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
-    HDC hDC = GetDC(_hWnd_stream);
-    DrawIconEx(hDC, _cursor.x, _cursor.y, NormalCursor, 0, 0, NULL, NULL, DI_DEFAULTSIZE | DI_NORMAL);
+        // Draw static cursor on screen after blit
+
+        // Need to handle resizing
+
+        // Always get last location from a cache in case update has not occurred
+        HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+        HDC hDC = GetDC(_hWnd_stream);
+        DrawIconEx(hDC, cursor.x, cursor.y, NormalCursor, 0, 0, NULL, NULL, DI_DEFAULTSIZE | DI_NORMAL);
+        ReleaseDC(_hWnd_stream, hDC);
+    }
 }

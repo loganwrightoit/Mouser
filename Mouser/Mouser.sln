@@ -5,6 +5,8 @@ VisualStudioVersion = 12.0.21005.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Mouser", "Mouser\Mouser.vcxproj", "{54450EA7-5558-4205-975D-41F59C46C1B2}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConsoleApplication1", "ConsoleApplication1\ConsoleApplication1.vcxproj", "{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -23,6 +25,14 @@ Global
 		{54450EA7-5558-4205-975D-41F59C46C1B2}.Release|Win32.ActiveCfg = Release|Win32
 		{54450EA7-5558-4205-975D-41F59C46C1B2}.Release|Win32.Build.0 = Release|Win32
 		{54450EA7-5558-4205-975D-41F59C46C1B2}.Release|x64.ActiveCfg = Release|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Debug|ARM.ActiveCfg = Debug|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Debug|Win32.Build.0 = Debug|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Debug|x64.ActiveCfg = Debug|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Release|ARM.ActiveCfg = Release|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Release|Win32.ActiveCfg = Release|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Release|Win32.Build.0 = Release|Win32
+		{D7103FEC-CD0C-4F0E-954A-1E1B736849AA}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

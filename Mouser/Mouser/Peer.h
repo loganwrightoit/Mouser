@@ -2,6 +2,7 @@
 
 #include "WinSock2.h"
 #include "StreamSender.h"
+#include "CursorUtil.h"
 #include <atlimage.h> // IStream_ and CImage functions
 #include <map>
 #include <queue>
@@ -71,8 +72,8 @@ class Peer
         SOCKET _socket;
         HWND _hWnd;
         HWND _hWnd_stream;
-        POINT _cursor;
         StreamSender* _streamSender;
+        CursorUtil* _cursorUtil;
         std::queue<Packet*> sendQueue;
 
 };
