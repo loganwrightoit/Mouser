@@ -14,8 +14,8 @@ Peer::Peer(SOCKET peer_socket = 0)
     sendName();
 
     // Start send thread
-    //std::thread st(&Peer::sendThread, this);
-    //st.detach();
+    std::thread st(&Peer::sendThread, this);
+    st.detach();
 
     // Start receive thread
     std::thread rt(&Peer::rcvThread, this);
@@ -103,25 +103,17 @@ void Peer::openChatWindow()
     }
 }
 
-//void Peer::sendPacket(Packet* pkt)
-//{
-//    SendMessage(getRootWindow(), WM_EVENT_SEND_PACKET, (WPARAM)&std::make_pair(this, pkt), NULL);
-//}
+void Peer::sendPacket(Packet* pkt)
+{
+    SendMessage(getRootWindow(), WM_EVENT_SEND_PACKET, (WPARAM)&std::make_pair(this, pkt), NULL);
+}
 
 //
 // Single-threaded use only by main thread!
 //
-void Peer::sendPacket(Packet* pkt)
+void Peer::queuePacket(Packet* pkt)
 {
-    //sendQueue.push(pkt);
-
-    if (NetworkManager::getInstance().isSocketReady(_socket, FD_WRITE))
-    {
-        //Packet* pkt = sendQueue.front();
-        NetworkManager::getInstance().sendPacket(_socket, pkt);
-        delete pkt;
-        //sendQueue.pop();
-    }
+    sendQueue.push(pkt);
 }
 
 void Peer::streamTo()
@@ -193,6 +185,24 @@ void Peer::sendName()
 
     // Send name to peer
     sendPacket(new Packet(Packet::NAME, buffer.first, buffer.second));
+}
+
+void Peer::sendThread()
+{
+    while (1)
+    {
+        if (sendQueue.size() > 0)
+        {
+            Packet* pkt = sendQueue.front();
+            NetworkManager::getInstance().sendPacket(_socket, pkt);
+            delete pkt;
+            sendQueue.pop();
+        }
+        else
+        {
+            Sleep(15); // Awakened 66 times a second, more than sufficient
+        }
+    }
 }
 
 void Peer::rcvThread()
@@ -287,12 +297,10 @@ void Peer::getChatText(Packet* pkt)
     delete[] msg;
 }
 
-/*
 size_t Peer::getQueueSize() const
 {
     return sendQueue.size();
 }
-*/
 
 HWND Peer::getRoot()
 {

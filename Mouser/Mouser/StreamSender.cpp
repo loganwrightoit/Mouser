@@ -88,10 +88,7 @@ void StreamSender::captureAsStream()
     IStream_Read(pStream, data, liSize.QuadPart);
 
     // Send data
-    if (NetworkManager::getInstance().isSocketReady(((Peer*)_peer)->getSocket(), FD_WRITE))
-    {
-        ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, liSize.QuadPart));
-    }
+    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, liSize.QuadPart));
 
     // Release memory
     image.Destroy();
@@ -125,8 +122,12 @@ void StreamSender::startCaptureThread(HWND hWnd)
     int rate = 0;
     while (!stopStream)
     {
-        if (NetworkManager::getInstance().isSocketReady(((Peer*)_peer)->getSocket(), FD_WRITE))
+        if ((((Peer*)_peer)->getQueueSize() < 4))
         {
+            //std::wstring str(L"[DEBUG]: queueSize(): ");
+            //str.append(std::to_wstring(((Peer*)_peer)->getQueueSize()));
+            //str.append(L"\n");
+            //AddOutputMsg((LPWSTR)str.c_str());
             captureAsStream();
         }
     }

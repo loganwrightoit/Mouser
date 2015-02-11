@@ -18,10 +18,10 @@ class Peer
         Peer(SOCKET sock);
         ~Peer();
 
-        //void queuePacket(Packet* pkt);
+        void queuePacket(Packet* pkt);
         void sendPacket(Packet* pkt);
 
-        //size_t getQueueSize() const;
+        size_t getQueueSize() const;
 
         void sendStreamImage();
         void sendStreamCursor();
@@ -50,7 +50,7 @@ class Peer
         
         void AddChat(LPWSTR msg);
 
-        //void sendThread();
+        void sendThread();
         void rcvThread();
 
         void DrawImage(HDC hdc, CImage image);
