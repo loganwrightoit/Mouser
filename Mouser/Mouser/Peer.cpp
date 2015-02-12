@@ -98,6 +98,16 @@ void Peer::openChatWindow()
     {
         if (SendMessage(getRootWindow(), WM_EVENT_OPEN_PEER_CHAT, (WPARAM)this, NULL))
         {
+            // Update window title with peer name
+            SetWindowText(_hWnd, _name);
+
+            // Update "Peer is typing..." label with peer name
+            std::wstring str = _name;
+            str.append(L" is typing...");
+            HWND hWnd = GetDlgItem(_hWnd, IDC_PEER_CHAT_IS_TYPING_LABEL);
+            SendMessage(hWnd, WM_SETTEXT, NULL, (LPARAM)str.c_str());
+
+            // Focus on input text area
             setInputFocus();
         }
     }
