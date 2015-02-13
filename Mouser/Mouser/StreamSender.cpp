@@ -59,7 +59,7 @@ bool StreamSender::captureImageToFile(LPWSTR fileName)
     return true;
 }
 
-uint32_t StreamSender::crc(char* data, size_t len)
+uint32_t StreamSender::getCRC(char* data, size_t len)
 {
     uint32_t seed = ~(234);
     while (len--)
@@ -104,7 +104,6 @@ void StreamSender::captureAsStream()
                 {
                     bool sendPacket = false;
 
-                    /*
                     // Generate key for image
                     unsigned int key = (x << 16) | y;
 
@@ -112,31 +111,26 @@ void StreamSender::captureAsStream()
                     char* bytes = new char[liSize.QuadPart];
                     memcpy(bytes, pStream, liSize.QuadPart);
 
-                    // Determine if image is newer than existing image in map
-                    auto iter = tileMap.find(key);
-                    if (iter == tileMap.end())
+                    // Check if image region is different than cache
+                    uint32_t crc = getCRC(bytes, liSize.QuadPart);
+                    auto iter = tempMap.find(key);
+                    if (iter == tempMap.end())
                     {
-                        tileMap.insert(std::make_pair(key, std::make_pair(bytes, liSize.QuadPart)));
+                        tempMap.insert(std::make_pair(key, crc));
                         sendPacket = true;
                     }
                     else
                     {
-                        auto result = std::make_pair(bytes, liSize.QuadPart);
-                        if (hasChanged(iter->second, result))
+                        if (iter->second != crc)
                         {
-                            delete[] iter->second.first; // Delete existing array
-                            tileMap.erase(iter);
-                            tileMap.insert(std::make_pair(key, result));
+                            tempMap.erase(iter);
+                            tempMap.insert(std::make_pair(key, crc));
+
                             sendPacket = true;
                         }
-                        else
-                        {
-                            delete[] result.first;
-                        }
                     }
-                    */
-
-                    if (true/*sendPacket*/)
+                    
+                    if (sendPacket)
                     {
                         // Construct origin point
                         POINT origin;
