@@ -362,21 +362,8 @@ void Peer::sendChatMsg(wchar_t* msg)
     setInputFocus();
 }
 
-void Peer::DrawImage(HDC hdc, CImage image, POINT origin)
+void Peer::DrawStreamImage(HDC hdc, RECT rect)
 {
-    int szTile = image.GetWidth();
-
-    // Get RECT for drawing
-    RECT rect;
-    rect.left = origin.x;
-    rect.top = origin.y;
-    rect.right = origin.x + szTile;
-    rect.bottom = origin.y + szTile;
-
-    // Draw the image to window
-    SetStretchBltMode(hdc, HALFTONE);
-    image.StretchBlt(hdc, rect);
-
     /*
     // Image size determined by window width and height
     RECT dest;
@@ -397,19 +384,30 @@ void Peer::DrawImage(HDC hdc, CImage image, POINT origin)
 
     // Center the RECT
     src.OffsetRect(((dest.right - dest.left) - szSrc.cx) / 2, ((dest.bottom - dest.top) - szSrc.cy) / 2);
-
-    // Draw the image to window
-    SetStretchBltMode(hdc, HALFTONE);
-    image.StretchBlt(hdc, src);
     */
+
+    // Create DC for only portion of rect
+
+    // Before resizing, must respect rect region
+
+    //SetStretchBltMode(hdc, HALFTONE);
+    _cachedStreamImage.BitBlt(hdc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, rect.left, rect.top);
+}
+
+void Peer::DrawStreamCursor(HDC hdc, RECT rect)
+{
+    // Need to handle resizing
+
+    HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    DrawIcon(hdc, _cachedStreamCursor.x, _cachedStreamCursor.y, NormalCursor);
 }
 
 void Peer::getStreamImage(Packet* pkt)
 {
     // Grab origin POINT preceding data
-    POINT point;
-    size_t szPoint = sizeof(point);
-    std::memcpy(&point, pkt->getData(), sizeof(point));
+    POINT origin;
+    size_t szPoint = sizeof(origin);
+    std::memcpy(&origin, pkt->getData(), sizeof(origin));
 
     // Reconstruct CImage from remaining data
     IStream *pStream;
@@ -418,16 +416,26 @@ void Peer::getStreamImage(Packet* pkt)
         // Write bytes to stream
         IStream_Write(pStream, pkt->getData() + szPoint, pkt->getSize() - szPoint);
 
-        // Create image from stream
+        // Update region in cache
         CImage image;
         image.Load(pStream);
-
-        // Draw image to screen
-        HDC hdc = GetDC(_hWnd_stream);
-        DrawImage(hdc, image, point);
-
-        // Release memory
+        HDC hdc = CreateCompatibleDC(GetDC(_hWnd_stream));
+        SelectObject(hdc, _cachedStreamImage);
+        image.BitBlt(hdc, origin.x, origin.y);
         ReleaseDC(_hWnd_stream, hdc);
+        DeleteDC(hdc);
+
+        // Invalidate with updated RECT
+        int szTile = image.GetWidth();
+        RECT rect;
+        rect.left = origin.x;
+        rect.top = origin.y;
+        rect.right = origin.x + szTile;
+        rect.bottom = origin.y + szTile;
+        InvalidateRect(_hWnd_stream, &rect, FALSE);
+        UpdateWindow(_hWnd_stream);
+
+        image.Destroy();
     }
 
     // Release memory
@@ -436,19 +444,16 @@ void Peer::getStreamImage(Packet* pkt)
 
 void Peer::getStreamCursor(Packet * pkt)
 {
-    if (_hWnd_stream)
-    {
-        POINT cursor = _cursorUtil->getCursor();
-        std::memcpy(&cursor, pkt->getData(), sizeof(cursor));
+    std::memcpy(&_cachedStreamCursor, pkt->getData(), sizeof(_cachedStreamCursor));
 
-        // Need to handle resizing
+    RECT rect;
+    rect.left = _cachedStreamCursor.x;
+    rect.top = _cachedStreamCursor.y;
+    rect.right = _cachedStreamCursor.x + 50;
+    rect.bottom = _cachedStreamCursor.y + 50;
 
-        // Always get last location from a cache in case update has not occurred
-        HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
-        HDC hDC = GetDC(_hWnd_stream);
-        DrawIconEx(hDC, cursor.x, cursor.y, NormalCursor, 0, 0, NULL, NULL, DI_DEFAULTSIZE | DI_NORMAL);
-        ReleaseDC(_hWnd_stream, hDC);
-    }
+    InvalidateRect(_hWnd_stream, &rect, FALSE);
+    UpdateWindow(_hWnd_stream);
 }
 
 void Peer::getStreamInfo(Packet* pkt)
@@ -472,4 +477,7 @@ void Peer::getStreamInfo(Packet* pkt)
     rect.right = info.width;
     rect.bottom = info.height;
     centerWindow(_hWnd_stream, rect);
+
+    // Initialize cached image
+    _cachedStreamImage.Create(info.width, info.height, info.bpp);
 }

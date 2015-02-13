@@ -43,6 +43,9 @@ class Peer
 
         void onDestroyRoot();
 
+        void DrawStreamImage(HDC hdc, RECT rect);
+        void DrawStreamCursor(HDC hdc, RECT rect);
+
     private:
 
         Peer(const Peer&); //not implemented anywhere
@@ -52,8 +55,6 @@ class Peer
 
         void sendThread();
         void rcvThread();
-
-        void DrawImage(HDC hdc, CImage image, POINT origin);
 
         void getStreamInfo(Packet* pkt);
         void getStreamClose(Packet* pkt);
@@ -77,5 +78,8 @@ class Peer
         CursorUtil* _cursorUtil;
         std::queue<Packet*> sendQueue;
         bool _streaming;
+
+        CImage _cachedStreamImage;
+        POINT _cachedStreamCursor;
 
 };

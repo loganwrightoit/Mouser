@@ -112,6 +112,10 @@ void StreamSender::captureAsStream()
                         tileMap.insert(std::make_pair(key, result));
                         sendPacket = true;
                     }
+                    else
+                    {
+                        delete[] result.first;
+                    }                    
                 }
 
                 if (sendPacket)
@@ -155,6 +159,7 @@ void StreamSender::stream(HWND hWnd)
     StreamInfo info;
     info.width = srcWidth;
     info.height = srcHeight;
+    info.bpp = 32; // Hardcoded, need to figure out how to get real value
     if (!GetWindowText(hWnd, info.name, 256))
     {
         if (hWnd == GetDesktopWindow())
@@ -214,6 +219,7 @@ void StreamSender::startCaptureThread(HWND hWnd)
 
     // Release memory
     ReleaseDC(_hWnd, hSrcDC);
+    ReleaseDC(_hWnd, hDestDC);
     DeleteDC(hDestDC);
     DeleteObject(hCaptureHBmp);
     ReleaseDC(_hWnd, hTileDC);

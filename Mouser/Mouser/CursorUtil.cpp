@@ -38,26 +38,27 @@ void CursorUtil::streamThread(int sendRate)
         if (((lastTicks - ticks) / timeFactor) >= sendRate)
         { 
             POINT p;
-            GetCursorPos(&p);
-            HWND hWnd = GetDesktopWindow();
-            if (ScreenToClient(hWnd, &p))
+            if (GetCursorPos(&p))
             {
-                // Only send update if cursor location changed
-                if (_cursor.x != p.x || _cursor.y != p.y)
+                HWND hWnd = GetDesktopWindow();
+                if (ScreenToClient(hWnd, &p))
                 {
-                    _cursor.x = p.x;
-                    _cursor.y = p.y;
+                    // Only send update if cursor location changed
+                    if (_cursor.x != p.x || _cursor.y != p.y)
+                    {
+                        _cursor.x = p.x;
+                        _cursor.y = p.y;
 
-                    // Convert struct to char array
-                    char * data = new char[sizeof(_cursor)];
-                    std::memcpy(data, &_cursor, sizeof(_cursor));
+                        // Convert struct to char array
+                        char * data = new char[sizeof(_cursor)];
+                        std::memcpy(data, &_cursor, sizeof(_cursor));
 
-                    // Construct and send packet
-                    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor)));
+                        // Construct and send packet
+                        ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor)));
+                    }
                 }
-            }
-
-            lastTicks = ticks;
+                lastTicks = ticks;
+            }            
         }
     }
 }

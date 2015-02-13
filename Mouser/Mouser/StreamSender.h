@@ -18,6 +18,7 @@ class StreamSender
             wchar_t name[256];
             int width;
             int height;
+            int bpp;
         };
 
         StreamSender(void* peer, HWND hWnd);
@@ -45,6 +46,7 @@ class StreamSender
         HDC                 hTileDC;
         HBITMAP             hCaptureHBmp;
         HBITMAP             hTileHBmp;
+        HBITMAP             hCurrentHBmp;
 
         int                 szTile;
         int                 srcHeight;

@@ -760,8 +760,17 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     switch (msg)
     {
     case WM_PAINT:
-        hdc = BeginPaint(hWnd, &ps);
-        EndPaint(hWnd, &ps);
+        {
+            hdc = BeginPaint(hWnd, &ps);
+
+            // Refresh stream image in updated region
+            peer->DrawStreamImage(hdc, ps.rcPaint);
+
+            // Draw cursor in current location
+            peer->DrawStreamCursor(hdc, ps.rcPaint);
+
+            EndPaint(hWnd, &ps);
+        }
         break;
     case WM_DESTROY:
         PostQuitMessage(0);
