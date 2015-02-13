@@ -3,6 +3,8 @@
 
 #include <objidl.h>
 #include <gdiplus.h>
+#include <atlimage.h> // for CImage
+#include <map>
 
 using namespace Gdiplus;
 
@@ -10,6 +12,13 @@ class StreamSender
 {
 
     public:
+
+        struct StreamInfo
+        {
+            wchar_t name[256];
+            int width;
+            int height;
+        };
 
         StreamSender(void* peer, HWND hWnd);
         ~StreamSender();
@@ -21,10 +30,10 @@ class StreamSender
 
         int getEncoderClsid(const WCHAR * format, CLSID * pClsid);
         void captureAsStream();
-        void receiveBitmapAsStream();
         bool captureImageToFile(LPWSTR fileName);
-
         void startCaptureThread(HWND hWnd);
+        int getTileSize(int x, int y);
+        bool hasChanged(std::pair<char*, size_t> mapImg, std::pair<char*, size_t> newImg);
 
         void*               _peer;
         HWND                _hWnd;
@@ -33,7 +42,14 @@ class StreamSender
         CLSID               clsid;
         HDC                 hSrcDC;
         HDC                 hDestDC;
-        HBITMAP             hCaptureBitmap;
-        int                 scrWidth, scrHeight;
+        HDC                 hTileDC;
+        HBITMAP             hCaptureHBmp;
+        HBITMAP             hTileHBmp;
+
+        int                 szTile;
+        int                 srcHeight;
+        int                 srcWidth;
+
+        std::map<unsigned int, std::pair<char*, size_t>> tileMap;
 
 };

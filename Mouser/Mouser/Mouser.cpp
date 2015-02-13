@@ -228,8 +228,8 @@ HWND getWindow(WindowType type, void* data = nullptr)
             WS_OVERLAPPEDWINDOW, // dwStyle
             CW_USEDEFAULT,       // x
             CW_USEDEFAULT,       // y
-            500 * dpiScale,                 // width
-            475 * dpiScale,                 // height
+            500 * dpiScale,      // width
+            475 * dpiScale,      // height
             NULL,                // hWndParent
             NULL,                // hMenu
             hInst,               // hInstance
@@ -252,7 +252,7 @@ HWND getWindow(WindowType type, void* data = nullptr)
         break;
     case StreamWin:
         hWnd = CreateWindowEx(
-            WS_EX_CLIENTEDGE | WS_EX_ACCEPTFILES,
+            WS_EX_CLIENTEDGE | WS_EX_ACCEPTFILES, // Accepts drag and drop
             szStreamClass,
             szStreamTitle,
             WS_OVERLAPPEDWINDOW,
@@ -278,14 +278,23 @@ HWND getWindow(WindowType type, void* data = nullptr)
 //
 // Centers window.
 //
-void centerWindow(HWND hWnd)
+void centerWindow(HWND hWnd, RECT newSize)
 {
     int scrX = GetSystemMetrics(SM_CXSCREEN);
     int scrY = GetSystemMetrics(SM_CYSCREEN);
-    RECT winRect;
-    GetWindowRect(hWnd, &winRect);
-    int winWidth = winRect.right - winRect.left;
-    int winHeight = winRect.bottom - winRect.top;
+
+    RECT rect;
+    if (newSize.left > -1)
+    {
+        rect = newSize;
+    }
+    else
+    {
+        GetWindowRect(hWnd, &rect);
+    }
+
+    int winWidth = rect.right - rect.left;
+    int winHeight = rect.bottom - rect.top;
     int newLeft = scrX / 2 - winWidth / 2;
     int newTop = scrY / 2 - winHeight / 2;
     MoveWindow(hWnd, newLeft, newTop, winWidth, winHeight, false);

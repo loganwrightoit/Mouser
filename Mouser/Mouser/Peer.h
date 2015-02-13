@@ -53,9 +53,9 @@ class Peer
         void sendThread();
         void rcvThread();
 
-        void DrawImage(HDC hdc, CImage image);
+        void DrawImage(HDC hdc, CImage image, POINT origin);
 
-        void getStreamOpen(Packet* pkt);
+        void getStreamInfo(Packet* pkt);
         void getStreamClose(Packet* pkt);
         void getStreamImage(Packet* pkt);
         void getStreamCursor(Packet* pkt);

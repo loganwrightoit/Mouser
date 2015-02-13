@@ -9,7 +9,7 @@ enum WindowType
     StreamWin,
 };
 
-void centerWindow(HWND hWnd);
+void centerWindow(HWND hWnd, RECT newSize = { -1, -1, -1, -1 });
 void CALLBACK hideChatIsTypingLabel(HWND hWnd, UINT msg, UINT timerId, DWORD dwTime);
 HWND getRootWindow();
 void updatePeerListBoxData();

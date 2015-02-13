@@ -237,14 +237,17 @@ void Peer::rcvThread()
         case Packet::DISCONNECT:
             PeerHandler::getInstance().disconnectPeer(this);
             return;
-        case Packet::STREAM_CLOSE:
-            getStreamClose();
+        case Packet::STREAM_INFO:
+            getStreamInfo(pkt);
             break;
         case Packet::STREAM_IMAGE:
             getStreamImage(pkt);
             break;
         case Packet::STREAM_CURSOR:
             getStreamCursor(pkt);
+            break;
+        case Packet::STREAM_CLOSE:
+            getStreamClose();
             break;
         case Packet::CHAT_TEXT:
             getChatText(pkt);
@@ -359,8 +362,22 @@ void Peer::sendChatMsg(wchar_t* msg)
     setInputFocus();
 }
 
-void Peer::DrawImage(HDC hdc, CImage image)
+void Peer::DrawImage(HDC hdc, CImage image, POINT origin)
 {
+    int szTile = image.GetWidth();
+
+    // Get RECT for drawing
+    RECT rect;
+    rect.left = origin.x;
+    rect.top = origin.y;
+    rect.right = origin.x + szTile;
+    rect.bottom = origin.y + szTile;
+
+    // Draw the image to window
+    SetStretchBltMode(hdc, HALFTONE);
+    image.StretchBlt(hdc, rect);
+
+    /*
     // Image size determined by window width and height
     RECT dest;
     GetWindowRect(_hWnd_stream, &dest);
@@ -370,57 +387,50 @@ void Peer::DrawImage(HDC hdc, CImage image)
 
     float ratio = min((float)(dest.right - dest.left) / img_cx, (float)(dest.bottom - dest.top) / img_cy);
 
-    // Compute the necessary size of the image:
+    // Get image size
     CSize szSrc;
     szSrc.cx = (LONG)(img_cx * ratio);
     szSrc.cy = (LONG)(img_cy * ratio);
 
-    // Create rect for drawing
+    // Get RECT for drawing
     CRect src(CPoint(0, 0), szSrc);
 
-    // Center the rect
+    // Center the RECT
     src.OffsetRect(((dest.right - dest.left) - szSrc.cx) / 2, ((dest.bottom - dest.top) - szSrc.cy) / 2);
 
-    // Draw the image
+    // Draw the image to window
     SetStretchBltMode(hdc, HALFTONE);
     image.StretchBlt(hdc, src);
+    */
 }
 
 void Peer::getStreamImage(Packet* pkt)
 {
-    bool setInitialSize = false;
-    if (!_hWnd_stream)
-    {
-        openStreamWindow();
-        setInitialSize = true;
-    }
+    // Grab origin POINT preceding data
+    POINT point;
+    size_t szPoint = sizeof(point);
+    std::memcpy(&point, pkt->getData(), sizeof(point));
 
-    // For now, assume data is CImage stream data
+    // Reconstruct CImage from remaining data
     IStream *pStream;
-    HRESULT result = CreateStreamOnHGlobal(0, TRUE, &pStream);
-    IStream_Write(pStream, pkt->getData(), pkt->getSize());
-
-    // Create image from stream
-    CImage image;
-    image.Load(pStream);
-
-    // Adjust window size if set to image size
-    RECT strRect;
-    GetWindowRect(_hWnd_stream, &strRect);
-    int strWidth = strRect.right - strRect.left;
-    int strHeight = strRect.top - strRect.bottom;
-
-    if (setInitialSize)
+    if (CreateStreamOnHGlobal(0, TRUE, &pStream) == S_OK)
     {
-        MoveWindow(_hWnd_stream, strRect.left, strRect.top, image.GetWidth(), image.GetHeight(), false);
-        centerWindow(_hWnd_stream);
+        // Write bytes to stream
+        IStream_Write(pStream, pkt->getData() + szPoint, pkt->getSize() - szPoint);
+
+        // Create image from stream
+        CImage image;
+        image.Load(pStream);
+
+        // Draw image to screen
+        HDC hdc = GetDC(_hWnd_stream);
+        DrawImage(hdc, image, point);
+
+        // Release memory
+        ReleaseDC(_hWnd_stream, hdc);
     }
 
-    // Draw image to screen
-    HDC hdc = GetDC(_hWnd_stream);
-    DrawImage(hdc, image); // Uses stretch blt method
-
-    ReleaseDC(_hWnd_stream, hdc);
+    // Release memory
     pStream->Release();
 }
 
@@ -439,4 +449,27 @@ void Peer::getStreamCursor(Packet * pkt)
         DrawIconEx(hDC, cursor.x, cursor.y, NormalCursor, 0, 0, NULL, NULL, DI_DEFAULTSIZE | DI_NORMAL);
         ReleaseDC(_hWnd_stream, hDC);
     }
+}
+
+void Peer::getStreamInfo(Packet* pkt)
+{
+    // Create stream window
+    openStreamWindow();
+
+    // Populate struct from packet
+    StreamSender::StreamInfo info;
+    std::memcpy(&info, pkt->getData(), sizeof(info));
+
+    // Update stream window title
+    std::wstring str(_name);
+    str.append(L" - ");
+    str.append(info.name);
+    SetWindowText(_hWnd_stream, str.c_str());
+
+    // Resize and center stream window
+    RECT rect;
+    rect.left = rect.top = 0;
+    rect.right = info.width;
+    rect.bottom = info.height;
+    centerWindow(_hWnd_stream, rect);
 }
