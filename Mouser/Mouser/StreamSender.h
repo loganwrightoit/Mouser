@@ -5,6 +5,8 @@
 #include <gdiplus.h>
 #include <atlimage.h> // for CImage
 #include <map>
+#include <stddef.h> // CRC
+#include <stdint.h> // CRC
 
 using namespace Gdiplus;
 
@@ -29,6 +31,7 @@ class StreamSender
         
     private:
 
+        uint32_t crc(char* data, size_t len);
         int getEncoderClsid(const WCHAR * format, CLSID * pClsid);
         void captureAsStream();
         bool captureImageToFile(LPWSTR fileName);
@@ -53,5 +56,6 @@ class StreamSender
         int                 srcWidth;
 
         std::map<unsigned int, std::pair<char*, size_t>> tileMap;
+
 
 };

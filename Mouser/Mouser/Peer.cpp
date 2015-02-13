@@ -12,6 +12,12 @@ Peer::Peer(SOCKET peer_socket = 0)
 {
     _name = L"";
 
+    // Create queue mutex lock
+    if ((ghMutex = CreateMutex(NULL, FALSE, NULL)) == NULL)
+    {
+        AddOutputMsg(L"[P2P]: CreateMutex() failed, queue not thread-safe.");
+    }
+
     // Send peer name
     sendName();
 
@@ -38,6 +44,8 @@ Peer::~Peer()
     //{
     //    auto iter = sendQueue.front
     //}
+
+    CloseHandle(ghMutex);
 
     if (_hWnd)
     {
@@ -125,7 +133,33 @@ void Peer::sendPacket(Packet* pkt)
 //
 void Peer::queuePacket(Packet* pkt)
 {
-    sendQueue.push(pkt);
+    if (WaitForSingleObject(ghMutex, INFINITE) == WAIT_OBJECT_0)
+    {
+        sendQueue.push(pkt);
+        ReleaseMutex(ghMutex);
+    }
+}
+
+void Peer::sendThread()
+{
+    while (1)
+    {
+        if (sendQueue.size() > 0)
+        {
+            if (WaitForSingleObject(ghMutex, INFINITE) == WAIT_OBJECT_0)
+            {
+                Packet* pkt = sendQueue.front();
+                NetworkManager::getInstance().sendPacket(_socket, pkt);
+                sendQueue.pop();
+                delete pkt;
+                ReleaseMutex(ghMutex);
+            }
+        }
+        else
+        {
+            Sleep(15); // Awakened 66 times a second, more than sufficient
+        }
+    }
 }
 
 void Peer::streamTo()
@@ -193,27 +227,12 @@ wchar_t* Peer::getUserName()
 
 void Peer::sendName()
 {
-    std::pair<char*, size_t> buffer = encode_utf8(getUserName());
-
-    // Send name to peer
-    sendPacket(new Packet(Packet::NAME, buffer.first, buffer.second));
-}
-
-void Peer::sendThread()
-{
-    while (1)
+    std::pair<char*, size_t> buffer;
+    
+    if (encode_utf8(&buffer, getUserName()))
     {
-        if (sendQueue.size() > 0)
-        {
-            Packet* pkt = sendQueue.front();
-            NetworkManager::getInstance().sendPacket(_socket, pkt);
-            delete pkt;
-            sendQueue.pop();
-        }
-        else
-        {
-            Sleep(15); // Awakened 66 times a second, more than sufficient
-        }
+        // Send name to peer
+        sendPacket(new Packet(Packet::NAME, buffer.first, buffer.second));
     }
 }
 
@@ -324,17 +343,22 @@ HWND Peer::getRoot()
     return _hWnd;
 }
 
-std::pair<char*, size_t> Peer::encode_utf8(wchar_t* wstr)
+bool Peer::encode_utf8(std::pair<char*, size_t>* outPair, wchar_t* wstr)
 {
     // Determine size needed for char array conversion
     size_t buffer_size;
-    wcstombs_s(&buffer_size, NULL, 0, wstr, _TRUNCATE);
-
-    // Convert wide char array to char array
-    char* buffer = new char[buffer_size];
-    wcstombs_s(&buffer_size, buffer, buffer_size, wstr, _TRUNCATE);
-
-    return std::make_pair(buffer, buffer_size);
+    if (!wcstombs_s(&buffer_size, NULL, 0, wstr, _TRUNCATE))
+    {
+        // Convert wide char array to char array
+        char* buffer = new char[buffer_size];
+        if (!wcstombs_s(&buffer_size, buffer, buffer_size, wstr, _TRUNCATE))
+        {
+            outPair->first = buffer;
+            outPair->second = buffer_size;
+            return true;
+        }        
+    }
+    return false;
 }
 
 wchar_t* Peer::encode_utf16(char* data)
@@ -355,11 +379,14 @@ void Peer::sendChatMsg(wchar_t* msg)
 
     AddChat((LPWSTR)wstr.c_str());
 
-    std::pair<char*, size_t> buffer = encode_utf8(msg);
-
-    // Construct and send packet
-    sendPacket(new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second));
-
+    std::pair<char*, size_t> buffer;
+    
+    if (encode_utf8(&buffer, msg))
+    {
+        // Construct and send packet
+        sendPacket(new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second));
+    }
+    
     // Set focus to edit control again
     setInputFocus();
 }
@@ -416,28 +443,29 @@ void Peer::getStreamImage(Packet* pkt)
     if (CreateStreamOnHGlobal(0, TRUE, &pStream) == S_OK)
     {
         // Write bytes to stream
-        IStream_Write(pStream, pkt->getData() + szPoint, pkt->getSize() - szPoint);
+        if (IStream_Write(pStream, pkt->getData() + szPoint, pkt->getSize() - szPoint) == S_OK)
+        {
+            // Update region in cache
+            CImage image;
+            image.Load(pStream);
+            HDC hdc = CreateCompatibleDC(GetDC(_hWnd_stream));
+            SelectObject(hdc, _cachedStreamImage);
+            image.BitBlt(hdc, origin.x, origin.y);
+            ReleaseDC(_hWnd_stream, hdc);
+            DeleteDC(hdc);
 
-        // Update region in cache
-        CImage image;
-        image.Load(pStream);
-        HDC hdc = CreateCompatibleDC(GetDC(_hWnd_stream));
-        SelectObject(hdc, _cachedStreamImage);
-        image.BitBlt(hdc, origin.x, origin.y);
-        ReleaseDC(_hWnd_stream, hdc);
-        DeleteDC(hdc);
+            // Invalidate with updated RECT
+            int szTile = image.GetWidth();
+            RECT rect;
+            rect.left = origin.x;
+            rect.top = origin.y;
+            rect.right = origin.x + szTile;
+            rect.bottom = origin.y + szTile;
+            InvalidateRect(_hWnd_stream, &rect, FALSE);
+            UpdateWindow(_hWnd_stream);
 
-        // Invalidate with updated RECT
-        int szTile = image.GetWidth();
-        RECT rect;
-        rect.left = origin.x;
-        rect.top = origin.y;
-        rect.right = origin.x + szTile;
-        rect.bottom = origin.y + szTile;
-        InvalidateRect(_hWnd_stream, &rect, FALSE);
-        UpdateWindow(_hWnd_stream);
-
-        image.Destroy();
+            image.Destroy();
+        }
     }
 
     // Release memory

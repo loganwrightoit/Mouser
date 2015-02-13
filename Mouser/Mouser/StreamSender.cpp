@@ -59,6 +59,20 @@ bool StreamSender::captureImageToFile(LPWSTR fileName)
     return true;
 }
 
+uint32_t StreamSender::crc(char* data, size_t len)
+{
+    uint32_t seed = ~(234);
+    while (len--)
+    {
+        seed ^= *data++;
+        for (int k = 0; k < 8; k++)
+        {
+            seed = seed & 1 ? (seed >> 1) ^ 0x82f63b78 : seed >> 1;
+        }
+    }
+    return ~seed;
+}
+
 //
 // Sends bitmap (or converted format) through socket as byte array.
 //
@@ -84,60 +98,68 @@ void StreamSender::captureAsStream()
                 image.Save(pStream, Gdiplus::ImageFormatPNG);
                 image.Destroy();
 
-                bool sendPacket = false;
-
-                // Generate key for image
-                unsigned int key = (x << 16) | y;
-
                 // Generate byte array for image
                 ULARGE_INTEGER liSize;
-                IStream_Size(pStream, &liSize);
-                char* bytes = new char[liSize.QuadPart];
-                memcpy(bytes, pStream, liSize.QuadPart);
+                if (IStream_Size(pStream, &liSize) == S_OK)
+                {
+                    bool sendPacket = false;
 
-                // Determine if image is newer than existing image in map
-                auto iter = tileMap.find(key);
-                if (iter == tileMap.end())
-                {
-                    tileMap.insert(std::make_pair(key, std::make_pair(bytes, liSize.QuadPart)));
-                    sendPacket = true;
-                }
-                else
-                {
-                    auto result = std::make_pair(bytes, liSize.QuadPart);
-                    if (hasChanged(iter->second, result))
+                    /*
+                    // Generate key for image
+                    unsigned int key = (x << 16) | y;
+
+                    // Generate temporary byte strings for image processing
+                    char* bytes = new char[liSize.QuadPart];
+                    memcpy(bytes, pStream, liSize.QuadPart);
+
+                    // Determine if image is newer than existing image in map
+                    auto iter = tileMap.find(key);
+                    if (iter == tileMap.end())
                     {
-                        delete[] iter->second.first; // Delete existing array
-                        tileMap.erase(iter);
-                        tileMap.insert(std::make_pair(key, result));
+                        tileMap.insert(std::make_pair(key, std::make_pair(bytes, liSize.QuadPart)));
                         sendPacket = true;
                     }
                     else
                     {
-                        delete[] result.first;
-                    }                    
-                }
+                        auto result = std::make_pair(bytes, liSize.QuadPart);
+                        if (hasChanged(iter->second, result))
+                        {
+                            delete[] iter->second.first; // Delete existing array
+                            tileMap.erase(iter);
+                            tileMap.insert(std::make_pair(key, result));
+                            sendPacket = true;
+                        }
+                        else
+                        {
+                            delete[] result.first;
+                        }
+                    }
+                    */
 
-                if (sendPacket)
-                {
-                    // Construct origin point
-                    POINT origin;
-                    origin.x = x;
-                    origin.y = y;
+                    if (true/*sendPacket*/)
+                    {
+                        // Construct origin point
+                        POINT origin;
+                        origin.x = x;
+                        origin.y = y;
 
-                    // Copy capture bytes to array
-                    char * data = new char[sizeof(origin) + liSize.QuadPart];
-                    
-                    // Add origin data
-                    std::memcpy(data, &origin, sizeof(origin));
+                        // Copy capture bytes to array
+                        char * data = new char[sizeof(origin)+liSize.QuadPart];
 
-                    // Add image data
-                    IStream_Reset(pStream);
-                    IStream_Read(pStream, data + sizeof(origin), liSize.QuadPart);
+                        // Add origin data
+                        std::memcpy(data, &origin, sizeof(origin));
 
-                    // Send data
-                    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, sizeof(origin) + liSize.QuadPart));
-                }                
+                        // Add image data
+                        if (IStream_Reset(pStream) == S_OK)
+                        {
+                            if (IStream_Read(pStream, data + sizeof(origin), liSize.QuadPart) == S_OK)
+                            {
+                                // Send data
+                                ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, sizeof(origin)+liSize.QuadPart));
+                            }
+                        }                        
+                    }
+                }            
             }
             pStream->Release();
         }

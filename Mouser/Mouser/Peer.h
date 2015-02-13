@@ -65,7 +65,7 @@ class Peer
         void getName(Packet* pkt);
         void getStreamClose();
 
-        std::pair<char*, size_t> encode_utf8(wchar_t* wstr);
+        bool encode_utf8(std::pair<char*, size_t>* outPair, wchar_t* wstr);
         wchar_t* encode_utf16(char* str);
 
         wchar_t* getUserName();
@@ -81,5 +81,7 @@ class Peer
 
         CImage _cachedStreamImage;
         POINT _cachedStreamCursor;
+
+        HANDLE ghMutex;
 
 };
