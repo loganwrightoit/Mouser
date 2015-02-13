@@ -247,22 +247,3 @@ void StreamSender::stop()
 {
     stopStream = true;
 }
-
-//
-// Compare bits for two identically-sized images
-//
-bool StreamSender::hasChanged(std::pair<char*, size_t> oldImg, std::pair<char*, size_t> newImg)
-{
-    if (oldImg.second != newImg.second)
-    {
-        return true; // Size is different
-    }
-    else if (!memcmp(oldImg.first, newImg.first, oldImg.second))
-    {
-        return true; // Byte arrays don't match
-    }
-    else
-    {
-        return false; // Same image
-    }
-}

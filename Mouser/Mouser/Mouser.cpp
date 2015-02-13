@@ -28,11 +28,6 @@ HWND hMouserOutputListBox;
 HWND hMouserPeerListBox;
 HWND hMouserPeerLabel;
 HWND hMouserOutputLabel;
-HWND hPeerChatEditBox;
-HWND hPeerChatButton;
-HWND hPeerChatListBox;
-HWND hPeerChatStreamButton;
-HWND hPeerChatIsTypingLabel;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
 
@@ -45,7 +40,7 @@ LRESULT CALLBACK    StreamWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 bool                isPeerChatSendCommand(MSG msg);
 void                sendChatToPeer(HWND hWnd);
-void setWindowFont(HWND hWnd);
+void                setWindowFont(HWND hWnd);
 
 int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPTSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -179,7 +174,9 @@ bool isPeerChatSendCommand(MSG msg)
 {
     // Detect ENTER send in peer chat editbox
     HWND hWnd = GetFocus();
-    if (hWnd == hPeerChatEditBox)
+    int id = GetDlgCtrlID(hWnd);
+
+    if (GetDlgCtrlID(hWnd) == IDC_PEER_CHAT_EDITBOX)
     {
         if (msg.message == WM_KEYDOWN && msg.wParam == VK_RETURN)
         {
@@ -198,7 +195,7 @@ void sendChatToPeer(HWND hWnd)
     {
         // Check if there is text to be sent to peer
         wchar_t text[MAX_CHAT_LENGTH];
-        GetWindowText(hPeerChatEditBox, text, MAX_CHAT_LENGTH);
+        GetWindowText(peer->hChatEditBox, text, MAX_CHAT_LENGTH);
         if (wcslen(text) > 0)
         {            
             peer->sendChatMsg(text);
@@ -617,7 +614,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
 
             // Create output edit box
-            hPeerChatListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+            peer->hChatListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
                 L"LISTBOX",
                 L"",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL,
@@ -630,10 +627,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 hInst,
                 NULL);
 
-            setWindowFont(hPeerChatListBox);
+            setWindowFont(peer->hChatListBox);
 
             // Create send data button
-            hPeerChatButton = CreateWindowEx(NULL,
+            peer->hChatButton = CreateWindowEx(NULL,
                 L"BUTTON",
                 L"Send",
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
@@ -646,10 +643,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 hInst,
                 NULL);
 
-            setWindowFont(hPeerChatButton);
+            setWindowFont(peer->hChatButton);
 
             // Create output edit box
-            hPeerChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
+            peer->hChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
                 L"EDIT",
                 L"",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL,
@@ -663,14 +660,14 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 NULL);
 
             // Subclass the edit control.
-            wpOrigEditProc = (WNDPROC)SetWindowLong(hPeerChatEditBox, GWL_WNDPROC, (LONG)EditSubclassProc);
-            SetWindowLongPtr(hPeerChatEditBox, GWLP_USERDATA, (LONG_PTR)peer);
+            wpOrigEditProc = (WNDPROC)SetWindowLong(peer->hChatEditBox, GWL_WNDPROC, (LONG)EditSubclassProc);
+            SetWindowLongPtr(peer->hChatEditBox, GWLP_USERDATA, (LONG_PTR)peer);
 
-            setWindowFont(hPeerChatEditBox);
-            SendMessage(hPeerChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
+            setWindowFont(peer->hChatEditBox);
+            SendMessage(peer->hChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
 
             // Create stream button
-            hPeerChatStreamButton = CreateWindowEx(NULL,
+            peer->hChatStreamButton = CreateWindowEx(NULL,
                 L"BUTTON",
                 L"Stream",
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
@@ -683,9 +680,9 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 hInst,
                 NULL);
 
-            setWindowFont(hPeerChatStreamButton);
+            setWindowFont(peer->hChatStreamButton);
 
-            hPeerChatIsTypingLabel = CreateWindowEx(NULL,
+            peer->hChatIsTypingLabel = CreateWindowEx(NULL,
                 L"STATIC",
                 L"Peer is typing...",
                 WS_CHILD,
@@ -698,7 +695,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 hInst,
                 NULL);
 
-            setWindowFont(hPeerChatIsTypingLabel);
+            setWindowFont(peer->hChatIsTypingLabel);
 
         }
         break;
@@ -725,7 +722,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     case WM_DESTROY:
         // Remove the subclass from the edit control. 
-        SetWindowLong(hPeerChatEditBox, GWL_WNDPROC, (LONG)wpOrigEditProc);
+        SetWindowLong(peer->hChatEditBox, GWL_WNDPROC, (LONG)wpOrigEditProc);
         peer->onDestroyRoot();
         break;
     default:

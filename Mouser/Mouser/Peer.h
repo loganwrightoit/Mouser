@@ -46,6 +46,12 @@ class Peer
         void DrawStreamImage(HDC hdc, RECT rect);
         void DrawStreamCursor(HDC hdc, RECT rect);
 
+        HWND hChatEditBox;
+        HWND hChatButton;
+        HWND hChatListBox;
+        HWND hChatStreamButton;
+        HWND hChatIsTypingLabel;
+
     private:
 
         Peer(const Peer&); //not implemented anywhere
@@ -72,8 +78,6 @@ class Peer
 
         wchar_t* _name;
         SOCKET _socket;
-        HWND _hWnd;
-        HWND _hWnd_stream;
         StreamSender* _streamSender;
         CursorUtil* _cursorUtil;
         std::queue<Packet*> sendQueue;
@@ -83,5 +87,8 @@ class Peer
         POINT _cachedStreamCursor;
 
         HANDLE ghMutex;
+
+        HWND _hWnd;
+        HWND _hWnd_stream;
 
 };

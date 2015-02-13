@@ -414,10 +414,8 @@ void Peer::DrawStreamImage(HDC hdc, RECT rect)
     // Center the RECT
     src.OffsetRect(((dest.right - dest.left) - szSrc.cx) / 2, ((dest.bottom - dest.top) - szSrc.cy) / 2);
     */
-
-    // Create DC for only portion of rect
-
-    // Before resizing, must respect rect region
+    
+    // TODO: Work on resizing for the tile-based system
 
     //SetStretchBltMode(hdc, HALFTONE);
     _cachedStreamImage.BitBlt(hdc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, rect.left, rect.top);
@@ -425,7 +423,8 @@ void Peer::DrawStreamImage(HDC hdc, RECT rect)
 
 void Peer::DrawStreamCursor(HDC hdc, RECT rect)
 {
-    // Need to handle resizing
+    // TODO: Need to handle resizing once implemented
+    // TODO: Try to approximate exact size of cursor for blitting
 
     HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
     DrawIcon(hdc, _cachedStreamCursor.x, _cachedStreamCursor.y, NormalCursor);
@@ -480,8 +479,8 @@ void Peer::getStreamCursor(Packet * pkt)
     RECT rect;
     rect.left = min(pt.x, _cachedStreamCursor.x);
     rect.top = min(pt.y, _cachedStreamCursor.y);
-    rect.right = max(pt.x + 50, _cachedStreamCursor.x);
-    rect.bottom = max(pt.y + 50, _cachedStreamCursor.y);
+    rect.right = max(pt.x + 30, _cachedStreamCursor.x);
+    rect.bottom = max(pt.y + 30, _cachedStreamCursor.y);
 
     InvalidateRect(_hWnd_stream, &rect, FALSE);
     UpdateWindow(_hWnd_stream);

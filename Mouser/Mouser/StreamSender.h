@@ -37,7 +37,6 @@ class StreamSender
         bool captureImageToFile(LPWSTR fileName);
         void startCaptureThread(HWND hWnd);
         int getTileSize(int x, int y);
-        bool hasChanged(std::pair<char*, size_t> mapImg, std::pair<char*, size_t> newImg);
 
         void*               _peer;
         HWND                _hWnd;
@@ -55,8 +54,5 @@ class StreamSender
         int                 srcHeight;
         int                 srcWidth;
 
-        std::map<unsigned int, std::pair<char*, size_t>> tileMap;
-
-        // TEMP
         std::map<unsigned int, uint32_t> tempMap;
 };
