@@ -5,6 +5,8 @@
 #include "Lmcons.h" // UNLEN
 #include "math.h"
 
+#define NOMINMAX
+
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0), _streaming(false)
 {
@@ -444,13 +446,14 @@ void Peer::getStreamImage(Packet* pkt)
 
 void Peer::getStreamCursor(Packet * pkt)
 {
+    POINT pt = _cachedStreamCursor;
     std::memcpy(&_cachedStreamCursor, pkt->getData(), sizeof(_cachedStreamCursor));
 
     RECT rect;
-    rect.left = _cachedStreamCursor.x;
-    rect.top = _cachedStreamCursor.y;
-    rect.right = _cachedStreamCursor.x + 50;
-    rect.bottom = _cachedStreamCursor.y + 50;
+    rect.left = min(pt.x, _cachedStreamCursor.x);
+    rect.top = min(pt.y, _cachedStreamCursor.y);
+    rect.right = max(pt.x + 50, _cachedStreamCursor.x);
+    rect.bottom = max(pt.y + 50, _cachedStreamCursor.y);
 
     InvalidateRect(_hWnd_stream, &rect, FALSE);
     UpdateWindow(_hWnd_stream);
