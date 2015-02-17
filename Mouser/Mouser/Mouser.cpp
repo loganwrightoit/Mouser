@@ -33,6 +33,7 @@ HWND hMouserPeerConnectEditBox;
 HWND hMouserOutputLabel;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
+HBRUSH brushBgnd = CreateSolidBrush(RGB(100, 150, 200));
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -137,7 +138,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wMouserClass.hInstance = hInstance;
     wMouserClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wMouserClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wMouserClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200));
+	wMouserClass.hbrBackground = brushBgnd;
     wMouserClass.lpszMenuName = MAKEINTRESOURCE(IDC_MOUSER);
     wMouserClass.lpszClassName = szMouserClass;
     wMouserClass.hIconSm = LoadIcon(wMouserClass.hInstance, MAKEINTRESOURCE(IDI_SMALL));
@@ -151,7 +152,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wPeerClass.hInstance = hInstance;
     wPeerClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wPeerClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wPeerClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200));
+	wPeerClass.hbrBackground = brushBgnd;
     wPeerClass.lpszMenuName = MAKEINTRESOURCE(IDC_PEER);
     wPeerClass.lpszClassName = szPeerClass;
     wPeerClass.hIconSm = NULL;
@@ -165,7 +166,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wStreamClass.hInstance = hInstance;
     wStreamClass.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MOUSER));
     wStreamClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wStreamClass.hbrBackground = CreateSolidBrush(RGB(100, 150, 200));
+	wStreamClass.hbrBackground = brushBgnd;
     wStreamClass.lpszMenuName = MAKEINTRESOURCE(IDC_STREAM);
     wStreamClass.lpszClassName = szStreamClass;
     wStreamClass.hIconSm = NULL;
@@ -529,18 +530,25 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				// Get IP from editbox
 				wchar_t buffer[16];
 				GetWindowText(hMouserPeerConnectEditBox, buffer, sizeof(buffer));
-				
-				// Convert wchar_t* string to char*
-				size_t szText = wcslen(buffer) + 1; // +1 for null terminator
-				char* text = new char[szText];
-				size_t charsConverted = 0;
-				wcstombs_s(&charsConverted, text, szText, buffer, wcslen(buffer));
 
-				// Attempt peer connection
-				peerHandler->directConnectToPeer(text);
+				if (wcslen(buffer) == 0)
+				{
+					AddOutputMsg(L"[P2P]: Must enter a valid IP address.");
+				}
+				else
+				{
+					// Convert wchar_t* string to char*
+					size_t szText = wcslen(buffer) + 1; // +1 for null terminator
+					char* text = new char[szText];
+					size_t charsConverted = 0;
+					wcstombs_s(&charsConverted, text, szText, buffer, wcslen(buffer));
 
-				// Clean up memory
-				delete[] text;
+					// Attempt peer connection
+					peerHandler->directConnectToPeer(text);
+
+					// Clean up memory
+					delete[] text;
+				}
 			}
 			break;
         case IDC_MAIN_PEER_LISTBOX:
@@ -767,6 +775,14 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
         }
         break;
+	case WM_CTLCOLORSTATIC:
+		{
+			HDC hdcStatic = (HDC)wParam;
+			SetTextColor(hdcStatic, RGB(255, 255, 255));
+			SetBkMode(hdcStatic, TRANSPARENT);
+
+			return (LRESULT)brushBgnd;
+		}
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);

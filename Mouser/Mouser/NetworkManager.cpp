@@ -243,7 +243,7 @@ bool NetworkManager::sendPacket(SOCKET socket, Packet * pkt)
 	if (memcpy_s(toSend + 8, sendSize, pkt->getData(), pkt->getSize()))
 	{
 		delete[] toSend;
-		AddOutputMsg(L"[DEBUG]: sendPacket memcpy_s failed, aborting.");
+		AddOutputMsg(L"[ERROR]: sendPacket memcpy_s failed, aborting.");
 		return false;
 	}
 
@@ -309,7 +309,7 @@ Packet * NetworkManager::getPacket(SOCKET socket)
     bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
     if (blocking)
     {
-        AddOutputMsg(L"[DEBUG]: doRcv() could not receive packet, would block.");
+        AddOutputMsg(L"[ERROR]: doRcv() could not receive packet, would block.");
         return nullptr;
     }
 
