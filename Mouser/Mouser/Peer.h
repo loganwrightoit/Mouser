@@ -73,9 +73,7 @@ class Peer
 
         bool encode_utf8(std::pair<char*, size_t>* outPair, wchar_t* wstr);
         wchar_t* encode_utf16(char* str);
-
-        wchar_t* getUserName();
-
+		
         wchar_t* _name;
         SOCKET _socket;
         StreamSender* _streamSender;

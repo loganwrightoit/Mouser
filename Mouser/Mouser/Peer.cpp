@@ -2,7 +2,6 @@
 #include "Peer.h"
 #include <thread>
 #include <string>
-#include "Lmcons.h" // UNLEN
 #include "math.h"
 
 #define NOMINMAX
@@ -210,19 +209,6 @@ void Peer::AddChat(LPWSTR msg)
         // Scroll to new message
         SendMessage(hWnd, LB_SETTOPINDEX, idx, 0);
     }
-}
-
-wchar_t* Peer::getUserName()
-{
-    // Send user name to peer
-    wchar_t name[UNLEN + 1];
-    DWORD szName = sizeof(name);
-    if (GetUserName(name, &szName))
-    {
-        return name;
-    }
-
-    return L"Unknown";
 }
 
 void Peer::sendName()
@@ -435,46 +421,56 @@ void Peer::getStreamImage(Packet* pkt)
     // Grab origin POINT preceding data
     POINT origin;
     size_t szPoint = sizeof(origin);
-    std::memcpy(&origin, pkt->getData(), sizeof(origin));
 
-    // Reconstruct CImage from remaining data
-    IStream *pStream;
-    if (CreateStreamOnHGlobal(0, TRUE, &pStream) == S_OK)
-    {
-        // Write bytes to stream
-        if (IStream_Write(pStream, pkt->getData() + szPoint, pkt->getSize() - szPoint) == S_OK)
-        {
-            // Update region in cache
-            CImage image;
-            image.Load(pStream);
-            HDC hdc = CreateCompatibleDC(GetDC(_hWnd_stream));
-            SelectObject(hdc, _cachedStreamImage);
-            image.BitBlt(hdc, origin.x, origin.y);
-            ReleaseDC(_hWnd_stream, hdc);
-            DeleteDC(hdc);
+	// Not zero is error condition
+	if (memcpy_s(&origin, sizeof(origin), pkt->getData(), sizeof(origin)))
+	{
+		return;
+	}
 
-            // Invalidate with updated RECT
-            int szTile = image.GetWidth();
-            RECT rect;
-            rect.left = origin.x;
-            rect.top = origin.y;
-            rect.right = origin.x + szTile;
-            rect.bottom = origin.y + szTile;
-            InvalidateRect(_hWnd_stream, &rect, FALSE);
-            UpdateWindow(_hWnd_stream);
+	// Reconstruct CImage from remaining data
+	IStream *pStream;
+	if (CreateStreamOnHGlobal(0, TRUE, &pStream) == S_OK)
+	{
+		// Write bytes to stream
+		if (IStream_Write(pStream, pkt->getData() + szPoint, pkt->getSize() - szPoint) == S_OK)
+		{
+			// Update region in cache
+			CImage image;
+			image.Load(pStream);
+			HDC hdc = CreateCompatibleDC(GetDC(_hWnd_stream));
+			SelectObject(hdc, _cachedStreamImage);
+			image.BitBlt(hdc, origin.x, origin.y);
+			ReleaseDC(_hWnd_stream, hdc);
+			DeleteDC(hdc);
 
-            image.Destroy();
-        }
-    }
+			// Invalidate with updated RECT
+			int szTile = image.GetWidth();
+			RECT rect;
+			rect.left = origin.x;
+			rect.top = origin.y;
+			rect.right = origin.x + szTile;
+			rect.bottom = origin.y + szTile;
+			InvalidateRect(_hWnd_stream, &rect, FALSE);
+			UpdateWindow(_hWnd_stream);
 
-    // Release memory
-    pStream->Release();
+			image.Destroy();
+		}
+	}
+
+	// Release memory
+	pStream->Release();
 }
 
 void Peer::getStreamCursor(Packet * pkt)
 {
     POINT pt = _cachedStreamCursor;
-    std::memcpy(&_cachedStreamCursor, pkt->getData(), sizeof(_cachedStreamCursor));
+
+	// Not zero is error condition
+	if (memcpy_s(&_cachedStreamCursor, sizeof(_cachedStreamCursor), pkt->getData(), sizeof(_cachedStreamCursor)))
+	{
+		return;
+	}
 
     RECT rect;
     rect.left = min(pt.x, _cachedStreamCursor.x);
@@ -493,7 +489,12 @@ void Peer::getStreamInfo(Packet* pkt)
 
     // Populate struct from packet
     StreamSender::StreamInfo info;
-    std::memcpy(&info, pkt->getData(), sizeof(info));
+
+	// Not zero is error condition
+	if (memcpy_s(&info, sizeof(info), pkt->getData(), sizeof(info)))
+	{
+		return;
+	}
 
     // Update stream window title
     std::wstring str(_name);

@@ -25,14 +25,16 @@ int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
     ImageCodecInfo* pImageCodecInfo = NULL;
 
     GetImageEncodersSize(&num, &size);
-    if (size == 0)
-        return -1;  // Failure
+	if (size == 0)
+	{
+		return -1;  // Failure
+	}
 
     pImageCodecInfo = (ImageCodecInfo*)(malloc(size));
     if (pImageCodecInfo == NULL)
     {
         return -1;  // Failure
-    }        
+    }
 
     GetImageEncoders(num, size, pImageCodecInfo);
 
@@ -47,6 +49,7 @@ int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
     }
 
     free(pImageCodecInfo);
+	return 1;
 }
 
 bool StreamSender::captureImageToFile(LPWSTR fileName)
@@ -108,11 +111,19 @@ void StreamSender::captureAsStream()
                     unsigned int key = (x << 16) | y;
 
                     // Generate temporary byte strings for image processing
-                    char* bytes = new char[liSize.QuadPart];
-                    memcpy(bytes, pStream, liSize.QuadPart);
+					char* bytes = new char[(size_t)liSize.QuadPart];
+					
+					// Not zero is error condition
+					if (memcpy_s(bytes, (size_t)liSize.QuadPart, pStream, (size_t)liSize.QuadPart))
+					{
+						delete[] bytes;
+						pStream->Release();
+						AddOutputMsg(L"[DEBUG]: Stream memcpy_s failed, aborting.");
+						return;
+					}
 
                     // Check if image region is different than cache
-                    uint32_t crc = getCRC(bytes, liSize.QuadPart);
+					uint32_t crc = getCRC(bytes, (size_t)liSize.QuadPart);
                     auto iter = tempMap.find(key);
                     if (iter == tempMap.end())
                     {
@@ -138,18 +149,25 @@ void StreamSender::captureAsStream()
                         origin.y = y;
 
                         // Copy capture bytes to array
-                        char * data = new char[sizeof(origin)+liSize.QuadPart];
+						char * data = new char[sizeof(origin)+(size_t)liSize.QuadPart];
 
                         // Add origin data
-                        std::memcpy(data, &origin, sizeof(origin));
+						// Not zero is error condition
+						if (memcpy_s(data, sizeof(origin)+(size_t)liSize.QuadPart, &origin, sizeof(origin)))
+						{
+							delete[] data;
+							pStream->Release();
+							AddOutputMsg(L"[DEBUG]: Stream memcpy_s failed, aborting.");
+							return;
+						}
 
                         // Add image data
                         if (IStream_Reset(pStream) == S_OK)
                         {
-                            if (IStream_Read(pStream, data + sizeof(origin), liSize.QuadPart) == S_OK)
+							if (IStream_Read(pStream, data + sizeof(origin), (size_t)liSize.QuadPart) == S_OK)
                             {
                                 // Send data
-                                ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, sizeof(origin)+liSize.QuadPart));
+								((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, sizeof(origin)+(size_t)liSize.QuadPart));
                             }
                         }                        
                     }
@@ -180,17 +198,25 @@ void StreamSender::stream(HWND hWnd)
     {
         if (hWnd == GetDesktopWindow())
         {
-            wcscpy(info.name, L"Desktop");
+            wcscpy_s(info.name, sizeof(info.name), L"Desktop");
         }
         else
         {
-            wcscpy(info.name, L"Shared Window");
+			wcscpy_s(info.name, sizeof(info.name), L"Shared Window");
         }
     }
 
     // Send StreamInfo packet
     char * data = new char[sizeof(info)];
-    std::memcpy(data, &info, sizeof(info));
+
+	// Not zero is error condition
+	if (memcpy_s(data, sizeof(info), &info, sizeof(info)))
+	{
+		delete[] data;
+		AddOutputMsg(L"[DEBUG]: StreamInfo memcpy_s failed, aborting.");
+		return;
+	}
+
     ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_INFO, data, sizeof(info)));
 
     // Start stream

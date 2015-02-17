@@ -239,7 +239,13 @@ bool NetworkManager::sendPacket(SOCKET socket, Packet * pkt)
     toSend[7] = (protocol & 0xff);
 
     // Append data
-    memcpy_s(toSend + 8, sendSize, pkt->getData(), dataSize);
+	// Not zero is error condition
+	if (memcpy_s(toSend + 8, sendSize, pkt->getData(), pkt->getSize()))
+	{
+		delete[] toSend;
+		AddOutputMsg(L"[DEBUG]: sendPacket memcpy_s failed, aborting.");
+		return false;
+	}
 
     // Send the data
     int remaining = sendSize;
@@ -269,22 +275,25 @@ bool NetworkManager::sendPacket(SOCKET socket, Packet * pkt)
 
 bool NetworkManager::isSocketReady(SOCKET sock, int channel) const
 {
-    bool res;
     fd_set sready;
     struct timeval nowait;
 
     FD_ZERO(&sready);
     FD_SET((unsigned int)sock, &sready);
     memset((char *)&nowait, 0, sizeof(nowait));
-    res = select(sock, (channel == FD_READ ? &sready : NULL), (channel == FD_WRITE ? &sready : NULL), NULL, &nowait);
+	bool result = false;
+	if (select(sock, (channel == FD_READ ? &sready : NULL), (channel == FD_WRITE ? &sready : NULL), NULL, &nowait))
+	{
+		result = true;
+	}
 
     if (FD_ISSET(sock, &sready))
-        res = true;
+		result = true;
     else
-        res = false;
+		result = false;
 
 
-    return res;
+	return result;
 }
 
 //

@@ -19,6 +19,7 @@
 
 // TODO: reference additional headers your program requires here
 #include "Mouser.h"
+#include "Lmcons.h" // UNLEN
 
 // Common class references
 #include "Peer.h"

@@ -51,7 +51,7 @@ void CursorUtil::streamThread(int sendRate)
 
                         // Convert struct to char array
                         char * data = new char[sizeof(_cursor)];
-                        std::memcpy(data, &_cursor, sizeof(_cursor));
+                        memcpy_s(data, sizeof(_cursor), &_cursor, sizeof(_cursor));
 
                         // Construct and send packet
                         ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor)));

@@ -17,6 +17,7 @@ const int MAX_LOADSTRING = 100;
 // Global Variables:
 HINSTANCE hInst;                     // current instance
 float dpiScale = 1.0f;
+wchar_t _username[UNLEN + 1]; // User name
 TCHAR szMouserTitle[MAX_LOADSTRING];   // The title bar text
 TCHAR szPeerTitle[MAX_LOADSTRING];   // The title bar text
 TCHAR szStreamTitle[MAX_LOADSTRING]; // The title bar text
@@ -27,6 +28,8 @@ HWND hMouser;
 HWND hMouserOutputListBox;
 HWND hMouserPeerListBox;
 HWND hMouserPeerLabel;
+HWND hMouserPeerConnectButton;
+HWND hMouserPeerConnectEditBox;
 HWND hMouserOutputLabel;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
@@ -57,6 +60,13 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 		SetProcessDPIAware();
 	}
 	catch (exception) {}
+
+	// Set username
+	DWORD szName = sizeof(_username);
+	if (!GetUserName(_username, &szName))
+	{
+		wcscpy_s(_username, UNLEN + 1, L"UnknownPeer");
+	}
 
     // Set program DPI scale
     HDC hdc = GetDC(GetDesktopWindow());
@@ -115,9 +125,9 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     WNDCLASSEX wStreamClass;
 
     // May be unnecessary
-    memset(&wMouserClass, 0, sizeof(WNDCLASSEX));
-    memset(&wPeerClass, 0, sizeof(WNDCLASSEX));
-    memset(&wStreamClass, 0, sizeof(WNDCLASSEX));
+    //memset(&wMouserClass, 0, sizeof(WNDCLASSEX));
+    //memset(&wPeerClass, 0, sizeof(WNDCLASSEX));
+    //memset(&wStreamClass, 0, sizeof(WNDCLASSEX));
 
     wMouserClass.cbSize = sizeof(WNDCLASSEX);
     wMouserClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -163,6 +173,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassEx(&wMouserClass) &
            RegisterClassEx(&wPeerClass) &
            RegisterClassEx(&wStreamClass);
+}
+
+wchar_t* getUserName()
+{
+	return _username;
 }
 
 HWND getRootWindow()
@@ -218,19 +233,19 @@ HWND getWindow(WindowType type, void* data = nullptr)
     switch (type)
     {
     case MouserWin:
-        hWnd = CreateWindowEx(
-            WS_EX_CLIENTEDGE,    // extended styles
-            szMouserClass,       // lpClassName
-            szMouserTitle,       // lpWindowName,
-            WS_OVERLAPPEDWINDOW, // dwStyle
-            CW_USEDEFAULT,       // x
-            CW_USEDEFAULT,       // y
-            500 * dpiScale,      // width
-            475 * dpiScale,      // height
-            NULL,                // hWndParent
-            NULL,                // hMenu
-            hInst,               // hInstance
-            data);               // lpParam
+		hWnd = CreateWindowEx(
+            WS_EX_CLIENTEDGE,     // extended styles
+            szMouserClass,        // lpClassName
+            szMouserTitle,        // lpWindowName,
+            WS_OVERLAPPEDWINDOW,  // dwStyle
+            CW_USEDEFAULT,        // x
+            CW_USEDEFAULT,        // y
+            (int) (500 * dpiScale), // width
+            (int) (475 * dpiScale), // height
+            NULL,                 // hWndParent
+            NULL,                 // hMenu
+            hInst,                // hInstance
+            data);                // lpParam
         break;
     case PeerWin:
         hWnd = CreateWindowEx(
@@ -240,8 +255,8 @@ HWND getWindow(WindowType type, void* data = nullptr)
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            520 * dpiScale,
-            380 * dpiScale,
+			(int) (520 * dpiScale),
+			(int) (380 * dpiScale),
             NULL,
             NULL,
             hInst,
@@ -255,8 +270,8 @@ HWND getWindow(WindowType type, void* data = nullptr)
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
-            240 * dpiScale,
-            120 * dpiScale,
+			(int) (240 * dpiScale),
+			(int) (120 * dpiScale),
             NULL,
             NULL,
             hInst,
@@ -360,12 +375,46 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
         {
             // Set dimensions for window
-            int width = 100 * dpiScale;
+            int width = (int) (100 * dpiScale);
             RECT rect;
             if (GetWindowRect(hWnd, &rect))
             {
                 width = rect.right - rect.left;
             }
+
+			// Add peer direct connect button
+			hMouserPeerConnectButton = CreateWindowEx(
+				NULL,
+				L"BUTTON",
+				L"Find Peer by IP",
+				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+				(int)(5 * dpiScale),
+				(int)(5 * dpiScale),
+				(int)((width - 5 * dpiScale) * 0.3F),
+				(int)(30 * dpiScale),
+				hWnd,
+				(HMENU)IDC_MAIN_PEER_BUTTON,
+				hInst,
+				NULL);
+
+			setWindowFont(hMouserPeerConnectButton);
+
+			// Add peer direct connect edtibox
+			hMouserPeerConnectEditBox = CreateWindowEx(
+				WS_EX_CLIENTEDGE,
+				L"EDIT",
+				L"",
+				WS_CHILD | WS_VISIBLE | WS_VSCROLL,
+				(int)(5 * dpiScale),
+				(int)(35 * dpiScale),
+				(int)((width - 5 * dpiScale) * 0.3F),
+				(int)(30 * dpiScale),
+				hWnd,
+				(HMENU)IDC_MAIN_PEER_EDITBOX,
+				hInst,
+				NULL);
+
+			setWindowFont(hMouserPeerConnectEditBox);
 
             // Add peer label
             hMouserPeerLabel = CreateWindowEx(
@@ -373,10 +422,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 L"STATIC",
                 NULL,
                 WS_CHILD | WS_VISIBLE,
-                5 * dpiScale,
-                5 * dpiScale,
-                (width - 5 * dpiScale) * 0.3F,
-                30 * dpiScale,
+                (int)(5 * dpiScale),
+				(int)(70 * dpiScale),
+				(int)((width - 5 * dpiScale) * 0.3F),
+				(int)(30 * dpiScale),
                 hWnd,
                 NULL,
                 hInst,
@@ -390,10 +439,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 L"STATIC",
                 NULL,
                 WS_CHILD | WS_VISIBLE,
-                10 * dpiScale + width * 0.3F,
-                5 * dpiScale,
-                (width - 5 * dpiScale) * 0.7F - 30 * dpiScale,
-                30 * dpiScale,
+                (int)(10 * dpiScale + width * 0.3F),
+				(int)(5 * dpiScale),
+				(int)((width - 5 * dpiScale) * 0.7F - 30 * dpiScale),
+				(int)(30 * dpiScale),
                 hWnd,
                 NULL,
                 hInst,
@@ -407,10 +456,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 L"LISTBOX",
                 NULL,
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
-                5 * dpiScale,                            // X Padding
-                30 * dpiScale,                           // Y Padding
-                (width - 5 * dpiScale) * 0.3F,           // Width
-                400 * dpiScale,                          // Height
+				(int)(5 * dpiScale),                            // X Padding
+				(int)(100 * dpiScale),                           // Y Padding
+				(int)((width - 5 * dpiScale) * 0.3F),           // Width
+				(int)(330 * dpiScale),                          // Height
                 hWnd,                         // Parent window
                 (HMENU)IDC_MAIN_PEER_LISTBOX,
                 hInst,
@@ -424,10 +473,10 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 L"LISTBOX",
                 NULL,
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL,
-                10 * dpiScale + width * 0.3F,
-                30 * dpiScale,
-                (width - 5 * dpiScale) * 0.7F - 30 * dpiScale,
-                400 * dpiScale,
+				(int)(10 * dpiScale + width * 0.3F),
+				(int)(30 * dpiScale),
+				(int)((width - 5 * dpiScale) * 0.7F - 30 * dpiScale),
+				(int)(400 * dpiScale),
                 hWnd,
                 (HMENU)IDC_MAIN_OUTPUT_LISTBOX,
                 hInst,
@@ -475,6 +524,25 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Parse the menu selections:
         switch (wmId)
         {
+		case IDC_MAIN_PEER_BUTTON:
+			{
+				// Get IP from editbox
+				wchar_t buffer[16];
+				GetWindowText(hMouserPeerConnectEditBox, buffer, sizeof(buffer));
+				
+				// Convert wchar_t* string to char*
+				size_t szText = wcslen(buffer) + 1; // +1 for null terminator
+				char* text = new char[szText];
+				size_t charsConverted = 0;
+				wcstombs_s(&charsConverted, text, szText, buffer, wcslen(buffer));
+
+				// Attempt peer connection
+				peerHandler->directConnectToPeer(text);
+
+				// Clean up memory
+				delete[] text;
+			}
+			break;
         case IDC_MAIN_PEER_LISTBOX:
             switch (wmEvent)
             {
@@ -613,15 +681,15 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 width = rect.right - rect.left;
             }
 
-            // Create output edit box
+            // Create output listbox
             peer->hChatListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
                 L"LISTBOX",
                 L"",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-                5 * dpiScale,
-                5 * dpiScale,
-                width - 30 * dpiScale,
-                280 * dpiScale,
+				(int)(5 * dpiScale),
+				(int)(5 * dpiScale),
+				(int)(width - 30 * dpiScale),
+				(int)(280 * dpiScale),
                 hWnd,
                 (HMENU)IDC_PEER_CHAT_LISTBOX,
                 hInst,
@@ -634,10 +702,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 L"BUTTON",
                 L"Send",
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                5 * dpiScale,
-                300 * dpiScale,
-                width * 0.2F - 5,
-                30 * dpiScale,
+				(int)(5 * dpiScale),
+				(int)(300 * dpiScale),
+				(int)(width * 0.2F - 5),
+				(int)(30 * dpiScale),
                 hWnd,
                 (HMENU)IDC_PEER_CHAT_BUTTON,
                 hInst,
@@ -645,15 +713,15 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
             setWindowFont(peer->hChatButton);
 
-            // Create output edit box
+            // Create input editbox
             peer->hChatEditBox = CreateWindowEx(WS_EX_CLIENTEDGE,
                 L"EDIT",
                 L"",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-                (5 * dpiScale + (width - 10 * dpiScale) * 0.2F),
-                300 * dpiScale,
-                width * 0.6F - 25 * dpiScale,
-                30 * dpiScale,
+				(int)((5 * dpiScale + (width - 10 * dpiScale) * 0.2F)),
+				(int)(300 * dpiScale),
+				(int)(width * 0.6F - 25 * dpiScale),
+				(int)(30 * dpiScale),
                 hWnd,
                 (HMENU)IDC_PEER_CHAT_EDITBOX,
                 hInst,
@@ -671,10 +739,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 L"BUTTON",
                 L"Stream",
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-                (width - 25 * dpiScale) * 0.8F,
-                300 * dpiScale,
-                width * 0.2F - 5 * dpiScale,
-                30 * dpiScale,
+				(int)((width - 25 * dpiScale) * 0.8F),
+				(int)(300 * dpiScale),
+				(int)(width * 0.2F - 5 * dpiScale),
+				(int)(30 * dpiScale),
                 hWnd,
                 (HMENU)IDC_PEER_CHAT_STREAM_BUTTON,
                 hInst,
@@ -686,10 +754,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 L"STATIC",
                 L"Peer is typing...",
                 WS_CHILD,
-                5 * dpiScale,
-                280 * dpiScale,
-                width - 20 * dpiScale,
-                20 * dpiScale,
+				(int)(5 * dpiScale),
+				(int)(280 * dpiScale),
+				(int)(width - 20 * dpiScale),
+				(int)(20 * dpiScale),
                 hWnd,
                 (HMENU)IDC_PEER_CHAT_IS_TYPING_LABEL,
                 hInst,
@@ -750,15 +818,12 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
         peer = (Peer*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
     }
 
-    int wmId, wmEvent;
-    PAINTSTRUCT ps;
-    HDC hdc;
-
     switch (msg)
     {
     case WM_PAINT:
         {
-            hdc = BeginPaint(hWnd, &ps);
+			PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
 
             // Refresh stream image in updated region
             peer->DrawStreamImage(hdc, ps.rcPaint);

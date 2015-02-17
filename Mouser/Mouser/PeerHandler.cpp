@@ -40,6 +40,22 @@ void PeerHandler::disconnectPeer(Peer * peer)
     updatePeerListBoxData();
 }
 
+void PeerHandler::directConnectToPeer(char* ip)
+{
+	// Set up our socket address structure
+	SOCKADDR_IN addr;
+	addr.sin_port = htons(NetworkManager::getInstance().getPeerListenerPort());
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr(ip);
+
+	wchar_t buffer[256];
+	swprintf(buffer, 256, L"[P2P]: Attempting peer connection at %hs", inet_ntoa(addr.sin_addr));
+	AddOutputMsg(buffer);
+
+	std::thread t(&PeerHandler::connectToPeerThread, this, addr);
+	t.detach();
+}
+
 void PeerHandler::connectToPeer()
 {
     sockaddr_in inAddr = NetworkManager::getInstance().getMulticastSenderInfo();
