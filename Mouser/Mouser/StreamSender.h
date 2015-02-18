@@ -31,7 +31,6 @@ class StreamSender
         
     private:
 
-        uint32_t getCRC(char* data, size_t len);
         int getEncoderClsid(const WCHAR * format, CLSID * pClsid);
         void captureAsStream();
         bool captureImageToFile(LPWSTR fileName);
@@ -54,5 +53,5 @@ class StreamSender
         int                 srcHeight;
         int                 srcWidth;
 
-        std::map<unsigned int, uint32_t> tempMap;
+        std::map<unsigned int, size_t> tempMap;
 };

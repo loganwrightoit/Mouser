@@ -404,7 +404,10 @@ void Peer::DrawStreamImage(HDC hdc, RECT rect)
     // TODO: Work on resizing for the tile-based system
 
     //SetStretchBltMode(hdc, HALFTONE);
-    _cachedStreamImage.BitBlt(hdc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, rect.left, rect.top);
+    if (!_cachedStreamImage.BitBlt(hdc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, rect.left, rect.top))
+    {
+        AddOutputMsg(L"[DEBUG]: BitBlt failed on read.");
+    }
 }
 
 void Peer::DrawStreamCursor(HDC hdc, RECT rect)

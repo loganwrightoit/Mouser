@@ -62,27 +62,16 @@ bool StreamSender::captureImageToFile(LPWSTR fileName)
     return true;
 }
 
-uint32_t StreamSender::getCRC(char* data, size_t len)
-{
-    uint32_t seed = ~(234);
-    while (len--)
-    {
-        seed ^= *data++;
-        for (int k = 0; k < 8; k++)
-        {
-            seed = seed & 1 ? (seed >> 1) ^ 0x82f63b78 : seed >> 1;
-        }
-    }
-    return ~seed;
-}
-
 //
 // Sends bitmap (or converted format) through socket as byte array.
 //
 void StreamSender::captureAsStream()
 {
     // Update HBITMAP of screen region - CAPTUREBLT is expensive operation, so only do this once
-    BitBlt(hDestDC, 0, 0, srcWidth, srcHeight, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT);
+    if (!BitBlt(hDestDC, 0, 0, srcWidth, srcHeight, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT))
+    {
+        return;
+    }
 
     for (int x = 0; x < srcWidth; x += szTile)
     {
@@ -93,12 +82,23 @@ void StreamSender::captureAsStream()
             if (CreateStreamOnHGlobal(0, TRUE, &pStream) == S_OK)
             {
                 // Blit to tile HBITMAP
-                BitBlt(hTileDC, 0, 0, szTile, szTile, hDestDC, x, y, SRCCOPY);
+                if (!BitBlt(hTileDC, 0, 0, szTile, szTile, hDestDC, x, y, SRCCOPY))
+                {
+                    pStream->Release();
+                    return;
+                }
 
                 // Create tile image
                 CImage image;
                 image.Attach(hTileHBmp);
-                image.Save(pStream, Gdiplus::ImageFormatPNG);
+
+                if (image.Save(pStream, Gdiplus::ImageFormatPNG) != S_OK)
+                {
+                    pStream->Release();
+                    image.Destroy();
+                    return;
+                }
+
                 image.Destroy();
 
                 // Generate byte array for image
@@ -110,32 +110,19 @@ void StreamSender::captureAsStream()
                     // Generate key for image
                     unsigned int key = (x << 16) | y;
 
-                    // Generate temporary byte strings for image processing
-					char* bytes = new char[(size_t)liSize.QuadPart];
-					
-					// Not zero is error condition
-					if (memcpy_s(bytes, (size_t)liSize.QuadPart, pStream, (size_t)liSize.QuadPart))
-					{
-						delete[] bytes;
-						pStream->Release();
-						AddOutputMsg(L"[DEBUG]: Stream memcpy_s failed, aborting.");
-						return;
-					}
-
-                    // Check if image region is different than cache
-					uint32_t crc = getCRC(bytes, (size_t)liSize.QuadPart);
                     auto iter = tempMap.find(key);
                     if (iter == tempMap.end())
                     {
-                        tempMap.insert(std::make_pair(key, crc));
+                        tempMap.insert(std::make_pair(key, (size_t)liSize.QuadPart));
                         sendPacket = true;
                     }
                     else
                     {
-                        if (iter->second != crc)
+                        // Check if image size is different
+                        if (iter->second != (size_t)liSize.QuadPart)
                         {
                             tempMap.erase(iter);
-                            tempMap.insert(std::make_pair(key, crc));
+                            tempMap.insert(std::make_pair(key, (size_t)liSize.QuadPart));
 
                             sendPacket = true;
                         }
