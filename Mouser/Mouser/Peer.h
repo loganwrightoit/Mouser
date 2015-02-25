@@ -2,10 +2,12 @@
 
 #include "WinSock2.h"
 #include "StreamSender.h"
+#include "FileSender.h"
 #include "CursorUtil.h"
 #include <atlimage.h> // IStream_ and CImage functions
 #include <map>
 #include <queue>
+#include <fstream>
 
 static const int MAX_CHAT_LENGTH = 512;
 class Packet;
@@ -23,6 +25,7 @@ class Peer
 
         size_t getQueueSize() const;
 
+        void doFileSendRequest(wchar_t* path);
         void sendStreamImage();
         void sendStreamCursor();
         void sendChatMsg(wchar_t* msg);
@@ -61,6 +64,14 @@ class Peer
 
         void sendThread();
         void rcvThread();
+        
+        void doFileSendThread();
+        int DisplayAcceptFileSendMessageBox();
+
+        void getFileSendRequest(Packet* pkt);
+        void getFileSendAllow(Packet* pkt);
+        void getFileSendDeny(Packet* pkt);
+        void getFileFragment(Packet* pkt);
 
         void getStreamInfo(Packet* pkt);
         void getStreamClose(Packet* pkt);
@@ -77,12 +88,19 @@ class Peer
         wchar_t* _name;
         SOCKET _socket;
         StreamSender* _streamSender;
+        FileSender* _fileSender;
         CursorUtil* _cursorUtil;
         std::queue<Packet*> sendQueue;
         bool _streaming;
-
+        
         CImage _cachedStreamImage;
         POINT _cachedStreamCursor;
+
+        // Holds path and size of file send
+        FileSender::FileInfo _file;
+        std::ofstream _outFile; // Stream target for incoming file fragments
+        size_t _remainingFile; // Amount of expected filesize read
+        wchar_t _tempPath[MAX_PATH]; // Temporary file path when receiving
 
         HANDLE ghMutex;
 

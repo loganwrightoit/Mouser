@@ -81,6 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CursorUtil.h" />
+    <ClInclude Include="FileSender.h" />
     <ClInclude Include="NetworkManager.h" />
     <ClInclude Include="Packet.h" />
     <ClInclude Include="PeerHandler.h" />
@@ -93,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CursorUtil.cpp" />
+    <ClCompile Include="FileSender.cpp" />
     <ClCompile Include="Mouser.cpp" />
     <ClCompile Include="NetworkManager.cpp" />
     <ClCompile Include="Packet.cpp" />

@@ -3,6 +3,7 @@
 #include <thread>
 #include <string>
 #include "math.h"
+#include <Shlobj.h>
 
 #define NOMINMAX
 
@@ -222,6 +223,213 @@ void Peer::sendName()
     }
 }
 
+void Peer::doFileSendRequest(wchar_t* path)
+{
+    // Open file and seek to end (ate) to get size
+    std::ifstream file(path, std::ifstream::binary | std::ifstream::in | std::ifstream::ate);
+
+    if (file.is_open())
+    {
+        OutputDebugString(L"[DEBUG]: Opened file for sending, preparing info packet\n");
+
+        size_t szFile = (size_t)file.tellg();
+        file.seekg(0, std::ifstream::beg); // Seek back to beginning
+
+        OutputDebugString(L"[DEBUG]: seeked to beginning of file stream in path: ");
+        OutputDebugString(path);
+        OutputDebugString(L"\n");
+
+        // Send file info to peer (filename, size)
+        wcscpy_s(_file.path, wcslen(path) + 1, path);
+        OutputDebugString(L"[DEBUG]: reached 1.\n");
+        _file.size = szFile;
+        OutputDebugString(L"[DEBUG]: reached 2.\n");
+        char* data = new char[sizeof(_file)];
+        OutputDebugString(L"[DEBUG]: reached 3.\n");
+        memcpy_s(data, sizeof(_file), &_file, sizeof(_file));
+        OutputDebugString(L"[DEBUG]: reached 4.\n");
+        sendPacket(new Packet(Packet::FILE_SEND_REQUEST, data, sizeof(_file)));
+
+        OutputDebugString(L"[DEBUG]: sent info packet.\n");
+
+        file.close();
+    }
+}
+
+void Peer::doFileSendThread()
+{
+    // Open file and seek to end (ate) to get size
+    std::ifstream file(_file.path, std::ifstream::binary | std::ifstream::in | std::ifstream::ate);
+
+    if (file.is_open())
+    {
+        // Send file fragments to peer
+        while (1)
+        {
+            if (getQueueSize() < 4)
+            {
+                char buffer[DEFAULT_BUFFER_SIZE];
+                file.read(buffer, sizeof(buffer));
+
+                size_t charRead = (size_t)file.gcount();
+                if (charRead > 0)
+                {
+                    char* data = new char[charRead];
+                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, charRead));
+                }
+
+                // Last read only partially filled buffer, reached EOF
+                if (!file)
+                {
+                    AddOutputMsg(L"[P2P]: File send finished.");
+                    file.close();
+                    return;
+                }
+            }
+        }
+    }
+}
+
+int Peer::DisplayAcceptFileSendMessageBox()
+{
+    wchar_t fileName[MAX_PATH];
+    wcscpy_s(fileName, MAX_PATH, _file.path);
+    PathStripPath(fileName);
+
+    std::wstring str;
+    str.append(getName());
+    str.append(L" wants to send you a file: ");
+    str.append(fileName);
+    str.append(L" (");
+    str.append(std::to_wstring(_file.size));
+    str.append(L" bytes)\n\n");
+    str.append(L"Do you want to accept it?");
+
+    int msgboxID = MessageBox(
+        NULL,
+        str.c_str(),
+        L"Accept File Send",
+        MB_ICONEXCLAMATION | MB_YESNO
+        );
+
+    return msgboxID;
+}
+
+void Peer::getFileSendRequest(Packet* pkt)
+{
+    // Save file info
+    // Not zero is error condition
+    if (memcpy_s(&_file, sizeof(_file), pkt->getData(), sizeof(_file)))
+    {
+        return;
+    }
+
+    if (DisplayAcceptFileSendMessageBox() == IDYES)
+    {
+        // Create file on desktop
+        wchar_t szPath[MAX_PATH];
+
+        if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, 0, szPath)))
+        {
+            PathAppend(szPath, TEXT("mouser_file.tmp"));
+
+            HANDLE newFile = CreateFile(
+                szPath,                 // name of the write
+                GENERIC_WRITE,          // open for writing
+                0,                      // do not share
+                NULL,                   // default security
+                CREATE_ALWAYS,          // create new file
+                FILE_ATTRIBUTE_NORMAL,  // normal file
+                NULL);                  // no attr. template
+
+            if (newFile == INVALID_HANDLE_VALUE)
+            {
+                AddOutputMsg(L"[P2P]: Unable to create temporary file.");
+                sendPacket(new Packet(Packet::FILE_SEND_DENY));
+            }
+
+            // Save temporary path for renaming once file send is complete
+            wcscpy_s(_tempPath, sizeof(_file.path) + 1, szPath);
+
+            // Save remaining size for decrementing as fragments received
+            _remainingFile = _file.size;
+
+            // Open file in preparation for file fragments
+            _outFile.open(_file.path, std::ifstream::binary | std::ifstream::out);
+            if (_outFile.is_open())
+            {
+                // Send accept packet to begin receiving file
+                sendPacket(new Packet(Packet::FILE_SEND_ALLOW));
+            }
+            else
+            {
+                AddOutputMsg(L"[P2P]: Unable to open temporary file for receiving send.");
+            }
+        }
+        else
+        {
+            AddOutputMsg(L"[P2P]: Unable to get temporary file path.");
+        }
+    }
+    else
+    {
+        sendPacket(new Packet(Packet::FILE_SEND_DENY));
+        AddOutputMsg(L"[P2P]: Denied file send request.");
+    }
+}
+
+void Peer::getFileSendAllow(Packet* pkt)
+{
+    AddOutputMsg(L"[P2P]: Peer accepted file send request.");
+
+    // Start new thread to send file
+    std::thread t(&Peer::doFileSendThread, this);
+    t.detach();
+}
+
+void Peer::getFileSendDeny(Packet* pkt)
+{
+    AddOutputMsg(L"[P2P]: Peer denied file send request.");
+}
+
+void Peer::getFileFragment(Packet* pkt)
+{
+    // Check that file is open
+    if (_outFile.is_open())
+    {
+        _outFile.write(pkt->getData(), pkt->getSize());
+
+        // Decrement expected size
+        _remainingFile -= pkt->getSize();
+
+        // Close file if expected reaches 0
+        if (_remainingFile <= 0)
+        {
+            _outFile.close();
+
+            // Rename temporary file
+            wchar_t fileName[MAX_PATH];
+            wcscpy_s(fileName, MAX_PATH, _file.path);
+            PathStripPath(fileName);
+            wchar_t newPath[MAX_PATH];
+            wcscpy_s(newPath, MAX_PATH, _tempPath);
+            PathRemoveFileSpec(newPath);
+            PathAddBackslash(newPath);
+            PathAppend(newPath, fileName);
+            _wrename(_tempPath, newPath);
+
+            // Change file send label to "Received File."
+            AddOutputMsg(L"Received file.");
+            return;
+        }
+
+        // Update percentage label in peer window
+        wchar_t buffer[256];
+        swprintf(buffer, 256, L"Receiving file (%i%%)", _remainingFile / _file.size);
+        AddOutputMsg(buffer);
+    }
+}
+
 void Peer::rcvThread()
 {
     // Gather peer info
@@ -261,6 +469,18 @@ void Peer::rcvThread()
             break;
         case Packet::CHAT_IS_TYPING:
             getChatIsTyping(pkt);
+            break;
+        case Packet::FILE_SEND_REQUEST:
+            getFileSendRequest(pkt);
+            break;
+        case Packet::FILE_SEND_ALLOW:
+            getFileSendAllow(pkt);
+            break;
+        case Packet::FILE_SEND_DENY:
+            getFileSendDeny(pkt);
+            break;
+        case Packet::FILE_FRAGMENT:
+            getFileFragment(pkt);
             break;
         case Packet::NAME:
             getName(pkt);

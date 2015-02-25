@@ -16,6 +16,10 @@ class Packet
             STREAM_CLOSE,
             CHAT_TEXT,
             CHAT_IS_TYPING,
+            FILE_SEND_REQUEST,
+            FILE_SEND_ALLOW,
+            FILE_SEND_DENY,
+            FILE_FRAGMENT,
             NAME
         };
 

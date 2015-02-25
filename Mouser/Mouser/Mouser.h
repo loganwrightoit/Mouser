@@ -2,6 +2,8 @@
 
 #include "resource.h"
 
+const int            DEFAULT_BUFFER_SIZE = 1464;
+
 enum WindowType
 {
     MouserWin,

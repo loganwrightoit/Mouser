@@ -9,6 +9,8 @@
 #include <string>
 #include <stdlib.h>
 #include <atlimage.h> // IStream_ and CImage functions
+#include "Shellapi.h" // WM_DROPFILES
+#include <fstream>
 
 using namespace std;
 
@@ -124,11 +126,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     WNDCLASSEX wMouserClass;
     WNDCLASSEX wPeerClass;
     WNDCLASSEX wStreamClass;
-
-    // May be unnecessary
-    //memset(&wMouserClass, 0, sizeof(WNDCLASSEX));
-    //memset(&wPeerClass, 0, sizeof(WNDCLASSEX));
-    //memset(&wStreamClass, 0, sizeof(WNDCLASSEX));
 
     wMouserClass.cbSize = sizeof(WNDCLASSEX);
     wMouserClass.style = CS_HREDRAW | CS_VREDRAW;
@@ -783,6 +780,25 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 			return (LRESULT)brushBgnd;
 		}
+    case WM_DROPFILES:
+        {
+            HDROP hDrop = (HDROP)wParam;
+            UINT numFiles = DragQueryFile(hDrop, 0xffffffff, NULL, NULL);
+            
+            // Only allow single file
+            if (numFiles == 1)
+            {
+                wchar_t lpszFile[MAX_PATH];
+                if (DragQueryFile(hDrop, 0, lpszFile, MAX_PATH))
+                {
+                    peer->doFileSendRequest(lpszFile);
+                }
+            }
+
+            DragFinish(hDrop);
+            break;
+        }
+        break;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);

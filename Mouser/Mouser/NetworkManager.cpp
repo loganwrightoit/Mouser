@@ -18,7 +18,7 @@ const char *         MCST_IP             = "239.255.92.163";
 const unsigned int   MCST_PORT           = 41921;
 const int            MCST_TTL            = 5; // Set higher to traverse routers
 const unsigned short PEER_LISTEN_PORT    = 41920;
-const int            DEFAULT_BUFFER_SIZE = 1464;
+//const int            DEFAULT_BUFFER_SIZE = 1464; // Moved to Mouser.h for global access
 struct ip_mreq       mreq;
 
 void NetworkManager::init(const HWND hWnd)
