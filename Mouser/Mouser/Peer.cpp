@@ -276,21 +276,19 @@ void Peer::doFileSendThread()
                 {
                     OutputDebugString(L"[DEBUG]: Sending file fragment packet.\n");
 
-                    char* data = new char[DEFAULT_BUFFER_SIZE];
+                    char* data = new char[sizeof(buffer)];
                     memcpy_s(data, sizeof(data), buffer, sizeof(buffer));
-                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, DEFAULT_BUFFER_SIZE));
+                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, sizeof(buffer)));
                 }
                 else if ((size = (size_t)file.gcount()) > 0)
                 {
-                    OutputDebugString(L"[DEBUG]: Constructing final file fragment with size ");
-                    OutputDebugString((std::to_wstring(size)).c_str());
-                    OutputDebugString(L"\n");
+                    wchar_t buffer1[256];
+                    swprintf(buffer1, 256, L"Sending fragment: %hs", buffer);
+                    AddOutputMsg(buffer1);
 
                     // Send final fragment
                     char* data = new char[size];
-                    memcpy_s(data, sizeof(data), buffer, sizeof(data)); // Restrain buffer to sizeof(data)
-
-                    OutputDebugString(L"[DEBUG]: Sending final file fragment.");
+                    memcpy_s(data, size, buffer, size); // Restrain buffer to sizeof(data)
 
                     sendPacket(new Packet(Packet::FILE_FRAGMENT, data, size));
                 }
@@ -414,6 +412,10 @@ void Peer::getFileFragment(Packet* pkt)
     // Check that file is open
     if (_outFile.is_open())
     {
+        wchar_t buffer1[256];
+        swprintf(buffer1, 256, L"Received fragment %hs", pkt->getData());
+        AddOutputMsg(buffer1);
+
         _outFile.write(pkt->getData(), pkt->getSize());
 
         // Decrement expected size
@@ -442,7 +444,7 @@ void Peer::getFileFragment(Packet* pkt)
 
         // Update percentage label in peer window
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"Receiving file (%i%%)", _remainingFile / _file.size);
+        swprintf(buffer, 256, L"Receiving file (%i)", _remainingFile / _file.size);
         AddOutputMsg(buffer);
     }
 }
