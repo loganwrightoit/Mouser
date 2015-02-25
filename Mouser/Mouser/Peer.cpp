@@ -259,7 +259,7 @@ void Peer::doFileSendRequest(wchar_t* path)
 void Peer::doFileSendThread()
 {
     // Open file and seek to end (ate) to get size
-    std::ifstream file(_file.path, std::ifstream::binary | std::ifstream::in | std::ifstream::ate);
+    std::ifstream file(_file.path, std::ifstream::binary);
 
     if (file.is_open())
     {
@@ -268,20 +268,35 @@ void Peer::doFileSendThread()
         {
             if (getQueueSize() < 4)
             {
+                OutputDebugString(L"[DEBUG]: Preparing packet.\n");
+
                 char buffer[DEFAULT_BUFFER_SIZE];
-                file.read(buffer, sizeof(buffer));
-
-                size_t charRead = (size_t)file.gcount();
-                if (charRead > 0)
+                size_t size;
+                if (file.read(buffer, sizeof(buffer)))
                 {
-                    char* data = new char[charRead];
-                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, charRead));
+                    OutputDebugString(L"[DEBUG]: Sending file fragment packet.\n");
+
+                    char* data = new char[DEFAULT_BUFFER_SIZE];
+                    memcpy_s(data, sizeof(data), buffer, sizeof(buffer));
+                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, DEFAULT_BUFFER_SIZE));
                 }
-
-                // Last read only partially filled buffer, reached EOF
-                if (!file)
+                else if ((size = (size_t)file.gcount()) > 0)
                 {
-                    AddOutputMsg(L"[P2P]: File send finished.");
+                    OutputDebugString(L"[DEBUG]: Constructing final file fragment with size ");
+                    OutputDebugString((std::to_wstring(size)).c_str());
+                    OutputDebugString(L"\n");
+
+                    // Send final fragment
+                    char* data = new char[size];
+                    memcpy_s(data, sizeof(data), buffer, sizeof(data)); // Restrain buffer to sizeof(data)
+
+                    OutputDebugString(L"[DEBUG]: Sending final file fragment.");
+
+                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, size));
+                }
+                else
+                {
+                    OutputDebugString(L"[P2P]: File send finished.");
                     file.close();
                     return;
                 }
@@ -394,6 +409,8 @@ void Peer::getFileSendDeny(Packet* pkt)
 
 void Peer::getFileFragment(Packet* pkt)
 {
+    AddOutputMsg(L"[DEBUG]: Received file fragment.");
+
     // Check that file is open
     if (_outFile.is_open())
     {
