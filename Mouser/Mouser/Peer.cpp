@@ -230,35 +230,21 @@ void Peer::doFileSendRequest(wchar_t* path)
 
     if (file.is_open())
     {
-        OutputDebugString(L"[DEBUG]: Opened file for sending, preparing info packet\n");
-
-        size_t szFile = (size_t)file.tellg();
-        file.seekg(0, std::ifstream::beg); // Seek back to beginning
-
-        OutputDebugString(L"[DEBUG]: seeked to beginning of file stream in path: ");
-        OutputDebugString(path);
-        OutputDebugString(L"\n");
-
         // Send file info to peer (filename, size)
         wcscpy_s(_file.path, wcslen(path) + 1, path);
-        OutputDebugString(L"[DEBUG]: reached 1.\n");
-        _file.size = szFile;
-        OutputDebugString(L"[DEBUG]: reached 2.\n");
+        _file.size = (size_t)file.tellg();
         char* data = new char[sizeof(_file)];
-        OutputDebugString(L"[DEBUG]: reached 3.\n");
         memcpy_s(data, sizeof(_file), &_file, sizeof(_file));
-        OutputDebugString(L"[DEBUG]: reached 4.\n");
         sendPacket(new Packet(Packet::FILE_SEND_REQUEST, data, sizeof(_file)));
 
-        OutputDebugString(L"[DEBUG]: sent info packet.\n");
-
+        // Close file
         file.close();
     }
 }
 
 void Peer::doFileSendThread()
 {
-    // Open file and seek to end (ate) to get size
+    // Open file
     std::ifstream file(_file.path, std::ifstream::binary);
 
     if (file.is_open())
@@ -268,28 +254,20 @@ void Peer::doFileSendThread()
         {
             if (getQueueSize() < 4)
             {
-                OutputDebugString(L"[DEBUG]: Preparing packet.\n");
-
-                char buffer[DEFAULT_BUFFER_SIZE];
+                char buffer[FILE_BUFFER];
                 size_t size;
                 if (file.read(buffer, sizeof(buffer)))
                 {
-                    OutputDebugString(L"[DEBUG]: Sending file fragment packet.\n");
-
+                    // Send fragment
                     char* data = new char[sizeof(buffer)];
-                    memcpy_s(data, sizeof(data), buffer, sizeof(buffer));
+                    memcpy_s(data, sizeof(buffer), buffer, sizeof(buffer));
                     sendPacket(new Packet(Packet::FILE_FRAGMENT, data, sizeof(buffer)));
                 }
                 else if ((size = (size_t)file.gcount()) > 0)
                 {
-                    wchar_t buffer1[256];
-                    swprintf(buffer1, 256, L"Sending fragment: %hs", buffer);
-                    AddOutputMsg(buffer1);
-
                     // Send final fragment
                     char* data = new char[size];
-                    memcpy_s(data, size, buffer, size); // Restrain buffer to sizeof(data)
-
+                    memcpy_s(data, size, buffer, size); // Buffer only contains data up to file.gcount()
                     sendPacket(new Packet(Packet::FILE_FRAGMENT, data, size));
                 }
                 else
@@ -340,35 +318,21 @@ void Peer::getFileSendRequest(Packet* pkt)
     if (DisplayAcceptFileSendMessageBox() == IDYES)
     {
         // Create file on desktop
-        wchar_t szPath[MAX_PATH];
-
-        if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, 0, szPath)))
+        if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, 0, _tempPath)))
         {
-            PathAppend(szPath, TEXT("mouser_file.tmp"));
+            // Grab some path properties
+            wchar_t fileName[MAX_PATH];
+            _wsplitpath_s(_file.path, NULL, 0, NULL, 0, fileName, MAX_PATH, _tempExt, MAX_PATH);
 
-            HANDLE newFile = CreateFile(
-                szPath,                 // name of the write
-                GENERIC_WRITE,          // open for writing
-                0,                      // do not share
-                NULL,                   // default security
-                CREATE_ALWAYS,          // create new file
-                FILE_ATTRIBUTE_NORMAL,  // normal file
-                NULL);                  // no attr. template
-
-            if (newFile == INVALID_HANDLE_VALUE)
-            {
-                AddOutputMsg(L"[P2P]: Unable to create temporary file.");
-                sendPacket(new Packet(Packet::FILE_SEND_DENY));
-            }
-
-            // Save temporary path for renaming once file send is complete
-            wcscpy_s(_tempPath, sizeof(_file.path) + 1, szPath);
+            // Build a new path with temporary file extension
+            PathAppend(_tempPath, fileName);
+            PathRenameExtension(_tempPath, L".tmp");
 
             // Save remaining size for decrementing as fragments received
             _remainingFile = _file.size;
 
             // Open file in preparation for file fragments
-            _outFile.open(_file.path, std::ifstream::binary | std::ifstream::out);
+            _outFile.open(_tempPath, std::ifstream::binary);
             if (_outFile.is_open())
             {
                 // Send accept packet to begin receiving file
@@ -407,15 +371,9 @@ void Peer::getFileSendDeny(Packet* pkt)
 
 void Peer::getFileFragment(Packet* pkt)
 {
-    AddOutputMsg(L"[DEBUG]: Received file fragment.");
-
     // Check that file is open
     if (_outFile.is_open())
     {
-        wchar_t buffer1[256];
-        swprintf(buffer1, 256, L"Received fragment %hs", pkt->getData());
-        AddOutputMsg(buffer1);
-
         _outFile.write(pkt->getData(), pkt->getSize());
 
         // Decrement expected size
@@ -426,26 +384,21 @@ void Peer::getFileFragment(Packet* pkt)
         {
             _outFile.close();
 
-            // Rename temporary file
-            wchar_t fileName[MAX_PATH];
-            wcscpy_s(fileName, MAX_PATH, _file.path);
-            PathStripPath(fileName);
-            wchar_t newPath[MAX_PATH];
-            wcscpy_s(newPath, MAX_PATH, _tempPath);
-            PathRemoveFileSpec(newPath);
-            PathAddBackslash(newPath);
-            PathAppend(newPath, fileName);
-            _wrename(_tempPath, newPath);
+            // Rename extension of temporary file
+            wchar_t oldPath[MAX_PATH];
+            wcscpy_s(oldPath, MAX_PATH, _tempPath);
+            PathRenameExtension(_tempPath, _tempExt);
+            _wrename(oldPath, _tempPath);
 
-            // Change file send label to "Received File."
-            AddOutputMsg(L"Received file.");
+            SetWindowText(_hWnd, getUserName());
             return;
         }
 
         // Update percentage label in peer window
         wchar_t buffer[256];
-        swprintf(buffer, 256, L"Receiving file (%i)", _remainingFile / _file.size);
-        AddOutputMsg(buffer);
+        swprintf(buffer, 256, L"%ls - Receiving file: %.0f%%", getUserName(), (1 - (float) _remainingFile / _file.size) * 100);
+        openChatWindow();
+        SetWindowText(_hWnd, buffer);
     }
 }
 

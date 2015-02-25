@@ -769,7 +769,6 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 NULL);
 
             setWindowFont(peer->hChatIsTypingLabel);
-
         }
         break;
 	case WM_CTLCOLORSTATIC:

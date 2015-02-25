@@ -10,6 +10,8 @@
 #include <fstream>
 
 static const int MAX_CHAT_LENGTH = 512;
+static const int FILE_BUFFER = 1000000;
+
 class Packet;
 
 class Peer
@@ -100,7 +102,8 @@ class Peer
         FileSender::FileInfo _file;
         std::ofstream _outFile; // Stream target for incoming file fragments
         size_t _remainingFile; // Amount of expected filesize read
-        wchar_t _tempPath[MAX_PATH]; // Temporary file path when receiving
+        wchar_t _tempPath[MAX_PATH]; // Temporary file path
+        wchar_t _tempExt[MAX_PATH]; // Temporary file extension
 
         HANDLE ghMutex;
 
