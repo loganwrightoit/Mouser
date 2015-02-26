@@ -281,7 +281,7 @@ void Peer::doFileSendThread()
                     // Notify peer chat of completion
                     wchar_t buffer[256];
                     PathStripPath(_file.path);
-                    swprintf(buffer, 256, L"--> File %ls (%d) sent to peer.", _file.path, _file.size);
+                    swprintf(buffer, 256, L"--> File %ls (%d bytes) sent to peer.", _file.path, _file.size);
                     addChat(buffer);
 
                     SetWindowText(_hWnd, getName());
@@ -405,7 +405,7 @@ void Peer::getFileFragment(Packet* pkt)
             // Notify peer chat of completion
             wchar_t buffer[256];
             PathStripPath(_file.path);
-            swprintf(buffer, 256, L"--> File %ls (%d) saved to desktop.", _file.path, _file.size);
+            swprintf(buffer, 256, L"--> File %ls (%d bytes) saved to desktop.", _file.path, _file.size);
             addChat(buffer);
 
             SetWindowText(_hWnd, getName());
