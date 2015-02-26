@@ -197,7 +197,7 @@ SOCKET Peer::getSocket() const
     return _socket;
 }
 
-void Peer::AddChat(LPWSTR msg)
+void Peer::addChat(LPWSTR msg)
 {
     openChatWindow();
 
@@ -249,6 +249,8 @@ void Peer::doFileSendThread()
 
     if (file.is_open())
     {
+        _remainingFile = _file.size;
+
         // Send file fragments to peer
         while (1)
         {
@@ -258,6 +260,8 @@ void Peer::doFileSendThread()
                 size_t size;
                 if (file.read(buffer, sizeof(buffer)))
                 {
+                    _remainingFile -= FILE_BUFFER;
+
                     // Send fragment
                     char* data = new char[sizeof(buffer)];
                     memcpy_s(data, sizeof(buffer), buffer, sizeof(buffer));
@@ -265,6 +269,8 @@ void Peer::doFileSendThread()
                 }
                 else if ((size = (size_t)file.gcount()) > 0)
                 {
+                    _remainingFile -= size;
+
                     // Send final fragment
                     char* data = new char[size];
                     memcpy_s(data, size, buffer, size); // Buffer only contains data up to file.gcount()
@@ -272,33 +278,39 @@ void Peer::doFileSendThread()
                 }
                 else
                 {
-                    OutputDebugString(L"[P2P]: File send finished.");
+                    // Notify peer chat of completion
+                    wchar_t buffer[256];
+                    PathStripPath(_file.path);
+                    swprintf(buffer, 256, L"--> File %ls (%d) sent to peer.", _file.path, _file.size);
+                    addChat(buffer);
+
+                    SetWindowText(_hWnd, getName());
+
                     file.close();
                     return;
                 }
+
+                // Update percentage label in peer window
+                wchar_t buffer2[256];
+                swprintf(buffer2, 256, L"%ls - Sending file: %.0f%%", getName(), (1 - (float)_remainingFile / _file.size) * 100);
+                SetWindowText(_hWnd, buffer2);
             }
         }
     }
 }
 
-int Peer::DisplayAcceptFileSendMessageBox()
+int Peer::displayAcceptFileSendMessageBox()
 {
     wchar_t fileName[MAX_PATH];
     wcscpy_s(fileName, MAX_PATH, _file.path);
     PathStripPath(fileName);
 
-    std::wstring str;
-    str.append(getName());
-    str.append(L" wants to send you a file: ");
-    str.append(fileName);
-    str.append(L" (");
-    str.append(std::to_wstring(_file.size));
-    str.append(L" bytes)\n\n");
-    str.append(L"Do you want to accept it?");
+    wchar_t buffer[256];
+    swprintf(buffer, 256, L"%ls wants to send you a file:\n\n%ls (%i bytes)\n\nDo you want to accept it?", getName(), fileName, _file.size);
 
     int msgboxID = MessageBox(
         NULL,
-        str.c_str(),
+        buffer,
         L"Accept File Send",
         MB_ICONEXCLAMATION | MB_YESNO
         );
@@ -315,7 +327,7 @@ void Peer::getFileSendRequest(Packet* pkt)
         return;
     }
 
-    if (DisplayAcceptFileSendMessageBox() == IDYES)
+    if (displayAcceptFileSendMessageBox() == IDYES)
     {
         // Create file on desktop
         if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, 0, _tempPath)))
@@ -351,13 +363,13 @@ void Peer::getFileSendRequest(Packet* pkt)
     else
     {
         sendPacket(new Packet(Packet::FILE_SEND_DENY));
-        AddOutputMsg(L"[P2P]: Denied file send request.");
+        addChat(L"--> Denied file send request.");
     }
 }
 
 void Peer::getFileSendAllow(Packet* pkt)
 {
-    AddOutputMsg(L"[P2P]: Peer accepted file send request.");
+    addChat(L"--> Peer accepted file send request, beginning transfer.");
 
     // Start new thread to send file
     std::thread t(&Peer::doFileSendThread, this);
@@ -366,7 +378,7 @@ void Peer::getFileSendAllow(Packet* pkt)
 
 void Peer::getFileSendDeny(Packet* pkt)
 {
-    AddOutputMsg(L"[P2P]: Peer denied file send request.");
+    addChat(L"--> Peer denied file send request.");
 }
 
 void Peer::getFileFragment(Packet* pkt)
@@ -390,7 +402,13 @@ void Peer::getFileFragment(Packet* pkt)
             PathRenameExtension(_tempPath, _tempExt);
             _wrename(oldPath, _tempPath);
 
-            SetWindowText(_hWnd, getUserName());
+            // Notify peer chat of completion
+            wchar_t buffer[256];
+            PathStripPath(_file.path);
+            swprintf(buffer, 256, L"--> File %ls (%d) saved to desktop.", _file.path, _file.size);
+            addChat(buffer);
+
+            SetWindowText(_hWnd, getName());
             return;
         }
 
@@ -506,7 +524,7 @@ void Peer::getChatText(Packet* pkt)
     std::wstring colon(L": ");
     std::wstring str = _name + colon + msg;
 
-    AddChat((LPWSTR)str.c_str());
+    addChat((LPWSTR)str.c_str());
 
     delete[] msg;
 }
@@ -555,7 +573,7 @@ void Peer::sendChatMsg(wchar_t* msg)
     wstr.append(L": ");
     wstr.append(msg);
 
-    AddChat((LPWSTR)wstr.c_str());
+    addChat((LPWSTR)wstr.c_str());
 
     std::pair<char*, size_t> buffer;
     

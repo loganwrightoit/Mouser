@@ -62,13 +62,13 @@ class Peer
         Peer(const Peer&); //not implemented anywhere
         void operator=(const Peer&); //not implemented anywhere
         
-        void AddChat(LPWSTR msg);
+        void addChat(LPWSTR msg);
 
         void sendThread();
         void rcvThread();
         
         void doFileSendThread();
-        int DisplayAcceptFileSendMessageBox();
+        int  displayAcceptFileSendMessageBox();
 
         void getFileSendRequest(Packet* pkt);
         void getFileSendAllow(Packet* pkt);
