@@ -23,9 +23,12 @@ class StreamSender
             int bpp;
         };
 
-        StreamSender(void* peer, HWND hWnd);
+        StreamSender(void* peer);
         ~StreamSender();
 
+        bool isActive();
+        void setParameters(StreamInfo info);
+        StreamInfo getParameters() const;
         void stream(HWND hWnd);
         void stop();
         
@@ -33,7 +36,6 @@ class StreamSender
 
         int getEncoderClsid(const WCHAR * format, CLSID * pClsid);
         void captureAsStream();
-        bool captureImageToFile(LPWSTR fileName);
         void startCaptureThread(HWND hWnd);
         int getTileSize(int x, int y);
 
@@ -49,9 +51,9 @@ class StreamSender
         HBITMAP             hTileHBmp;
         HBITMAP             hCurrentHBmp;
 
-        int                 szTile;
-        int                 srcHeight;
-        int                 srcWidth;
+        bool                _isActive;
+        int                 _szTile;
+        StreamInfo          _info;
 
         std::map<unsigned int, size_t> tempMap;
 };

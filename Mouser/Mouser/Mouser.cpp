@@ -740,9 +740,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             SendMessage(peer->hChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
 
             // Create stream button
-            peer->hChatStreamButton = CreateWindowEx(NULL,
+            peer->hChatStreamButton = CreateWindowEx(
+                NULL,
                 L"BUTTON",
-                L"Stream",
+                L"Share Screen",
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
 				(int)((width - 25 * dpiScale) * 0.8F),
 				(int)(300 * dpiScale),
@@ -755,6 +756,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
             setWindowFont(peer->hChatStreamButton);
 
+            // Create "Peer is typing..." label
             peer->hChatIsTypingLabel = CreateWindowEx(NULL,
                 L"STATIC",
                 L"Peer is typing...",
@@ -790,7 +792,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 wchar_t lpszFile[MAX_PATH];
                 if (DragQueryFile(hDrop, 0, lpszFile, MAX_PATH))
                 {
-                    peer->doFileSendRequest(lpszFile);
+                    peer->makeFileSendRequest(lpszFile);
                 }
             }
 
@@ -811,7 +813,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             // Listbox is passive, nothing really to do here
             break;
         case IDC_PEER_CHAT_STREAM_BUTTON:
-            peer->streamTo();
+            peer->makeStreamRequest(GetDesktopWindow());
             break;
         }
         break;
@@ -865,8 +867,9 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
             EndPaint(hWnd, &ps);
         }
         break;
-    case WM_DESTROY:
-        PostQuitMessage(0);
+    case WM_CLOSE:
+        peer->sendPacket(new Packet(Packet::STREAM_CLOSE));
+        DestroyWindow(hWnd);
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);

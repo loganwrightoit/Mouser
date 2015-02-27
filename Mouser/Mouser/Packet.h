@@ -10,7 +10,9 @@ class Packet
         enum Protocol
         {
             DISCONNECT,
-            STREAM_INFO,
+            STREAM_REQUEST,
+            STREAM_ALLOW,
+            STREAM_DENY,
             STREAM_IMAGE,
             STREAM_CURSOR,
             STREAM_CLOSE,

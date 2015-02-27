@@ -27,7 +27,8 @@ class Peer
 
         size_t getQueueSize() const;
 
-        void doFileSendRequest(wchar_t* path);
+        void makeFileSendRequest(wchar_t* path);
+        void makeStreamRequest(HWND hWnd);
         void sendStreamImage();
         void sendStreamCursor();
         void sendChatMsg(wchar_t* msg);
@@ -42,7 +43,6 @@ class Peer
         void setInputFocus();
         void setChatWindow(HWND hWnd);
         void setStreamWindow(HWND hWnd);
-        void streamTo();
         void openChatWindow();
         void openStreamWindow();
 
@@ -68,17 +68,20 @@ class Peer
         void rcvThread();
         
         void doFileSendThread();
-        int  displayAcceptFileSendMessageBox();
-
+        int  displayFileSendRequestMessageBox();
         void getFileSendRequest(Packet* pkt);
         void getFileSendAllow(Packet* pkt);
         void getFileSendDeny(Packet* pkt);
         void getFileFragment(Packet* pkt);
 
-        void getStreamInfo(Packet* pkt);
-        void getStreamClose(Packet* pkt);
+        int  displayStreamRequestMessageBox(wchar_t* name);
+        void getStreamRequest(Packet* pkt);
+        void getStreamAllow(Packet* pkt);
+        void getStreamDeny(Packet* pkt);
         void getStreamImage(Packet* pkt);
         void getStreamCursor(Packet* pkt);
+        void getStreamClose(Packet* pkt);
+
         void getChatText(Packet* pkt);
         void getChatIsTyping(Packet* pkt);
         void getName(Packet* pkt);
@@ -93,7 +96,6 @@ class Peer
         FileSender* _fileSender;
         CursorUtil* _cursorUtil;
         std::queue<Packet*> sendQueue;
-        bool _streaming;
         
         CImage _cachedStreamImage;
         POINT _cachedStreamCursor;
@@ -109,5 +111,6 @@ class Peer
 
         HWND _hWnd;
         HWND _hWnd_stream;
+        HWND _hWnd_stream_src;
 
 };

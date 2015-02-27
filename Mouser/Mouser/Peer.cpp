@@ -8,7 +8,7 @@
 #define NOMINMAX
 
 Peer::Peer(SOCKET peer_socket = 0)
-: _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0), _streaming(false)
+: _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0)
 {
     _name = L"";
 
@@ -78,15 +78,12 @@ void Peer::setStreamWindow(HWND hWnd)
 
 void Peer::onDestroyRoot()
 {
-    _hWnd = 0;
+    _hWnd = _hWnd_stream = _hWnd_stream_src = 0;
 
-    if (_streamSender != nullptr)
+    if (_streamSender)
     {
         _streamSender->stop();
-        _streamSender->~StreamSender();
     }
-
-    _hWnd_stream = 0;
 }
 
 void Peer::setInputFocus()
@@ -130,6 +127,7 @@ void Peer::sendPacket(Packet* pkt)
 
 //
 // Single-threaded use only by main thread!
+// Can stall program waiting for queue
 //
 void Peer::queuePacket(Packet* pkt)
 {
@@ -159,21 +157,6 @@ void Peer::sendThread()
         {
             Sleep(15); // Awakened 66 times a second, more than sufficient
         }
-    }
-}
-
-void Peer::streamTo()
-{
-    if (!_streaming)
-    {
-        _streaming = true;
-        HWND hWnd = GetDesktopWindow();
-
-        _cursorUtil = new CursorUtil(this, hWnd);
-        _cursorUtil->stream(60);
-
-        _streamSender = new StreamSender(this, _hWnd_stream);
-        _streamSender->stream(hWnd);
     }
 }
 
@@ -223,7 +206,7 @@ void Peer::sendName()
     }
 }
 
-void Peer::doFileSendRequest(wchar_t* path)
+void Peer::makeFileSendRequest(wchar_t* path)
 {
     // Open file and seek to end (ate) to get size
     std::ifstream file(path, std::ifstream::binary | std::ifstream::in | std::ifstream::ate);
@@ -240,6 +223,61 @@ void Peer::doFileSendRequest(wchar_t* path)
         // Close file
         file.close();
     }
+}
+
+void Peer::makeStreamRequest(HWND hWnd)
+{
+    if (_streamSender && _streamSender->isActive())
+    {
+        addChat(L"--> Stopped sharing screen.");
+        _streamSender->stop();
+        return;
+    }
+    else
+    {
+        addChat(L"--> Sent screen share request, awaiting response.");
+        EnableWindow(hChatStreamButton, false);
+    }
+
+    // Store source HWND for later
+    _hWnd_stream_src = hWnd;
+        
+    // Send stream info (window size, title)
+    StreamSender::StreamInfo info;
+    RECT rect;
+    GetWindowRect(hWnd, &rect);
+    info.width = rect.right - rect.left;
+    info.height = rect.bottom - rect.top;
+    info.bpp = 32; // Hardcoded, but is a typical value
+    
+    if (!GetWindowText(hWnd, info.name, 256))
+    {
+        if (hWnd == GetDesktopWindow())
+        {
+            wcscpy_s(info.name, sizeof(info.name), L"Desktop");
+        }
+        else
+        {
+            wcscpy_s(info.name, sizeof(info.name), L"Unknown Screen");
+        }
+    }
+
+    // Save values to stream sender for later
+    _streamSender = new StreamSender(this);
+    _streamSender->setParameters(info);
+
+    // Send stream request packet
+    char * data = new char[sizeof(info)];
+
+    // Not zero is error condition
+    if (memcpy_s(data, sizeof(info), &info, sizeof(info)))
+    {
+        AddOutputMsg(L"[DEBUG]: StreamInfo memcpy_s failed, aborting.");
+        delete[] data;
+        return;
+    }
+
+    sendPacket(new Packet(Packet::STREAM_REQUEST, data, sizeof(info)));
 }
 
 void Peer::doFileSendThread()
@@ -284,7 +322,7 @@ void Peer::doFileSendThread()
                     swprintf(buffer, 256, L"--> File %ls (%d bytes) sent to peer.", _file.path, _file.size);
                     addChat(buffer);
 
-                    SetWindowText(_hWnd, getName());
+                    SetWindowText(_hWnd, _name);
 
                     file.close();
                     return;
@@ -292,26 +330,41 @@ void Peer::doFileSendThread()
 
                 // Update percentage label in peer window
                 wchar_t buffer2[256];
-                swprintf(buffer2, 256, L"%ls - Sending file: %.0f%%", getName(), (1 - (float)_remainingFile / _file.size) * 100);
+                swprintf(buffer2, 256, L"%ls - Sending file: %.0f%%", _name, (1 - (float)_remainingFile / _file.size) * 100);
                 SetWindowText(_hWnd, buffer2);
             }
         }
     }
 }
 
-int Peer::displayAcceptFileSendMessageBox()
+int Peer::displayFileSendRequestMessageBox()
 {
     wchar_t fileName[MAX_PATH];
     wcscpy_s(fileName, MAX_PATH, _file.path);
     PathStripPath(fileName);
 
     wchar_t buffer[256];
-    swprintf(buffer, 256, L"%ls wants to send you a file:\n\n%ls (%i bytes)\n\nDo you want to accept it?", getName(), fileName, _file.size);
+    swprintf(buffer, 256, L"%ls wants to send you a file:\n\n%ls (%i bytes)\n\nDo you want to accept it?", _name, fileName, _file.size);
 
     int msgboxID = MessageBox(
         NULL,
         buffer,
         L"Accept File Send",
+        MB_ICONEXCLAMATION | MB_YESNO
+        );
+
+    return msgboxID;
+}
+
+int Peer::displayStreamRequestMessageBox(wchar_t* name)
+{
+    wchar_t buffer[256];
+    swprintf(buffer, 256, L"%ls wants to share a screen with you: %ls.\nDo you want to accept it?", _name, name);
+
+    int msgboxID = MessageBox(
+        NULL,
+        buffer,
+        L"Accept Screen Share",
         MB_ICONEXCLAMATION | MB_YESNO
         );
 
@@ -327,7 +380,7 @@ void Peer::getFileSendRequest(Packet* pkt)
         return;
     }
 
-    if (displayAcceptFileSendMessageBox() == IDYES)
+    if (displayFileSendRequestMessageBox() == IDYES)
     {
         // Create file on desktop
         if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, 0, _tempPath)))
@@ -408,7 +461,7 @@ void Peer::getFileFragment(Packet* pkt)
             swprintf(buffer, 256, L"--> File %ls (%d bytes) saved to desktop.", _file.path, _file.size);
             addChat(buffer);
 
-            SetWindowText(_hWnd, getName());
+            SetWindowText(_hWnd, _name);
             return;
         }
 
@@ -442,8 +495,14 @@ void Peer::rcvThread()
         case Packet::DISCONNECT:
             PeerHandler::getInstance().disconnectPeer(this);
             return;
-        case Packet::STREAM_INFO:
-            getStreamInfo(pkt);
+        case Packet::STREAM_REQUEST:
+            getStreamRequest(pkt);
+            break;
+        case Packet::STREAM_ALLOW:
+            getStreamAllow(pkt);
+            break;
+        case Packet::STREAM_DENY:
+            getStreamDeny(pkt);
             break;
         case Packet::STREAM_IMAGE:
             getStreamImage(pkt);
@@ -488,7 +547,15 @@ wchar_t* Peer::getName()
 
 void Peer::getStreamClose()
 {
-    DestroyWindow(_hWnd_stream);
+    if (_streamSender && _streamSender->isActive()) // Receiver closed stream window
+    {
+        _streamSender->stop();
+        addChat(L"--> Peer stopped sharing screen.");
+    }
+    else if (_hWnd_stream) // Sender halted stream
+    {
+        PostMessage(_hWnd_stream, WM_CLOSE, 0, 0);
+    }
 }
 
 void Peer::getName(Packet* pkt)
@@ -631,6 +698,12 @@ void Peer::DrawStreamCursor(HDC hdc, RECT rect)
 
 void Peer::getStreamImage(Packet* pkt)
 {
+    // Ignore packet if stream has been closed
+    if (!_hWnd_stream)
+    {
+        return;
+    }
+
     // Grab origin POINT preceding data
     POINT origin;
     size_t szPoint = sizeof(origin);
@@ -677,6 +750,12 @@ void Peer::getStreamImage(Packet* pkt)
 
 void Peer::getStreamCursor(Packet * pkt)
 {
+    // Ignore packet if stream has been closed
+    if (!_hWnd_stream)
+    {
+        return;
+    }
+
     POINT pt = _cachedStreamCursor;
 
 	// Not zero is error condition
@@ -695,33 +774,59 @@ void Peer::getStreamCursor(Packet * pkt)
     UpdateWindow(_hWnd_stream);
 }
 
-void Peer::getStreamInfo(Packet* pkt)
+void Peer::getStreamRequest(Packet* pkt)
 {
-    // Create stream window
-    openStreamWindow();
-
-    // Populate struct from packet
     StreamSender::StreamInfo info;
+    
+    // Not zero is error condition
+    if (memcpy_s(&info, sizeof(info), pkt->getData(), sizeof(info)))
+    {
+        return;
+    }
 
-	// Not zero is error condition
-	if (memcpy_s(&info, sizeof(info), pkt->getData(), sizeof(info)))
-	{
-		return;
-	}
+    // Pop up window to accept or deny stream request
+    if (displayStreamRequestMessageBox(info.name) == IDYES)
+    {
+        // Create stream window
+        openStreamWindow();
 
-    // Update stream window title
-    std::wstring str(_name);
-    str.append(L" - ");
-    str.append(info.name);
-    SetWindowText(_hWnd_stream, str.c_str());
+        // Update stream window title
+        std::wstring str(_name);
+        str.append(L" - ");
+        str.append(info.name);
+        SetWindowText(_hWnd_stream, str.c_str());
 
-    // Resize and center stream window
-    RECT rect;
-    rect.left = rect.top = 0;
-    rect.right = info.width;
-    rect.bottom = info.height;
-    centerWindow(_hWnd_stream, rect);
+        // Resize and center stream window
+        RECT rect;
+        rect.left = rect.top = 0;
+        rect.right = info.width;
+        rect.bottom = info.height;
+        centerWindow(_hWnd_stream, rect);
 
-    // Initialize cached image
-    _cachedStreamImage.Create(info.width, info.height, info.bpp);
+        // Initialize cached image
+        _cachedStreamImage.Create(info.width, info.height, info.bpp);
+
+        sendPacket(new Packet(Packet::STREAM_ALLOW));
+    }
+    else
+    {
+        sendPacket(new Packet(Packet::STREAM_DENY));
+    }
+}
+
+void Peer::getStreamAllow(Packet* pkt)
+{
+    addChat(L"--> Share request accepted, you are now sharing your screen.");
+    EnableWindow(hChatStreamButton, true);
+
+    _cursorUtil = new CursorUtil(this, _hWnd_stream_src);
+    _cursorUtil->stream(30);
+
+    _streamSender->stream(_hWnd_stream_src);
+}
+
+void Peer::getStreamDeny(Packet* pkt)
+{
+    addChat(L"--> Share request denied.");
+    EnableWindow(hChatStreamButton, true);
 }

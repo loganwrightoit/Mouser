@@ -4,18 +4,27 @@
 #include "Peer.h"
 #include <string>
 
-StreamSender::StreamSender(void* peer, HWND hWnd)
+StreamSender::StreamSender(void* peer) : _isActive(false)
 {
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
     getEncoderClsid(L"image/png", &clsid);
 
     _peer = peer;
-    _hWnd = hWnd;
 }
 
 StreamSender::~StreamSender()
 {
     GdiplusShutdown(gdiplusToken);
+}
+
+StreamSender::StreamInfo StreamSender::getParameters() const
+{
+    return _info;
+}
+
+bool StreamSender::isActive()
+{
+    return _isActive;
 }
 
 int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
@@ -52,37 +61,27 @@ int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
 	return 1;
 }
 
-bool StreamSender::captureImageToFile(LPWSTR fileName)
-{
-    hCaptureHBmp = CreateCompatibleBitmap(hSrcDC, srcWidth, srcHeight);
-    BitBlt(hDestDC, 0, 0, srcWidth, srcHeight, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT);
-    Gdiplus::Bitmap bmp(hCaptureHBmp, (HPALETTE)0);
-    bmp.Save(fileName, &clsid, NULL);
-
-    return true;
-}
-
 //
 // Sends bitmap (or converted format) through socket as byte array.
 //
 void StreamSender::captureAsStream()
 {
     // Update HBITMAP of screen region - CAPTUREBLT is expensive operation, so only do this once
-    if (!BitBlt(hDestDC, 0, 0, srcWidth, srcHeight, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT))
+    if (!BitBlt(hDestDC, 0, 0, _info.width, _info.height, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT))
     {
         return;
     }
 
-    for (int x = 0; x < srcWidth; x += szTile)
+    for (int x = 0; x < _info.width; x += _szTile)
     {
-        for (int y = 0; y < srcHeight; y += szTile)
+        for (int y = 0; y < _info.height; y += _szTile)
         {
             // Prepare stream
             IStream *pStream;
             if (CreateStreamOnHGlobal(0, TRUE, &pStream) == S_OK)
             {
                 // Blit to tile HBITMAP
-                if (!BitBlt(hTileDC, 0, 0, szTile, szTile, hDestDC, x, y, SRCCOPY))
+                if (!BitBlt(hTileDC, 0, 0, _szTile, _szTile, hDestDC, x, y, SRCCOPY))
                 {
                     pStream->Release();
                     return;
@@ -169,46 +168,14 @@ bool stopStream = false;
 
 void StreamSender::stream(HWND hWnd)
 {
-    // Set common variables
-    RECT rect;
-    GetWindowRect(hWnd, &rect);
-    srcWidth = rect.right - rect.left;
-    srcHeight = rect.bottom - rect.top;
-    szTile = getTileSize(srcWidth, srcHeight);
-
-    // Send stream info (window size, title)
-    StreamInfo info;
-    info.width = srcWidth;
-    info.height = srcHeight;
-    info.bpp = 32; // Hardcoded, need to figure out how to get real value
-    if (!GetWindowText(hWnd, info.name, 256))
-    {
-        if (hWnd == GetDesktopWindow())
-        {
-            wcscpy_s(info.name, sizeof(info.name), L"Desktop");
-        }
-        else
-        {
-			wcscpy_s(info.name, sizeof(info.name), L"Shared Window");
-        }
-    }
-
-    // Send StreamInfo packet
-    char * data = new char[sizeof(info)];
-
-	// Not zero is error condition
-	if (memcpy_s(data, sizeof(info), &info, sizeof(info)))
-	{
-		delete[] data;
-		AddOutputMsg(L"[DEBUG]: StreamInfo memcpy_s failed, aborting.");
-		return;
-	}
-
-    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_INFO, data, sizeof(info)));
-
     // Start stream
     std::thread t(&StreamSender::startCaptureThread, this, hWnd);
     t.detach();
+}
+
+void StreamSender::setParameters(StreamInfo info)
+{
+    memcpy_s(&_info, sizeof(_info), &info, sizeof(info));
 }
 
 int StreamSender::getTileSize(int x, int y)
@@ -221,21 +188,18 @@ int StreamSender::getTileSize(int x, int y)
 //
 void StreamSender::startCaptureThread(HWND hWnd)
 {
-    // Set up common params
-    RECT rect;
-    GetWindowRect(hWnd, &rect);
-    srcWidth = rect.right - rect.left;
-    srcHeight = rect.bottom - rect.top;
-    szTile = getTileSize(srcWidth, srcHeight);
+    // Set some parameters
+    _isActive = true;
+    _szTile = getTileSize(_info.width, _info.height);
 
     this->hSrcDC = GetDC(hWnd);
     this->hDestDC = CreateCompatibleDC(hSrcDC);
-    this->hCaptureHBmp = CreateCompatibleBitmap(hSrcDC, srcWidth, srcHeight);
+    this->hCaptureHBmp = CreateCompatibleBitmap(hSrcDC, _info.width, _info.height);
     SelectObject(hDestDC, hCaptureHBmp);
 
     // Set up tile params
     hTileDC = CreateCompatibleDC(hSrcDC);
-    hTileHBmp = CreateCompatibleBitmap(hDestDC, szTile, szTile);
+    hTileHBmp = CreateCompatibleBitmap(hDestDC, _szTile, _szTile);
     SelectObject(hTileDC, hTileHBmp);
 
     while (!stopStream)
@@ -246,6 +210,8 @@ void StreamSender::startCaptureThread(HWND hWnd)
         }
     }
 
+    _isActive = false;
+
     // Release memory
     ReleaseDC(_hWnd, hSrcDC);
     ReleaseDC(_hWnd, hDestDC);
@@ -254,9 +220,12 @@ void StreamSender::startCaptureThread(HWND hWnd)
     ReleaseDC(_hWnd, hTileDC);
     DeleteDC(hTileDC);
     DeleteObject(hTileHBmp);
+
+    delete this;
 }
 
 void StreamSender::stop()
 {
     stopStream = true;
+    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_CLOSE));
 }
