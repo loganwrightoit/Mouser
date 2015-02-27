@@ -61,6 +61,8 @@ void CursorUtil::streamThread(int sendRate)
             }            
         }
     }
+
+    ((Peer*)_peer)->clearCursorUtil();
 }
 
 void CursorUtil::stop()

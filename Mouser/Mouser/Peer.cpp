@@ -32,28 +32,21 @@ Peer::Peer(SOCKET peer_socket = 0)
 
 Peer::~Peer()
 {
-    shutdown(_socket, SD_BOTH);
-    closesocket(_socket);
-
     // Stop peer cursor and image streams
     _streamSender->stop();
     _cursorUtil->stop();
 
-    // Clear queue
-    //if (!sendQueue.empty())
-    //{
-    //    auto iter = sendQueue.front
-    //}
-
+    shutdown(_socket, SD_BOTH);
+    closesocket(_socket);
     CloseHandle(ghMutex);
 
     if (_hWnd)
     {
-        DestroyWindow(_hWnd);
+        PostMessage(_hWnd, WM_CLOSE, 0, 0);
     }
     if (_hWnd_stream)
     {
-        DestroyWindow(_hWnd_stream);
+        PostMessage(_hWnd_stream, WM_CLOSE, 0, 0);
     }
     if (_name)
     {
@@ -227,7 +220,7 @@ void Peer::makeFileSendRequest(wchar_t* path)
 
 void Peer::makeStreamRequest(HWND hWnd)
 {
-    if (_streamSender && _streamSender->isActive())
+    if (_streamSender)
     {
         addChat(L"--> Stopped sharing screen.");
         _streamSender->stop();
@@ -263,8 +256,7 @@ void Peer::makeStreamRequest(HWND hWnd)
     }
 
     // Save values to stream sender for later
-    _streamSender = new StreamSender(this);
-    _streamSender->setParameters(info);
+    _streamSender = new StreamSender(this, info);
 
     // Send stream request packet
     char * data = new char[sizeof(info)];
@@ -547,15 +539,30 @@ wchar_t* Peer::getName()
 
 void Peer::getStreamClose()
 {
-    if (_streamSender && _streamSender->isActive()) // Receiver closed stream window
+    if (_streamSender) // Receiver closed stream window
     {
         _streamSender->stop();
-        addChat(L"--> Peer stopped sharing screen.");
+        addChat(L"--> Peer closed screen share.");
     }
     else if (_hWnd_stream) // Sender halted stream
     {
         PostMessage(_hWnd_stream, WM_CLOSE, 0, 0);
     }
+}
+
+//
+// Only call with StreamSender object when threads are finished.
+//
+void Peer::clearStreamSender()
+{
+    delete _streamSender;
+    _streamSender = NULL;
+}
+
+void Peer::clearCursorUtil()
+{
+    delete _cursorUtil;
+    _cursorUtil = NULL;
 }
 
 void Peer::getName(Packet* pkt)

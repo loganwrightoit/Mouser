@@ -47,6 +47,8 @@ class Peer
         void openStreamWindow();
 
         void onDestroyRoot();
+        void clearStreamSender();
+        void clearCursorUtil();
 
         void DrawStreamImage(HDC hdc, RECT rect);
         void DrawStreamCursor(HDC hdc, RECT rect);
@@ -86,7 +88,7 @@ class Peer
         void getChatIsTyping(Packet* pkt);
         void getName(Packet* pkt);
         void getStreamClose();
-
+       
         bool encode_utf8(std::pair<char*, size_t>* outPair, wchar_t* wstr);
         wchar_t* encode_utf16(char* str);
 		

@@ -4,27 +4,18 @@
 #include "Peer.h"
 #include <string>
 
-StreamSender::StreamSender(void* peer) : _isActive(false)
+StreamSender::StreamSender(void* peer, StreamSender::StreamInfo info)
 {
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
     getEncoderClsid(L"image/png", &clsid);
 
     _peer = peer;
+    memcpy_s(&_info, sizeof(_info), &info, sizeof(_info));
 }
 
 StreamSender::~StreamSender()
 {
     GdiplusShutdown(gdiplusToken);
-}
-
-StreamSender::StreamInfo StreamSender::getParameters() const
-{
-    return _info;
-}
-
-bool StreamSender::isActive()
-{
-    return _isActive;
 }
 
 int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
@@ -173,11 +164,6 @@ void StreamSender::stream(HWND hWnd)
     t.detach();
 }
 
-void StreamSender::setParameters(StreamInfo info)
-{
-    memcpy_s(&_info, sizeof(_info), &info, sizeof(info));
-}
-
 int StreamSender::getTileSize(int x, int y)
 {
     return (y == 0) ? x * 8 : getTileSize(y, x % y);
@@ -189,7 +175,6 @@ int StreamSender::getTileSize(int x, int y)
 void StreamSender::startCaptureThread(HWND hWnd)
 {
     // Set some parameters
-    _isActive = true;
     _szTile = getTileSize(_info.width, _info.height);
 
     this->hSrcDC = GetDC(hWnd);
@@ -210,8 +195,6 @@ void StreamSender::startCaptureThread(HWND hWnd)
         }
     }
 
-    _isActive = false;
-
     // Release memory
     ReleaseDC(_hWnd, hSrcDC);
     ReleaseDC(_hWnd, hDestDC);
@@ -221,7 +204,7 @@ void StreamSender::startCaptureThread(HWND hWnd)
     DeleteDC(hTileDC);
     DeleteObject(hTileHBmp);
 
-    delete this;
+    ((Peer*)_peer)->clearStreamSender();
 }
 
 void StreamSender::stop()

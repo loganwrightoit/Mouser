@@ -23,12 +23,9 @@ class StreamSender
             int bpp;
         };
 
-        StreamSender(void* peer);
+        StreamSender(void* peer, StreamSender::StreamInfo info);
         ~StreamSender();
 
-        bool isActive();
-        void setParameters(StreamInfo info);
-        StreamInfo getParameters() const;
         void stream(HWND hWnd);
         void stop();
         
@@ -51,7 +48,6 @@ class StreamSender
         HBITMAP             hTileHBmp;
         HBITMAP             hCurrentHBmp;
 
-        bool                _isActive;
         int                 _szTile;
         StreamInfo          _info;
 
