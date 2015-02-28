@@ -173,6 +173,11 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
            RegisterClassEx(&wStreamClass);
 }
 
+HBRUSH getDefaultBrush()
+{
+    return brushBgnd;
+}
+
 wchar_t* getUserName()
 {
 	return _username;
@@ -833,6 +838,8 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+bool noRedraw = false;
+
 //
 // Message handler for stream window.
 //
@@ -853,9 +860,26 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
 
     switch (msg)
     {
+    case WM_SIZING:
+        {
+            /*
+            RECT rect;
+            memcpy_s(&rect, sizeof(rect), (RECT*)lParam, sizeof(rect));
+
+            rect.right = rect.right - rect.left;
+            rect.bottom = rect.bottom - rect.top;
+            rect.left = rect.top = 0;
+
+            peer->streamResize(rect);
+            */
+        }
+        break;
+    case WM_ERASEBKGND:
+        return FALSE;
+        break;
     case WM_PAINT:
         {
-			PAINTSTRUCT ps;
+            PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
 
             // Refresh stream image in updated region

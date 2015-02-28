@@ -663,34 +663,96 @@ void Peer::sendChatMsg(wchar_t* msg)
 
 void Peer::DrawStreamImage(HDC hdc, RECT rect)
 {
-    /*
-    // Image size determined by window width and height
-    RECT dest;
-    GetWindowRect(_hWnd_stream, &dest);
+    // Store client area for reference
+    RECT window;
+    GetClientRect(_hWnd_stream, &window);
 
-    int img_cx = image.GetWidth();
-    int img_cy = image.GetHeight();
-
-    float ratio = min((float)(dest.right - dest.left) / img_cx, (float)(dest.bottom - dest.top) / img_cy);
-
-    // Get image size
+    // Construct resized RECT that fits client area for reference
+    int cx = _cachedStreamImage.GetWidth();
+    int cy = _cachedStreamImage.GetHeight();
+    float ratio = min((float)(rect.right - rect.left) / cx, (float)(rect.bottom - rect.top) / cy);
     CSize szSrc;
-    szSrc.cx = (LONG)(img_cx * ratio);
-    szSrc.cy = (LONG)(img_cy * ratio);
+    szSrc.cx = (LONG)(cx * ratio);
+    szSrc.cy = (LONG)(cy * ratio);
+    CRect resized(CPoint(0, 0), szSrc);
+    resized.OffsetRect(((rect.right - rect.left) - szSrc.cx) / 2, ((rect.bottom - rect.top) - szSrc.cy) / 2);
 
-    // Get RECT for drawing
-    CRect src(CPoint(0, 0), szSrc);
+    // Determine if entire window is being redrawn
+    if (memcmp(&window, &rect, sizeof(RECT)) == 0) // Entire screen needs to be redrawn
+    {        
+        // Fill empty areas with background brush
+        RECT fill;
+        if (window.left < resized.left) // Fill left
+        {
+            fill.left = fill.top = 0;
+            fill.bottom = window.bottom;
+            fill.right = resized.left;
+            FillRect(hdc, &fill, getDefaultBrush());
+        }
+        if (window.right > resized.right) // Fill right
+        {
+            fill.left = resized.right;
+            fill.top = 0;
+            fill.bottom = window.bottom;
+            fill.right = window.right;
+            FillRect(hdc, &fill, getDefaultBrush());
+        }
+        if (window.top < resized.top) // Fill top
+        {
+            fill.left = fill.top = 0;
+            fill.right = window.right;
+            fill.bottom = resized.top;
+            FillRect(hdc, &fill, getDefaultBrush());
+        }
+        if (window.bottom > resized.bottom) // Fill bottom
+        {
+            fill.top = resized.bottom;
+            fill.left = 0;
+            fill.right = window.right;
+            fill.bottom = window.bottom;
+            FillRect(hdc, &fill, getDefaultBrush());
+        }
 
-    // Center the RECT
-    src.OffsetRect(((dest.right - dest.left) - szSrc.cx) / 2, ((dest.bottom - dest.top) - szSrc.cy) / 2);
-    */
-    
-    // TODO: Work on resizing for the tile-based system
-
-    //SetStretchBltMode(hdc, HALFTONE);
-    if (!_cachedStreamImage.BitBlt(hdc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, rect.left, rect.top))
+        // Draw new stream image area
+        SetStretchBltMode(hdc, HALFTONE);
+        if (!_cachedStreamImage.StretchBlt(hdc, resized))
+        {
+            AddOutputMsg(L"[DEBUG]: StretchBlt() failed on stream resize.");
+        }
+    }
+    else // Only part of screen is being redrawn
     {
-        AddOutputMsg(L"[DEBUG]: BitBlt failed on read.");
+        float ratio = min(((float) window.right / _cachedStreamImage.GetWidth()), ((float) window.bottom / _cachedStreamImage.GetHeight()));
+
+        // Draw to offset coords according to ratio
+        SetStretchBltMode(hdc, HALFTONE);
+        _cachedStreamImage.StretchBlt(
+            hdc,
+            rect.left, // x dest (adjust to ratio)
+            rect.top, // y dest (adjust to ratio)
+            (rect.right - rect.left) * ratio, // width dest
+            (rect.bottom - rect.top) * ratio, // height dest
+            rect.left, // x src
+            rect.top, // y src
+            rect.right - rect.left, // width src
+            rect.bottom - rect.top // height src
+            );
+
+        // TODO: Switch to StretchBlt and resize according to ratio
+
+        /*
+        if (!_cachedStreamImage.BitBlt(
+                hdc,
+                rect.left,
+                rect.top,
+                (rect.right - rect.left),
+                (rect.bottom - rect.top),
+                rect.left,
+                rect.top))
+        {
+            AddOutputMsg(L"[DEBUG]: BitBlt failed on read.");
+        }
+        */
     }
 }
 
@@ -738,6 +800,7 @@ void Peer::getStreamImage(Packet* pkt)
 			DeleteDC(hdc);
 
 			// Invalidate with updated RECT
+            // TODO: Adjust rect dimensions for window size
 			int szTile = image.GetWidth();
 			RECT rect;
 			rect.left = origin.x;
@@ -803,12 +866,23 @@ void Peer::getStreamRequest(Packet* pkt)
         str.append(info.name);
         SetWindowText(_hWnd_stream, str.c_str());
 
-        // Resize and center stream window
+        // Set streaming window size
         RECT rect;
-        rect.left = rect.top = 0;
-        rect.right = info.width;
-        rect.bottom = info.height;
-        centerWindow(_hWnd_stream, rect);
+        SystemParametersInfo(SPI_GETWORKAREA, 0, &rect, 0);
+        if (rect.right < info.width || rect.bottom < info.height) // Image larger than desktop
+        {
+            MoveWindow(_hWnd_stream, 0, 0, rect.right, rect.bottom, TRUE);
+        }
+        else // Image smaller than desktop
+        {
+            RECT img;
+            img.left = img.top = 0;
+            img.right = info.width;
+            img.bottom = info.height;
+
+            // Center window
+            centerWindow(_hWnd_stream, img);
+        }
 
         // Initialize cached image
         _cachedStreamImage.Create(info.width, info.height, info.bpp);
