@@ -12,6 +12,7 @@ class CursorUtil
         void stop();
 
         POINT getCursor();
+        RECT getRect(HICON cursor);
 
     private:
 

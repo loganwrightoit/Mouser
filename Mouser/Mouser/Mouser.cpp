@@ -861,6 +861,7 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     switch (msg)
     {
     case WM_SIZE:
+    case WM_MOVE:
         peer->onResize = true;
         break;
     case WM_ERASEBKGND:

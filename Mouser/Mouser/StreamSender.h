@@ -35,6 +35,7 @@ class StreamSender
         void captureAsStream();
         void startCaptureThread(HWND hWnd);
         int getTileSize(int x, int y);
+        RECT getResizedDrawArea();
 
         void*               _peer;
         HWND                _hWnd;

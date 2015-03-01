@@ -12,6 +12,32 @@ CursorUtil::~CursorUtil()
 {
 }
 
+RECT CursorUtil::getRect(HICON cursor)
+{
+    ICONINFO info;
+    LONG width, height;
+    if (GetIconInfo(cursor, &info))
+    {
+        BITMAP bmp;
+        if (info.hbmColor && GetObject(info.hbmColor, sizeof(bmp), &bmp))
+        {
+            width = bmp.bmWidth;
+            height = bmp.bmHeight;
+        }
+        else if (info.hbmMask && GetObject(info.hbmMask, sizeof(bmp), &bmp))
+        {
+            width = bmp.bmWidth;
+            height = (LONG)(bmp.bmHeight / 2.0f);
+        }
+    }
+    if (info.hbmColor)
+        DeleteObject(info.hbmColor);
+    if (info.hbmMask)
+        DeleteObject(info.hbmMask);
+
+    return RECT{ 0, 0, width, height };
+}
+
 POINT CursorUtil::getCursor()
 {
     return _cursor;

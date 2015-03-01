@@ -52,6 +52,25 @@ int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
 	return 1;
 }
 
+RECT getResizedDrawArea()
+{
+    /*
+    // Store client area for reference
+    RECT window;
+    GetClientRect(_hWnd_stream, &window);
+
+    // Construct resized RECT that fits client area for reference
+    int cx = _cachedStreamImage.GetWidth();
+    int cy = _cachedStreamImage.GetHeight();
+    float ratio = min((float)(window.right - window.left) / cx, (float)(window.bottom - window.top) / cy);
+    CSize szSrc;
+    szSrc.cx = (LONG)(cx * ratio);
+    szSrc.cy = (LONG)(cy * ratio);
+    CRect resized(CPoint(0, 0), szSrc);
+    resized.OffsetRect(((window.right - window.left) - szSrc.cx) / 2, ((window.bottom - window.top) - szSrc.cy) / 2);
+    */
+}
+
 //
 // Sends bitmap (or converted format) through socket as byte array.
 //

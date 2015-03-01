@@ -686,8 +686,6 @@ void Peer::DrawStreamImage(HDC hdc)
     // Determine if entire window is being redrawn
     if (onResize) // Entire screen needs to be redrawn
     {
-        OutputDebugString(L"[DEBUG]: Window resized, drawing new.\n");
-
         // Fill empty areas with background brush
         RECT fill;
         if (window.left < resized.left) // Fill left
@@ -734,10 +732,10 @@ void Peer::DrawStreamImage(HDC hdc)
         RECT dest;
         CopyRect(&dest, &rect);
 
-        dest.left = (LONG) dest.left * ratio;
-        dest.top = (LONG) dest.top * ratio;
-        dest.right = (LONG) dest.right * ratio;
-        dest.bottom = (LONG) dest.bottom * ratio;
+        dest.left = (LONG) (dest.left * ratio);
+        dest.top = (LONG) (dest.top * ratio);
+        dest.right = (LONG) (dest.right * ratio);
+        dest.bottom = (LONG) (dest.bottom * ratio);
 
         OffsetRect(&dest, resized.left, resized.top);
 
@@ -752,32 +750,10 @@ void Peer::DrawStreamImage(HDC hdc)
 void Peer::DrawStreamCursor(HDC hdc)
 {
     // Create default cursor icon
-    HICON cursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    HICON cursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_SHARED);
     
-    // Get icon size
-    ICONINFO info;
-    LONG width, height;
-
-    if (GetIconInfo(cursor, &info))
-    {
-        BITMAP bmp;
-        if (info.hbmColor && GetObject(info.hbmColor, sizeof(bmp), &bmp))
-        {
-            width = bmp.bmWidth;
-            height = bmp.bmHeight;
-        }
-        else if (info.hbmMask && GetObject(info.hbmMask, sizeof(bmp), &bmp))
-        {
-            width = bmp.bmWidth;
-            height = (LONG) bmp.bmHeight / 2.0f;
-        }
-    }
-
-    // Release temporary icon objects
-    if (info.hbmColor)
-        DeleteObject(info.hbmColor);
-    if (info.hbmMask)
-        DeleteObject(info.hbmMask);
+    // Get icon bounds
+    RECT bounds = _cursorUtil->getRect(cursor);
     
     // Store client area for reference
     RECT window;
@@ -797,14 +773,14 @@ void Peer::DrawStreamCursor(HDC hdc)
     RECT icon;
     icon.left = _cachedStreamCursor.x;
     icon.top = _cachedStreamCursor.y;
-    icon.right = icon.left + width;
-    icon.bottom = icon.top + height;
+    icon.right = icon.left + (bounds.right - bounds.left);
+    icon.bottom = icon.top + (bounds.bottom - bounds.top);
 
     // Apply ratio to icon rect
-    icon.left = (LONG)icon.left * ratio;
-    icon.top = (LONG)icon.top * ratio;
-    icon.right = (LONG)icon.right * ratio;
-    icon.bottom = (LONG)icon.bottom * ratio;
+    icon.left = (LONG)(icon.left * ratio);
+    icon.top = (LONG)(icon.top * ratio);
+    icon.right = (LONG)(icon.right * ratio);
+    icon.bottom = (LONG)(icon.bottom * ratio);
 
     // Offset rect to resized origin
     OffsetRect(&icon, resized.left, resized.top);
@@ -823,7 +799,7 @@ void Peer::DrawStreamCursor(HDC hdc)
         );
     */
     DrawIconEx(hdc, icon.left, icon.top, cursor, icon.right - icon.left, icon.bottom - icon.top, 0, NULL,
-        DI_NORMAL | DI_COMPAT | DI_DEFAULTSIZE);
+        DI_NORMAL | DI_COMPAT);
 
 
 
@@ -902,11 +878,15 @@ void Peer::getStreamCursor(Packet * pkt)
 		return;
 	}
 
+    // Get size of icon
+    HICON cursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_SHARED);
+    RECT bounds = _cursorUtil->getRect(cursor);
+
     RECT rect;
     rect.left = min(pt.x, _cachedStreamCursor.x);
     rect.top = min(pt.y, _cachedStreamCursor.y);
-    rect.right = max(pt.x + 30, _cachedStreamCursor.x);
-    rect.bottom = max(pt.y + 30, _cachedStreamCursor.y);
+    rect.right = max(pt.x + (bounds.right - bounds.left), _cachedStreamCursor.x);
+    rect.bottom = max(pt.y + (bounds.bottom - bounds.top), _cachedStreamCursor.y);
 
     // Invalidate entire client area so I can draw anywhere
     // Save the actual region that changes to updateRegion
