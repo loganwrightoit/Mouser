@@ -661,8 +661,11 @@ void Peer::sendChatMsg(wchar_t* msg)
     setInputFocus();
 }
 
-void Peer::DrawStreamImage(HDC hdc, RECT rect)
+void Peer::DrawStreamImage(HDC hdc)
 {
+    RECT rect;
+    CopyRect(&rect, &updateRegion);
+
     // Store client area for reference
     RECT window;
     GetClientRect(_hWnd_stream, &window);
@@ -670,16 +673,21 @@ void Peer::DrawStreamImage(HDC hdc, RECT rect)
     // Construct resized RECT that fits client area for reference
     int cx = _cachedStreamImage.GetWidth();
     int cy = _cachedStreamImage.GetHeight();
-    float ratio = min((float)(rect.right - rect.left) / cx, (float)(rect.bottom - rect.top) / cy);
+    float ratio = min((float)(window.right - window.left) / cx, (float)(window.bottom - window.top) / cy);
     CSize szSrc;
     szSrc.cx = (LONG)(cx * ratio);
     szSrc.cy = (LONG)(cy * ratio);
     CRect resized(CPoint(0, 0), szSrc);
-    resized.OffsetRect(((rect.right - rect.left) - szSrc.cx) / 2, ((rect.bottom - rect.top) - szSrc.cy) / 2);
+    resized.OffsetRect(((window.right - window.left) - szSrc.cx) / 2, ((window.bottom - window.top) - szSrc.cy) / 2);
+
+    // Set stretch mode to antialiased
+    SetStretchBltMode(hdc, HALFTONE);
 
     // Determine if entire window is being redrawn
-    if (memcmp(&window, &rect, sizeof(RECT)) == 0) // Entire screen needs to be redrawn
-    {        
+    if (onResize) // Entire screen needs to be redrawn
+    {
+        OutputDebugString(L"[DEBUG]: Window resized, drawing new.\n");
+
         // Fill empty areas with background brush
         RECT fill;
         if (window.left < resized.left) // Fill left
@@ -714,55 +722,112 @@ void Peer::DrawStreamImage(HDC hdc, RECT rect)
         }
 
         // Draw new stream image area
-        SetStretchBltMode(hdc, HALFTONE);
         if (!_cachedStreamImage.StretchBlt(hdc, resized))
         {
             AddOutputMsg(L"[DEBUG]: StretchBlt() failed on stream resize.");
         }
+
+        onResize = false;
     }
     else // Only part of screen is being redrawn
     {
-        float ratio = min(((float) window.right / _cachedStreamImage.GetWidth()), ((float) window.bottom / _cachedStreamImage.GetHeight()));
+        RECT dest;
+        CopyRect(&dest, &rect);
 
-        // Draw to offset coords according to ratio
-        SetStretchBltMode(hdc, HALFTONE);
+        dest.left = (LONG) dest.left * ratio;
+        dest.top = (LONG) dest.top * ratio;
+        dest.right = (LONG) dest.right * ratio;
+        dest.bottom = (LONG) dest.bottom * ratio;
+
+        OffsetRect(&dest, resized.left, resized.top);
+
         _cachedStreamImage.StretchBlt(
             hdc,
-            rect.left, // x dest (adjust to ratio)
-            rect.top, // y dest (adjust to ratio)
-            (rect.right - rect.left) * ratio, // width dest
-            (rect.bottom - rect.top) * ratio, // height dest
-            rect.left, // x src
-            rect.top, // y src
-            rect.right - rect.left, // width src
-            rect.bottom - rect.top // height src
+            dest,
+            rect
             );
-
-        // TODO: Switch to StretchBlt and resize according to ratio
-
-        /*
-        if (!_cachedStreamImage.BitBlt(
-                hdc,
-                rect.left,
-                rect.top,
-                (rect.right - rect.left),
-                (rect.bottom - rect.top),
-                rect.left,
-                rect.top))
-        {
-            AddOutputMsg(L"[DEBUG]: BitBlt failed on read.");
-        }
-        */
     }
 }
 
-void Peer::DrawStreamCursor(HDC hdc, RECT rect)
+void Peer::DrawStreamCursor(HDC hdc)
 {
-    // TODO: Need to handle resizing once implemented
-    // TODO: Try to approximate exact size of cursor for blitting
+    // Create default cursor icon
+    HICON cursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
+    
+    // Get icon size
+    ICONINFO info;
+    LONG width, height;
 
-    HICON NormalCursor = (HICON)LoadImage(NULL, MAKEINTRESOURCE(IDC_ARROW), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
-    DrawIcon(hdc, _cachedStreamCursor.x, _cachedStreamCursor.y, NormalCursor);
+    if (GetIconInfo(cursor, &info))
+    {
+        BITMAP bmp;
+        if (info.hbmColor && GetObject(info.hbmColor, sizeof(bmp), &bmp))
+        {
+            width = bmp.bmWidth;
+            height = bmp.bmHeight;
+        }
+        else if (info.hbmMask && GetObject(info.hbmMask, sizeof(bmp), &bmp))
+        {
+            width = bmp.bmWidth;
+            height = (LONG) bmp.bmHeight / 2.0f;
+        }
+    }
+
+    // Release temporary icon objects
+    if (info.hbmColor)
+        DeleteObject(info.hbmColor);
+    if (info.hbmMask)
+        DeleteObject(info.hbmMask);
+    
+    // Store client area for reference
+    RECT window;
+    GetClientRect(_hWnd_stream, &window);
+
+    // Construct resized RECT that fits client area for reference
+    int cx = _cachedStreamImage.GetWidth();
+    int cy = _cachedStreamImage.GetHeight();
+    float ratio = min((float)(window.right - window.left) / cx, (float)(window.bottom - window.top) / cy);
+    CSize szSrc;
+    szSrc.cx = (LONG)(cx * ratio);
+    szSrc.cy = (LONG)(cy * ratio);
+    CRect resized(CPoint(0, 0), szSrc);
+    resized.OffsetRect(((window.right - window.left) - szSrc.cx) / 2, ((window.bottom - window.top) - szSrc.cy) / 2);
+
+    // Create icon rect
+    RECT icon;
+    icon.left = _cachedStreamCursor.x;
+    icon.top = _cachedStreamCursor.y;
+    icon.right = icon.left + width;
+    icon.bottom = icon.top + height;
+
+    // Apply ratio to icon rect
+    icon.left = (LONG)icon.left * ratio;
+    icon.top = (LONG)icon.top * ratio;
+    icon.right = (LONG)icon.right * ratio;
+    icon.bottom = (LONG)icon.bottom * ratio;
+
+    // Offset rect to resized origin
+    OffsetRect(&icon, resized.left, resized.top);
+
+    /*
+    BOOL WINAPI DrawIconEx(
+        _In_      HDC hdc,
+        _In_      int xLeft,
+        _In_      int yTop,
+        _In_      HICON hIcon,
+        _In_      int cxWidth,
+        _In_      int cyWidth,
+        _In_      UINT istepIfAniCur,
+        _In_opt_  HBRUSH hbrFlickerFreeDraw,
+        _In_      UINT diFlags
+        );
+    */
+    DrawIconEx(hdc, icon.left, icon.top, cursor, icon.right - icon.left, icon.bottom - icon.top, 0, NULL,
+        DI_NORMAL | DI_COMPAT | DI_DEFAULTSIZE);
+
+
+
+    //DrawIcon(hdc, _cachedStreamCursor.x, _cachedStreamCursor.y, NormalCursor);
 }
 
 void Peer::getStreamImage(Packet* pkt)
@@ -800,14 +865,17 @@ void Peer::getStreamImage(Packet* pkt)
 			DeleteDC(hdc);
 
 			// Invalidate with updated RECT
-            // TODO: Adjust rect dimensions for window size
 			int szTile = image.GetWidth();
 			RECT rect;
 			rect.left = origin.x;
 			rect.top = origin.y;
 			rect.right = origin.x + szTile;
 			rect.bottom = origin.y + szTile;
-			InvalidateRect(_hWnd_stream, &rect, FALSE);
+
+            // Invalidate entire client area so I can draw anywhere
+            // Save the actual region that changes to updateRegion
+            CopyRect(&updateRegion, &rect);
+            InvalidateRect(_hWnd_stream, NULL, FALSE);
 			UpdateWindow(_hWnd_stream);
 
 			image.Destroy();
@@ -840,7 +908,10 @@ void Peer::getStreamCursor(Packet * pkt)
     rect.right = max(pt.x + 30, _cachedStreamCursor.x);
     rect.bottom = max(pt.y + 30, _cachedStreamCursor.y);
 
-    InvalidateRect(_hWnd_stream, &rect, FALSE);
+    // Invalidate entire client area so I can draw anywhere
+    // Save the actual region that changes to updateRegion
+    CopyRect(&updateRegion, &rect);
+    InvalidateRect(_hWnd_stream, NULL, FALSE);
     UpdateWindow(_hWnd_stream);
 }
 

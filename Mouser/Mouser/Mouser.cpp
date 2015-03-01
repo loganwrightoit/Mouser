@@ -860,19 +860,8 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
 
     switch (msg)
     {
-    case WM_SIZING:
-        {
-            /*
-            RECT rect;
-            memcpy_s(&rect, sizeof(rect), (RECT*)lParam, sizeof(rect));
-
-            rect.right = rect.right - rect.left;
-            rect.bottom = rect.bottom - rect.top;
-            rect.left = rect.top = 0;
-
-            peer->streamResize(rect);
-            */
-        }
+    case WM_SIZE:
+        peer->onResize = true;
         break;
     case WM_ERASEBKGND:
         return FALSE;
@@ -883,10 +872,10 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
             HDC hdc = BeginPaint(hWnd, &ps);
 
             // Refresh stream image in updated region
-            peer->DrawStreamImage(hdc, ps.rcPaint);
+            peer->DrawStreamImage(hdc);
 
             // Draw cursor in current location
-            peer->DrawStreamCursor(hdc, ps.rcPaint);
+            peer->DrawStreamCursor(hdc);
 
             EndPaint(hWnd, &ps);
         }

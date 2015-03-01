@@ -50,14 +50,16 @@ class Peer
         void clearStreamSender();
         void clearCursorUtil();
 
-        void DrawStreamImage(HDC hdc, RECT rect);
-        void DrawStreamCursor(HDC hdc, RECT rect);
+        void DrawStreamImage(HDC hdc);
+        void DrawStreamCursor(HDC hdc);
 
         HWND hChatEditBox;
         HWND hChatButton;
         HWND hChatListBox;
         HWND hChatStreamButton;
         HWND hChatIsTypingLabel;
+
+        bool onResize;
 
     private:
 
@@ -110,6 +112,8 @@ class Peer
         wchar_t _tempExt[MAX_PATH]; // Temporary file extension
 
         HANDLE ghMutex;
+
+        RECT updateRegion;
 
         HWND _hWnd;
         HWND _hWnd_stream;
