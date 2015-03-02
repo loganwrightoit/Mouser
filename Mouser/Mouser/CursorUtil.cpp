@@ -26,7 +26,7 @@ RECT CursorUtil::getRect(HICON cursor)
         }
         else if (info.hbmMask && GetObject(info.hbmMask, sizeof(bmp), &bmp))
         {
-            width = bmp.bmWidth;
+            width = (LONG)(bmp.bmWidth / 2.0f);
             height = (LONG)(bmp.bmHeight / 2.0f);
         }
     }
