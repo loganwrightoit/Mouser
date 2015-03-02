@@ -686,64 +686,89 @@ void Peer::DrawStreamImage(HDC hdc)
     // Determine if entire window is being redrawn
     if (onResize) // Entire screen needs to be redrawn
     {
-        // Fill empty areas with background brush
-        RECT fill;
-        if (window.left < resized.left) // Fill left
-        {
-            fill.left = fill.top = 0;
-            fill.bottom = window.bottom;
-            fill.right = resized.left;
-            FillRect(hdc, &fill, getDefaultBrush());
-        }
-        if (window.right > resized.right) // Fill right
-        {
-            fill.left = resized.right;
-            fill.top = 0;
-            fill.bottom = window.bottom;
-            fill.right = window.right;
-            FillRect(hdc, &fill, getDefaultBrush());
-        }
-        if (window.top < resized.top) // Fill top
-        {
-            fill.left = fill.top = 0;
-            fill.right = window.right;
-            fill.bottom = resized.top;
-            FillRect(hdc, &fill, getDefaultBrush());
-        }
-        if (window.bottom > resized.bottom) // Fill bottom
-        {
-            fill.top = resized.bottom;
-            fill.left = 0;
-            fill.right = window.right;
-            fill.bottom = window.bottom;
-            FillRect(hdc, &fill, getDefaultBrush());
-        }
-
         // Draw new stream image area
         if (!_cachedStreamImage.StretchBlt(hdc, resized))
         {
             AddOutputMsg(L"[DEBUG]: StretchBlt() failed on stream resize.");
         }
-
         onResize = false;
     }
     else // Only part of screen is being redrawn
     {
-        RECT dest;
-        CopyRect(&dest, &rect);
+        // Grab parameters for RECT checking
+        int width = _cachedStreamImage.GetWidth();
+        int height = _cachedStreamImage.GetHeight();
+        int szTile = _streamSender->getTileSize(width, height);
 
-        dest.left = (LONG) (dest.left * ratio);
-        dest.top = (LONG) (dest.top * ratio);
-        dest.right = (LONG) (dest.right * ratio);
-        dest.bottom = (LONG) (dest.bottom * ratio);
+        // All tiles that intersect with updated region
+        // must redraw, otherwise StretchBlt will create
+        // visible artifacts.
+        for (int x = 0; x < width; x += szTile)
+        {
+            for (int y = 0; y < height; y += szTile)
+            {
+                // Check if tile intersects updated region
+                RECT tile, empty;
+                tile.left = x;
+                tile.top = y;
+                tile.right = x + szTile;
+                tile.bottom = y + szTile;
+                
+                if (IntersectRect(&empty, &tile, &rect))
+                {
+                    // Blit from original tile region
+                    RECT original;
+                    CopyRect(&original, &tile);
 
-        OffsetRect(&dest, resized.left, resized.top);
+                    // Apply ratio and offset to tile
+                    tile.left = (LONG)(tile.left * ratio);
+                    tile.top = (LONG)(tile.top * ratio);
+                    tile.right = (LONG)(tile.right * ratio);
+                    tile.bottom = (LONG)(tile.bottom * ratio);
+                    OffsetRect(&tile, resized.left, resized.top);
 
-        _cachedStreamImage.StretchBlt(
-            hdc,
-            dest,
-            rect
-            );
+                    _cachedStreamImage.StretchBlt(
+                        hdc,
+                        tile,
+                        original
+                        );
+                }
+            }
+        }
+    }
+
+    // Always fill non-streaming areas in window
+    // Fill empty areas with background brush
+    RECT fill;
+    if (window.left < resized.left) // Fill left
+    {
+        fill.left = fill.top = 0;
+        fill.bottom = window.bottom;
+        fill.right = resized.left;
+        FillRect(hdc, &fill, getDefaultBrush());
+    }
+    if (window.right > resized.right) // Fill right
+    {
+        fill.left = resized.right;
+        fill.top = 0;
+        fill.bottom = window.bottom;
+        fill.right = window.right;
+        FillRect(hdc, &fill, getDefaultBrush());
+    }
+    if (window.top < resized.top) // Fill top
+    {
+        fill.left = fill.top = 0;
+        fill.right = window.right;
+        fill.bottom = resized.top;
+        FillRect(hdc, &fill, getDefaultBrush());
+    }
+    if (window.bottom > resized.bottom) // Fill bottom
+    {
+        fill.top = resized.bottom;
+        fill.left = 0;
+        fill.right = window.right;
+        fill.bottom = window.bottom;
+        FillRect(hdc, &fill, getDefaultBrush());
     }
 }
 

@@ -28,13 +28,14 @@ class StreamSender
 
         void stream(HWND hWnd);
         void stop();
+
+        int getTileSize(int x, int y);
         
     private:
 
         int getEncoderClsid(const WCHAR * format, CLSID * pClsid);
         void captureAsStream();
         void startCaptureThread(HWND hWnd);
-        int getTileSize(int x, int y);
         RECT getResizedDrawArea();
 
         void*               _peer;
