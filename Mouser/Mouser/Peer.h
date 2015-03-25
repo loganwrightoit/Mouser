@@ -53,6 +53,12 @@ class Peer
         void DrawStreamImage(HDC hdc);
         void DrawStreamCursor(HDC hdc);
 
+        void createMenu(HWND hWnd);
+        void onMenuOpen();
+        HMENU getMenu();
+        HMENU getShareMenu();
+        HWND windowAt(int idx);
+
         HWND hChatEditBox;
         HWND hChatButton;
         HWND hChatListBox;
@@ -118,5 +124,11 @@ class Peer
         HWND _hWnd;
         HWND _hWnd_stream;
         HWND _hWnd_stream_src;
+
+        HMENU _menu;
+        HMENU _menuShareScreen;
+
+        // Zero-based list of HWND corresponding to wParam of WM_MENUCOMMAND
+        std::vector<HWND> _menuShareScreenHwnds;
 
 };

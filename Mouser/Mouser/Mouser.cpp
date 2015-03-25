@@ -229,10 +229,6 @@ HWND getWindow(WindowType type, void* data = nullptr)
 {
     HWND hWnd;
 
-    // NOTE ON FILE SENDING
-    // WS_EX_ACCEPTFILES used as first parameter of CreateWindowEx enables drag-and-drop functionality
-    // Look here for more flags: https://msdn.microsoft.com/en-us/library/windows/desktop/ff700543%28v=vs.85%29.aspx
-
     switch (type)
     {
     case MouserWin:
@@ -691,6 +687,8 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 width = rect.right - rect.left;
             }
 
+            peer->createMenu(hWnd);
+
             // Create output listbox
             peer->hChatListBox = CreateWindowEx(WS_EX_CLIENTEDGE,
                 L"LISTBOX",
@@ -805,12 +803,41 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             break;
         }
         break;
+
+    case WM_INITMENUPOPUP:
+        {
+            HMENU menu = (HMENU) wParam;
+            if (menu == peer->getShareMenu())
+            {
+                peer->onMenuOpen();
+            }
+        }
+        break;
+        
+    case WM_MENUCOMMAND:
+        {
+            HMENU menu = (HMENU)lParam;
+            int idx = wParam;
+            if (menu == peer->getShareMenu())
+            {
+                peer->makeStreamRequest(peer->windowAt(idx));
+            }
+            else
+            {
+                return DefWindowProc(hWnd, msg, wParam, lParam);
+            }
+        }
+        break;
+
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
 
         switch (wmId)
         {
+        case IDM_PEER_SHARE_SCREEN:
+
+            break;
         case IDC_PEER_CHAT_BUTTON:
             sendChatToPeer(hWnd);
             break;

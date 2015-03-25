@@ -28,3 +28,4 @@
 // Static class instances
 #include "NetworkManager.h"
 #include "PeerHandler.h"
+#include "WindowUtil.h"

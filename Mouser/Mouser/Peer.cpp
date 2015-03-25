@@ -810,25 +810,9 @@ void Peer::DrawStreamCursor(HDC hdc)
     // Offset rect to resized origin
     OffsetRect(&icon, resized.left, resized.top);
 
-    /*
-    BOOL WINAPI DrawIconEx(
-        _In_      HDC hdc,
-        _In_      int xLeft,
-        _In_      int yTop,
-        _In_      HICON hIcon,
-        _In_      int cxWidth,
-        _In_      int cyWidth,
-        _In_      UINT istepIfAniCur,
-        _In_opt_  HBRUSH hbrFlickerFreeDraw,
-        _In_      UINT diFlags
-        );
-    */
+    // Draw cursor
     DrawIconEx(hdc, icon.left, icon.top, cursor, icon.right - icon.left, icon.bottom - icon.top, 0, NULL,
         DI_NORMAL | DI_COMPAT);
-
-
-
-    //DrawIcon(hdc, _cachedStreamCursor.x, _cachedStreamCursor.y, NormalCursor);
 }
 
 void Peer::getStreamImage(Packet* pkt)
@@ -986,4 +970,57 @@ void Peer::getStreamDeny(Packet* pkt)
 {
     addChat(L"--> Share request denied.");
     EnableWindow(hChatStreamButton, true);
+}
+
+void Peer::createMenu(HWND hWnd)
+{
+    _menu = CreateMenu();
+    _menuShareScreen = CreatePopupMenu();
+    
+    //AppendMenu(_menuShareScreen, MF_STRING, 0, L"Desktop");
+    AppendMenu(_menu, MF_STRING | MF_POPUP, (UINT)_menuShareScreen, L"Share Screen");
+
+    SetMenu(hWnd, _menu);
+
+    MENUINFO mi;
+    memset(&mi, 0, sizeof(mi));
+    mi.cbSize = sizeof(mi);
+    mi.fMask = MIM_STYLE;
+    mi.dwStyle = MNS_NOTIFYBYPOS;
+    SetMenuInfo(_menu, &mi);
+}
+
+void Peer::onMenuOpen()
+{
+    // Remove old menu items
+    int numSubMenus = GetMenuItemCount(_menuShareScreen);
+    for (int idx = 0; idx < numSubMenus; ++idx)
+    {
+        DeleteMenu(_menuShareScreen, idx, MF_BYPOSITION);
+    }
+
+    // Add new menu items and populate HWND list
+    WindowUtil util;
+    auto hwnds = util.getOpenWindows();
+    for (int idx = 0; idx < hwnds.size(); ++idx)
+    {
+        std::wstring title = util.getWindowTitle(hwnds.at(idx));
+        _menuShareScreenHwnds.push_back(hwnds.at(idx));
+        InsertMenu(_menuShareScreen, idx, MF_BYPOSITION, NULL, title.c_str());
+    }
+}
+
+HMENU Peer::getMenu()
+{
+    return _menu;
+}
+
+HMENU Peer::getShareMenu()
+{
+    return _menuShareScreen;
+}
+
+HWND Peer::windowAt(int idx)
+{
+    return _menuShareScreenHwnds.at(idx);
 }
