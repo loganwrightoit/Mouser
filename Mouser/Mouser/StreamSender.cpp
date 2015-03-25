@@ -58,7 +58,7 @@ int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
 void StreamSender::captureAsStream()
 {
     // Update HBITMAP of screen region - CAPTUREBLT is expensive operation, so only do this once
-    if (!BitBlt(hDestDC, 0, 0, _info.width, _info.height, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT))
+    if (!BitBlt(hDestDC, 0, 0, _info.width, _info.height, hSrcDC, 0, 0, SRCCOPY))
     {
         return;
     }
@@ -177,7 +177,7 @@ void StreamSender::startCaptureThread(HWND hWnd)
     // Set some parameters
     _szTile = getTileSize(_info.width, _info.height);
 
-    this->hSrcDC = GetDC(hWnd);
+    this->hSrcDC = GetDCEx(hWnd, NULL, DCX_WINDOW | DCX_PARENTCLIP);
     this->hDestDC = CreateCompatibleDC(hSrcDC);
     this->hCaptureHBmp = CreateCompatibleBitmap(hSrcDC, _info.width, _info.height);
     SelectObject(hDestDC, hCaptureHBmp);

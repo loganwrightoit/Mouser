@@ -54,10 +54,11 @@ class Peer
         void DrawStreamCursor(HDC hdc);
 
         void createMenu(HWND hWnd);
-        void onMenuOpen();
+        void onShareMenuInit();
         HMENU getMenu();
         HMENU getShareMenu();
         HWND windowAt(int idx);
+        void flushShareMenu();
 
         HWND hChatEditBox;
         HWND hChatButton;

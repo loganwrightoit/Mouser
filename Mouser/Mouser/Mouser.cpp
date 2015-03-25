@@ -804,12 +804,22 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         break;
 
+    case WM_UNINITMENUPOPUP:
+        {
+            HMENU menu = (HMENU)wParam;
+            if (menu == peer->getShareMenu())
+            {
+                peer->flushShareMenu();
+            }
+        }
+        break;
+
     case WM_INITMENUPOPUP:
         {
             HMENU menu = (HMENU) wParam;
             if (menu == peer->getShareMenu())
             {
-                peer->onMenuOpen();
+                peer->onShareMenuInit();
             }
         }
         break;

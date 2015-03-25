@@ -972,6 +972,16 @@ void Peer::getStreamDeny(Packet* pkt)
     EnableWindow(hChatStreamButton, true);
 }
 
+void Peer::flushShareMenu()
+{
+    // Remove old menu items
+    int idx = GetMenuItemCount(_menuShareScreen);
+    while (--idx >= 0)
+    {
+        DeleteMenu(_menuShareScreen, idx, MF_BYPOSITION);
+    }
+}
+
 void Peer::createMenu(HWND hWnd)
 {
     _menu = CreateMenu();
@@ -990,23 +1000,17 @@ void Peer::createMenu(HWND hWnd)
     SetMenuInfo(_menu, &mi);
 }
 
-void Peer::onMenuOpen()
+void Peer::onShareMenuInit()
 {
-    // Remove old menu items
-    int numSubMenus = GetMenuItemCount(_menuShareScreen);
-    for (int idx = 0; idx < numSubMenus; ++idx)
-    {
-        DeleteMenu(_menuShareScreen, idx, MF_BYPOSITION);
-    }
-
     // Add new menu items and populate HWND list
     WindowUtil util;
     auto hwnds = util.getOpenWindows();
-    for (int idx = 0; idx < hwnds.size(); ++idx)
+    int sz = hwnds.size();
+    for (int idx = 0; idx < sz; ++idx)
     {
         std::wstring title = util.getWindowTitle(hwnds.at(idx));
         _menuShareScreenHwnds.push_back(hwnds.at(idx));
-        InsertMenu(_menuShareScreen, idx, MF_BYPOSITION, NULL, title.c_str());
+        InsertMenu(_menuShareScreen, idx, MF_BYPOSITION | MF_STRING, NULL, title.c_str());
     }
 }
 

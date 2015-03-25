@@ -39,6 +39,10 @@ BOOL WindowUtil::EnumWindowsProc(HWND hwnd)
                 if (GetWindowText(hwnd, title, len))
                 {
                     OutputDebugString(std::to_wstring(wnd.rcNormalPosition.bottom).c_str());
+                    OutputDebugString(L", ");
+                    OutputDebugString(std::to_wstring(wnd.ptMaxPosition.x).c_str());
+                    OutputDebugString(L", ");
+                    OutputDebugString(std::to_wstring(wnd.ptMinPosition.x).c_str());
                     OutputDebugString(L": ");
                     OutputDebugString(title);
                     OutputDebugString(L"\n");
