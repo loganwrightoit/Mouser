@@ -1,6 +1,7 @@
 #pragma once
 
 #include "resource.h"
+#include <vector>
 
 const int            DEFAULT_BUFFER_SIZE = 1464;
 
@@ -18,3 +19,5 @@ void CALLBACK hideChatIsTypingLabel(HWND hWnd, UINT msg, UINT timerId, DWORD dwT
 HWND getRootWindow();
 void updatePeerListBoxData();
 void AddOutputMsg(LPWSTR msg);
+
+std::vector<wchar_t*> getClasses();

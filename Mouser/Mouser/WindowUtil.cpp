@@ -25,6 +25,18 @@ BOOL CALLBACK WindowUtil::StaticEnumWindowsProc(HWND hwnd, LPARAM lParam)
 BOOL WindowUtil::EnumWindowsProc(HWND hwnd)
 {
     // Skip if window parent class is this
+    auto classes = getClasses();
+    auto iter = classes.begin();
+    while (iter != classes.end())
+    {
+        wchar_t name[255];
+        GetClassName(hwnd, name, 255);
+        if (wcscmp(*iter, name) == 0)
+        {
+            return TRUE;
+        }
+        ++iter;
+    } 
 
     // Check if style is supported
     if (IsWindowVisible(hwnd) && GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_OVERLAPPEDWINDOW)

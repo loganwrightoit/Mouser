@@ -173,6 +173,16 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
            RegisterClassEx(&wStreamClass);
 }
 
+std::vector<wchar_t*> getClasses()
+{
+    std::vector<wchar_t*> classes;
+    classes.push_back(szMouserClass);
+    classes.push_back(szPeerClass);
+    classes.push_back(szStreamClass);
+
+    return classes;
+}
+
 HBRUSH getDefaultBrush()
 {
     return brushBgnd;
@@ -821,11 +831,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             int idx = wParam;
             if (menu == peer->getShareMenu())
             {
-                // Grab menu item info
+                // Grab menu item data
                 MENUITEMINFO menuInfo = { 0 };
                 menuInfo.cbSize = sizeof(MENUITEMINFO);
-                menuInfo.fMask = MIIM_STRING | MIIM_DATA;
-
+                menuInfo.fMask = MIIM_DATA;
                 if (GetMenuItemInfo(menu, idx, TRUE, &menuInfo))
                 {
                     // Grab HWND from dwItemData
