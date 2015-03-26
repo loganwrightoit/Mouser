@@ -1009,9 +1009,30 @@ void Peer::onShareMenuInit()
     for (int idx = 0; idx < sz; ++idx)
     {
         std::wstring title = util.getWindowTitle(hwnds.at(idx));
-        _menuShareScreenHwnds.push_back(hwnds.at(idx));
-        InsertMenu(_menuShareScreen, idx, MF_BYPOSITION | MF_STRING, NULL, title.c_str());
+
+        MENUITEMINFO menuInfo = { 0 };
+        menuInfo.cbSize = sizeof(MENUITEMINFO);
+        menuInfo.fMask = MIIM_STRING | MIIM_DATA;
+        menuInfo.dwItemData = (ULONG_PTR) hwnds.at(idx);
+        menuInfo.dwTypeData = (LPWSTR) title.c_str();
+
+        InsertMenuItem(_menuShareScreen, 0, FALSE, &menuInfo);
     }
+
+    // Add separator
+    MENUITEMINFO mi = { 0 };
+    mi.cbSize = sizeof(MENUITEMINFO);
+    mi.fMask = MIIM_FTYPE;
+    mi.fType = MFT_SEPARATOR;
+    InsertMenuItem(_menuShareScreen, 0, FALSE, &mi);
+
+    // Add desktop
+    MENUITEMINFO mi2 = { 0 };
+    mi2.cbSize = sizeof(MENUITEMINFO);
+    mi2.fMask = MIIM_STRING | MIIM_DATA;
+    mi2.dwItemData = (ULONG_PTR)GetDesktopWindow();
+    mi2.dwTypeData = L"Desktop";
+    InsertMenuItem(_menuShareScreen, 0, FALSE, &mi2);
 }
 
 HMENU Peer::getMenu()
@@ -1022,9 +1043,4 @@ HMENU Peer::getMenu()
 HMENU Peer::getShareMenu()
 {
     return _menuShareScreen;
-}
-
-HWND Peer::windowAt(int idx)
-{
-    return _menuShareScreenHwnds.at(idx);
 }

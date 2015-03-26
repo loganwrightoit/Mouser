@@ -804,21 +804,12 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         break;
 
-    case WM_UNINITMENUPOPUP:
-        {
-            HMENU menu = (HMENU)wParam;
-            if (menu == peer->getShareMenu())
-            {
-                peer->flushShareMenu();
-            }
-        }
-        break;
-
     case WM_INITMENUPOPUP:
         {
             HMENU menu = (HMENU) wParam;
             if (menu == peer->getShareMenu())
             {
+                peer->flushShareMenu();
                 peer->onShareMenuInit();
             }
         }
@@ -830,7 +821,19 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             int idx = wParam;
             if (menu == peer->getShareMenu())
             {
-                peer->makeStreamRequest(peer->windowAt(idx));
+                // Grab menu item info
+                MENUITEMINFO menuInfo = { 0 };
+                menuInfo.cbSize = sizeof(MENUITEMINFO);
+                menuInfo.fMask = MIIM_STRING | MIIM_DATA;
+
+                if (GetMenuItemInfo(menu, idx, TRUE, &menuInfo))
+                {
+                    // Grab HWND from dwItemData
+                    HWND itemHwnd = (HWND)menuInfo.dwItemData;
+
+                    // Initiate stream request for window
+                    peer->makeStreamRequest(itemHwnd);
+                }
             }
             else
             {

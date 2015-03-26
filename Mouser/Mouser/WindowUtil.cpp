@@ -24,34 +24,29 @@ BOOL CALLBACK WindowUtil::StaticEnumWindowsProc(HWND hwnd, LPARAM lParam)
 
 BOOL WindowUtil::EnumWindowsProc(HWND hwnd)
 {
-    if (IsWindowVisible(hwnd))
-    {
-        WINDOWPLACEMENT wnd;
-        GetWindowPlacement(hwnd, &wnd);
+    // Skip if window parent class is this
 
-        //if (wnd.ptMinPosition.x < -1) // Seems to omit this program's windows, and abnormal window types
-        //{
+    // Check if style is supported
+    if (IsWindowVisible(hwnd) && GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_OVERLAPPEDWINDOW)
+    {
+        // Check if window intersects desktop
+        // Non-visible windows usually exist outside desktop region
+        RECT rect, desktop, result;
+        GetWindowRect(hwnd, &rect);
+        GetWindowRect(GetDesktopWindow(), &desktop);
+        if (IntersectRect(&result, &rect, &desktop))
+        {
             // Grab window title
-            int len = 0;
-            if (len = GetWindowTextLength(hwnd))
+            if (int len = GetWindowTextLength(hwnd))
             {
                 wchar_t* title = new wchar_t[len];
                 if (GetWindowText(hwnd, title, len))
                 {
-                    OutputDebugString(std::to_wstring(wnd.rcNormalPosition.bottom).c_str());
-                    OutputDebugString(L", ");
-                    OutputDebugString(std::to_wstring(wnd.ptMaxPosition.x).c_str());
-                    OutputDebugString(L", ");
-                    OutputDebugString(std::to_wstring(wnd.ptMinPosition.x).c_str());
-                    OutputDebugString(L": ");
-                    OutputDebugString(title);
-                    OutputDebugString(L"\n");
-
                     openWindows.push_back(hwnd);
                 }
                 delete[] title;
             }
-        //}
+        }
     }
 
     return TRUE;

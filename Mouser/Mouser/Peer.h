@@ -57,7 +57,6 @@ class Peer
         void onShareMenuInit();
         HMENU getMenu();
         HMENU getShareMenu();
-        HWND windowAt(int idx);
         void flushShareMenu();
 
         HWND hChatEditBox;
@@ -128,8 +127,5 @@ class Peer
 
         HMENU _menu;
         HMENU _menuShareScreen;
-
-        // Zero-based list of HWND corresponding to wParam of WM_MENUCOMMAND
-        std::vector<HWND> _menuShareScreenHwnds;
 
 };
