@@ -11,7 +11,6 @@ class Packet
         {
             DISCONNECT,
             STREAM_REQUEST,
-            STREAM_RESIZE,
             STREAM_ALLOW,
             STREAM_DENY,
             STREAM_IMAGE,

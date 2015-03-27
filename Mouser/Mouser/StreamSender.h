@@ -52,8 +52,6 @@ class StreamSender
 
         int                 _szTile;
         StreamInfo          _info;
-        int                 _width;
-        int                 _height;
 
         std::map<unsigned int, size_t> tempMap;
 };

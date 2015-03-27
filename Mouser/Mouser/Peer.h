@@ -88,7 +88,6 @@ class Peer
 
         int  displayStreamRequestMessageBox(wchar_t* name);
         void getStreamRequest(Packet* pkt);
-        void getStreamResize(Packet* pkt);
         void getStreamAllow(Packet* pkt);
         void getStreamDeny(Packet* pkt);
         void getStreamImage(Packet* pkt);

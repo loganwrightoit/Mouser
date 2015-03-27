@@ -486,9 +486,6 @@ void Peer::rcvThread()
         case Packet::STREAM_REQUEST:
             getStreamRequest(pkt);
             break;
-        case Packet::STREAM_RESIZE:
-            getStreamResize(pkt);
-            break;
         case Packet::STREAM_ALLOW:
             getStreamAllow(pkt);
             break;
@@ -1011,7 +1008,7 @@ void Peer::createMenu(HWND hWnd)
 
 void Peer::onShareMenuInit()
 {
-    int maxTitleLen = 80;
+    size_t maxTitleLen = 80;
 
     // Add new menu items and populate HWND list
     WindowUtil wndUtil;
@@ -1074,21 +1071,4 @@ HMENU Peer::getMenu()
 HMENU Peer::getShareMenu()
 {
     return _menuShareScreen;
-}
-
-void Peer::getStreamResize(Packet* pkt)
-{
-    /*
-    StreamSender::StreamInfo info;
-
-    // Not zero is error condition
-    if (memcpy_s(&info, sizeof(info), pkt->getData(), sizeof(info)))
-    {
-        return;
-    }
-
-    // Resize cached image
-    _cachedStreamImage.Destroy();
-    _cachedStreamImage.Create(info.width, info.height, 32);
-    */
 }
