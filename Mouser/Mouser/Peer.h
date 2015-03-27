@@ -31,6 +31,7 @@ class Peer
         void stopSharing();
         void makeStreamRequest(HWND hWnd);
         void sendStreamImage();
+        void sendStreamResize();
         void sendStreamCursor();
         void sendChatMsg(wchar_t* msg);
         void sendName();
@@ -87,6 +88,7 @@ class Peer
 
         int  displayStreamRequestMessageBox(wchar_t* name);
         void getStreamRequest(Packet* pkt);
+        void getStreamResize(Packet* pkt);
         void getStreamAllow(Packet* pkt);
         void getStreamDeny(Packet* pkt);
         void getStreamImage(Packet* pkt);

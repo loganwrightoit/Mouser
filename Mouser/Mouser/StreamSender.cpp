@@ -57,6 +57,32 @@ int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
 //
 void StreamSender::captureAsStream()
 {
+    // Check if window has been resized
+    RECT curSize;
+    GetWindowRect(_hWnd, &curSize);
+    int curWidth = curSize.right - curSize.left;
+    int curHeight = curSize.bottom - curSize.top;
+    if (_width != curWidth || _height != curHeight)
+    {
+        StreamSender::StreamInfo info;
+        _width = info.width = curWidth;
+        _height = info.height = curHeight;
+        char * data = new char[sizeof(info)];
+
+        // Not zero is error condition
+        if (memcpy_s(data, sizeof(info), &info, sizeof(info)))
+        {
+            AddOutputMsg(L"[DEBUG]: StreamResize memcpy_s failed, aborting.");
+            delete[] data;
+            return;
+        }
+
+        // Send a resize packet
+        ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_RESIZE, data, sizeof(info)));
+
+        OutputDebugString(L"Stream resized, sending packet...\n");
+    }
+
     // Update HBITMAP of screen region - CAPTUREBLT is expensive operation, so only do this once
     if (!BitBlt(hDestDC, 0, 0, _info.width, _info.height, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT))
     {
@@ -176,6 +202,8 @@ void StreamSender::startCaptureThread(HWND hWnd)
 {
     // Set some parameters
     _szTile = getTileSize(_info.width, _info.height);
+    _width = _info.width;
+    _height = _info.height;
 
     this->hSrcDC = GetDCEx(hWnd, NULL, DCX_WINDOW | DCX_PARENTCLIP);
     this->hDestDC = CreateCompatibleDC(hSrcDC);
