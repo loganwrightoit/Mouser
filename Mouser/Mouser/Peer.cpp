@@ -79,6 +79,10 @@ void Peer::onDestroyRoot()
     {
         _streamSender->stop();
     }
+    if (_cursorUtil)
+    {
+        _cursorUtil->stop();
+    }
 }
 
 void Peer::setInputFocus()
@@ -224,6 +228,7 @@ void Peer::stopSharing()
 {
     addChat(L"--> Stopped sharing screen.");
     _streamSender->stop();
+    _cursorUtil->stop();
     EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
     EnableWindow(hChatStopSharingButton, false);
     DrawMenuBar(_hWnd);
@@ -550,6 +555,10 @@ void Peer::getStreamClose()
     else if (_hWnd_stream) // Sender halted stream
     {
         PostMessage(_hWnd_stream, WM_CLOSE, 0, 0);
+    }
+    if (_cursorUtil)
+    {
+        _cursorUtil->stop();
     }
 }
 

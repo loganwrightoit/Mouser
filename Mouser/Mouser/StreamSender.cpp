@@ -58,7 +58,7 @@ int StreamSender::getEncoderClsid(const WCHAR * format, CLSID * pClsid)
 void StreamSender::captureAsStream()
 {
     // Update HBITMAP of screen region - CAPTUREBLT is expensive operation, so only do this once
-    if (!BitBlt(hDestDC, 0, 0, _info.width, _info.height, hSrcDC, 0, 0, SRCCOPY | CAPTUREBLT))
+    if (!BitBlt(hDestDC, 0, 0, _info.width, _info.height, hSrcDC, 0, 0, /*SRCCOPY |*/ CAPTUREBLT))
     {
         return;
     }
