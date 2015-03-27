@@ -265,7 +265,7 @@ HWND getWindow(WindowType type, void* data = nullptr)
             CW_USEDEFAULT,
             CW_USEDEFAULT,
 			(int) (520 * dpiScale),
-			(int) (380 * dpiScale),
+			(int) (400 * dpiScale),
             NULL,
             NULL,
             hInst,
@@ -753,10 +753,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             SendMessage(peer->hChatEditBox, EM_LIMITTEXT, MAX_CHAT_LENGTH, 0);
 
             // Create stream button
-            peer->hChatStreamButton = CreateWindowEx(
+            peer->hChatStopSharingButton = CreateWindowEx(
                 NULL,
                 L"BUTTON",
-                L"Share Screen",
+                L"Stop Sharing",
                 WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
 				(int)((width - 25 * dpiScale) * 0.8F),
 				(int)(300 * dpiScale),
@@ -767,7 +767,8 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 hInst,
                 NULL);
 
-            setWindowFont(peer->hChatStreamButton);
+            setWindowFont(peer->hChatStopSharingButton);
+            EnableWindow(peer->hChatStopSharingButton, false);
 
             // Create "Peer is typing..." label
             peer->hChatIsTypingLabel = CreateWindowEx(NULL,
@@ -867,7 +868,7 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             // Listbox is passive, nothing really to do here
             break;
         case IDC_PEER_CHAT_STREAM_BUTTON:
-            peer->makeStreamRequest(GetDesktopWindow());
+            peer->stopSharing();
             break;
         }
         break;

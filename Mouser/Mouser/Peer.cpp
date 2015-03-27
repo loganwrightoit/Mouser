@@ -5,6 +5,7 @@
 #include "math.h"
 #include <Shlobj.h>
 #include "ImageUtil.h"
+#include "Shellapi.h"
 
 #define NOMINMAX
 
@@ -219,19 +220,20 @@ void Peer::makeFileSendRequest(wchar_t* path)
     }
 }
 
+void Peer::stopSharing()
+{
+    addChat(L"--> Stopped sharing screen.");
+    _streamSender->stop();
+    EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
+    EnableWindow(hChatStopSharingButton, false);
+    DrawMenuBar(_hWnd);
+}
+
 void Peer::makeStreamRequest(HWND hWnd)
 {
-    if (_streamSender)
-    {
-        addChat(L"--> Stopped sharing screen.");
-        _streamSender->stop();
-        return;
-    }
-    else
-    {
-        addChat(L"--> Sent screen share request, awaiting response.");
-        EnableWindow(hChatStreamButton, false);
-    }
+    EnableMenuItem(_menu, 0, MF_GRAYED | MF_BYPOSITION);
+    addChat(L"--> Sent screen share request, awaiting response.");
+    DrawMenuBar(_hWnd);
 
     // Store source HWND for later
     _hWnd_stream_src = hWnd;
@@ -959,7 +961,7 @@ void Peer::getStreamRequest(Packet* pkt)
 void Peer::getStreamAllow(Packet* pkt)
 {
     addChat(L"--> Share request accepted, you are now sharing your screen.");
-    EnableWindow(hChatStreamButton, true);
+    EnableWindow(hChatStopSharingButton, true);
 
     _cursorUtil = new CursorUtil(this, _hWnd_stream_src);
     _cursorUtil->stream(30);
@@ -970,7 +972,8 @@ void Peer::getStreamAllow(Packet* pkt)
 void Peer::getStreamDeny(Packet* pkt)
 {
     addChat(L"--> Share request denied.");
-    EnableWindow(hChatStreamButton, true);
+    EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
+    DrawMenuBar(_hWnd);
 }
 
 void Peer::flushShareMenu()
@@ -1006,13 +1009,13 @@ void Peer::onShareMenuInit()
     int maxTitleLen = 80;
 
     // Add new menu items and populate HWND list
-    WindowUtil util;
-    auto hwnds = util.getOpenWindows();
+    WindowUtil wndUtil;
+    auto hwnds = wndUtil.getOpenWindows();
     int sz = hwnds.size();
     for (int idx = 0; idx < sz; ++idx)
     {
         // Grab window title and truncate it with ellipsis
-        std::wstring title = util.getWindowTitle(hwnds.at(idx));
+        std::wstring title = wndUtil.getWindowTitle(hwnds.at(idx));
         if (title.length() > maxTitleLen)
         {
             title = title.substr(0, maxTitleLen);
@@ -1021,6 +1024,11 @@ void Peer::onShareMenuInit()
 
         // Get program icon
         HICON hIcon = (HICON) SendMessage(hwnds.at(idx), WM_GETICON, 1, 0);
+        if (!hIcon)
+        {
+            hIcon = (HICON) GetClassLong(hwnds.at(idx), GCL_HICON);
+        }
+
         HBITMAP hBitmap;
         ICONINFO iconinfo;
         GetIconInfo(hIcon, &iconinfo);
@@ -1047,7 +1055,7 @@ void Peer::onShareMenuInit()
     // Add desktop
     MENUITEMINFO mi2 = { 0 };
     mi2.cbSize = sizeof(MENUITEMINFO);
-    mi2.fMask = MIIM_STRING | MIIM_DATA;
+    mi2.fMask = MIIM_STRING | MIIM_DATA | MIIM_BITMAP;
     mi2.dwItemData = (ULONG_PTR)GetDesktopWindow();
     mi2.dwTypeData = L"Desktop";
     InsertMenuItem(_menuShareScreen, 0, FALSE, &mi2);

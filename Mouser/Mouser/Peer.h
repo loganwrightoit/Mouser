@@ -28,6 +28,7 @@ class Peer
         size_t getQueueSize() const;
 
         void makeFileSendRequest(wchar_t* path);
+        void stopSharing();
         void makeStreamRequest(HWND hWnd);
         void sendStreamImage();
         void sendStreamCursor();
@@ -62,7 +63,7 @@ class Peer
         HWND hChatEditBox;
         HWND hChatButton;
         HWND hChatListBox;
-        HWND hChatStreamButton;
+        HWND hChatStopSharingButton;
         HWND hChatIsTypingLabel;
 
         bool onResize;
