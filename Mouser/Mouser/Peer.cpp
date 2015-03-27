@@ -34,10 +34,6 @@ Peer::Peer(SOCKET peer_socket = 0)
 
 Peer::~Peer()
 {
-    // Stop peer cursor and image streams
-    _streamSender->stop();
-    _cursorUtil->stop();
-
     shutdown(_socket, SD_BOTH);
     closesocket(_socket);
     CloseHandle(ghMutex);
@@ -73,16 +69,8 @@ void Peer::setStreamWindow(HWND hWnd)
 
 void Peer::onDestroyRoot()
 {
+    getStreamClose();
     _hWnd = _hWnd_stream = _hWnd_stream_src = 0;
-
-    if (_streamSender)
-    {
-        _streamSender->stop();
-    }
-    if (_cursorUtil)
-    {
-        _cursorUtil->stop();
-    }
 }
 
 void Peer::setInputFocus()

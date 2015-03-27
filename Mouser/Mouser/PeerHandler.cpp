@@ -31,6 +31,9 @@ void PeerHandler::disconnectPeer(Peer * peer)
             swprintf(buffer, 256, L"[P2P]: Peer disconnected at %hs", inet_ntoa(addr.sin_addr));
             AddOutputMsg(buffer);
 
+            // Stop peer stream
+            peer->onDestroyRoot();
+
             // Erase peer from vector
             peers.erase(iter);
         }
