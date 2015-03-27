@@ -4,6 +4,7 @@
 #include <string>
 #include "math.h"
 #include <Shlobj.h>
+#include "ImageUtil.h"
 
 #define NOMINMAX
 
@@ -1002,19 +1003,36 @@ void Peer::createMenu(HWND hWnd)
 
 void Peer::onShareMenuInit()
 {
+    int maxTitleLen = 80;
+
     // Add new menu items and populate HWND list
     WindowUtil util;
     auto hwnds = util.getOpenWindows();
     int sz = hwnds.size();
     for (int idx = 0; idx < sz; ++idx)
     {
+        // Grab window title and truncate it with ellipsis
         std::wstring title = util.getWindowTitle(hwnds.at(idx));
+        if (title.length() > maxTitleLen)
+        {
+            title = title.substr(0, maxTitleLen);
+            title.append(L"...");
+        }
+
+        // Get program icon
+        HICON hIcon = (HICON) SendMessage(hwnds.at(idx), WM_GETICON, 1, 0);
+        HBITMAP hBitmap;
+        ICONINFO iconinfo;
+        GetIconInfo(hIcon, &iconinfo);
+        ImageUtil util;
+        hBitmap = util.makeBitMapTransparent(iconinfo.hbmColor);
 
         MENUITEMINFO menuInfo = { 0 };
         menuInfo.cbSize = sizeof(MENUITEMINFO);
-        menuInfo.fMask = MIIM_STRING | MIIM_DATA;
+        menuInfo.fMask = MIIM_STRING | MIIM_DATA | MIIM_BITMAP;
         menuInfo.dwItemData = (ULONG_PTR) hwnds.at(idx);
         menuInfo.dwTypeData = (LPWSTR) title.c_str();
+        menuInfo.hbmpItem = hBitmap;
 
         InsertMenuItem(_menuShareScreen, 0, FALSE, &menuInfo);
     }
