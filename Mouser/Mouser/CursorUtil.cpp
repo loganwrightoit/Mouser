@@ -84,7 +84,7 @@ void CursorUtil::streamThread(int sendRate)
                             memcpy_s(data, sizeof(_cursor), &_cursor, sizeof(_cursor));
 
                             // Construct and send packet
-                            ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor)));
+                            ((Peer*)_peer)->getWorker()->sendPacket(new Packet(Packet::STREAM_CURSOR, data, sizeof(_cursor)));
                         }
                     }
                 }

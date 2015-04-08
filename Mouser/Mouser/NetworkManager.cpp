@@ -33,6 +33,35 @@ unsigned short NetworkManager::getPeerListenerPort() const
     return PEER_LISTEN_PORT;
 }
 
+void NetworkManager::getIP(wchar_t* outString)
+{
+    char ac[80];
+    if (gethostname(ac, sizeof(ac)) == SOCKET_ERROR)
+    {
+        return;
+    }
+
+    struct hostent *phe = gethostbyname(ac);
+    if (phe == 0)
+    {
+        return;
+    }
+    
+    struct in_addr addr;
+    memcpy(&addr, phe->h_addr_list[0], sizeof(struct in_addr));
+
+    char* ip = inet_ntoa(addr);
+
+    // Convert to a wchar_t*
+    size_t origsize = strlen(ip) + 1;
+    const size_t newsize = 100;
+    size_t convertedChars = 0;
+    wchar_t wcstring[newsize];
+    mbstowcs_s(&convertedChars, wcstring, origsize, ip, _TRUNCATE);
+
+    wcscpy(outString, wcstring);
+}
+
 //
 // Initializes Winsock
 //

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "resource.h"
+#include "Packet.h"
 #include <vector>
 
 const int            DEFAULT_BUFFER_SIZE = 1464;
@@ -12,6 +13,7 @@ enum WindowType
     StreamWin,
 };
 
+HINSTANCE getHInst();
 HBRUSH getDefaultBrush();
 wchar_t* getUserName();
 void centerWindow(HWND hWnd, RECT newSize = { -1, -1, -1, -1 });

@@ -22,6 +22,8 @@ class NetworkManager
         // Returns <size,data> pair used to construct Packet
         Packet * getPacket(SOCKET socket);
 
+        void getIP(wchar_t* outString);
+
         bool sendMulticast(char * identifier);
         void rcvMulticast();
         void setBlocking(SOCKET socket, bool block);

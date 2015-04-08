@@ -11,6 +11,7 @@
 #include <atlimage.h> // IStream_ and CImage functions
 #include "Shellapi.h" // WM_DROPFILES
 #include <fstream>
+#include <commctrl.h>
 
 using namespace std;
 
@@ -33,6 +34,8 @@ HWND hMouserPeerLabel;
 HWND hMouserPeerConnectButton;
 HWND hMouserPeerConnectEditBox;
 HWND hMouserOutputLabel;
+HWND hMouserStatusBar;
+HWND hMouserNoPeersLabel;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
 HBRUSH brushBgnd = CreateSolidBrush(RGB(100, 150, 200));
@@ -183,6 +186,11 @@ std::vector<wchar_t*> getClasses()
     return classes;
 }
 
+HINSTANCE getHInst()
+{
+    return hInst;
+}
+
 HBRUSH getDefaultBrush()
 {
     return brushBgnd;
@@ -249,7 +257,7 @@ HWND getWindow(WindowType type, void* data = nullptr)
             WS_OVERLAPPEDWINDOW,  // dwStyle
             CW_USEDEFAULT,        // x
             CW_USEDEFAULT,        // y
-            (int) (500 * dpiScale), // width
+            (int) (250 * dpiScale), // width
             (int) (475 * dpiScale), // height
             NULL,                 // hWndParent
             NULL,                 // hMenu
@@ -383,121 +391,79 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
     case WM_CREATE:
         {
-            // Set dimensions for window
-            int width = (int) (100 * dpiScale);
+            // Initialize and setup connection-based and connectionless services
+            NetworkManager::getInstance().init(hWnd);
+
+            // Send out multicast to discover peers
+            NetworkManager::getInstance().sendMulticast("Mouser|PEER_DISC");
+
+            // Grab client area dimensions
             RECT rect;
-            if (GetWindowRect(hWnd, &rect))
-            {
-                width = rect.right - rect.left;
-            }
+            GetClientRect(hWnd, &rect);
 
-			// Add peer direct connect button
-			hMouserPeerConnectButton = CreateWindowEx(
-				NULL,
-				L"BUTTON",
-				L"Find Peer by IP",
-				WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-				(int)(5 * dpiScale),
-				(int)(5 * dpiScale),
-				(int)((width - 5 * dpiScale) * 0.3F),
-				(int)(30 * dpiScale),
-				hWnd,
-				(HMENU)IDC_MAIN_PEER_BUTTON,
-				hInst,
-				NULL);
-
-			setWindowFont(hMouserPeerConnectButton);
-
-			// Add peer direct connect edtibox
-			hMouserPeerConnectEditBox = CreateWindowEx(
-				WS_EX_CLIENTEDGE,
-				L"EDIT",
-				L"",
-				WS_CHILD | WS_VISIBLE | WS_VSCROLL,
-				(int)(5 * dpiScale),
-				(int)(35 * dpiScale),
-				(int)((width - 5 * dpiScale) * 0.3F),
-				(int)(30 * dpiScale),
-				hWnd,
-				(HMENU)IDC_MAIN_PEER_EDITBOX,
-				hInst,
-				NULL);
-
-			setWindowFont(hMouserPeerConnectEditBox);
-
-            // Add peer label
-            hMouserPeerLabel = CreateWindowEx(
-                SS_CENTER,
+            // Create "No Peers" temporary label
+            hMouserNoPeersLabel = CreateWindowEx(0,
                 L"STATIC",
                 NULL,
-                WS_CHILD | WS_VISIBLE,
-                (int)(5 * dpiScale),
-				(int)(70 * dpiScale),
-				(int)((width - 5 * dpiScale) * 0.3F),
-				(int)(30 * dpiScale),
+                WS_CHILD | WS_VISIBLE | SS_CENTER,
+                0,
+                0,
+                rect.right,
+                rect.bottom,
                 hWnd,
                 NULL,
                 hInst,
                 NULL);
 
-            SetWindowTextW(hMouserPeerLabel, L"Peers");
-
-            // Add output label
-            hMouserOutputLabel = CreateWindowEx(
-                SS_CENTER,
-                L"STATIC",
-                NULL,
-                WS_CHILD | WS_VISIBLE,
-                (int)(10 * dpiScale + width * 0.3F),
-				(int)(5 * dpiScale),
-				(int)((width - 5 * dpiScale) * 0.7F - 30 * dpiScale),
-				(int)(30 * dpiScale),
-                hWnd,
-                NULL,
-                hInst,
-                NULL);
-
-            SetWindowTextW(hMouserOutputLabel, L"Output");
+            setWindowFont(hMouserNoPeersLabel);
+            std::wstring str1(L"\n\nNo peers found.\n\nGo to 'File->Direct Connect'\nto manually connect.");
+            SetWindowText(hMouserNoPeersLabel, str1.c_str());
+            //SendMessage(hMouserNoPeersLabel, SB_SETTEXT, 0, (LPARAM)str1.c_str());
+            //UpdateWindow(hMouserNoPeersLabel);
 
             // Create listbox for peers
             hMouserPeerListBox = CreateWindowEx(
-                WS_EX_CLIENTEDGE,
+                NULL,
                 L"LISTBOX",
                 NULL,
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
-				(int)(5 * dpiScale),                            // X Padding
-				(int)(100 * dpiScale),                           // Y Padding
-				(int)((width - 5 * dpiScale) * 0.3F),           // Width
-				(int)(330 * dpiScale),                          // Height
-                hWnd,                         // Parent window
+                WS_CHILD | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
+				0,
+				0,
+				rect.right,
+				rect.bottom,
+                hWnd,
                 (HMENU)IDC_MAIN_PEER_LISTBOX,
                 hInst,
                 NULL);
 
             setWindowFont(hMouserPeerListBox);
 
-            // Create output listbox
-            hMouserOutputListBox = CreateWindowEx(
-                WS_EX_CLIENTEDGE,
-                L"LISTBOX",
-                NULL,
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_AUTOVSCROLL,
-				(int)(10 * dpiScale + width * 0.3F),
-				(int)(30 * dpiScale),
-				(int)((width - 5 * dpiScale) * 0.7F - 30 * dpiScale),
-				(int)(400 * dpiScale),
-                hWnd,
-                (HMENU)IDC_MAIN_OUTPUT_LISTBOX,
-                hInst,
-                NULL);
+            // Create status bar
+            hMouserStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL,
+                WS_CHILD | WS_VISIBLE, 0, 0, 0, 0,
+                hWnd, (HMENU)IDC_MAIN_STATUS_BAR, GetModuleHandle(NULL), NULL);
 
-            setWindowFont(hMouserOutputListBox);
+            // Set IP in status bar
+            wchar_t ip[80];
+            NetworkManager::getInstance().getIP(ip);
+            std::wstring str(L"\tYour IP: ");
+            str.append(ip);
+            SendMessage(hMouserStatusBar, SB_SETTEXT, 0, (LPARAM)str.c_str());
+        }
+        break;
+    case WM_SIZE:
+        {
+            RECT rect;
+            GetClientRect(hWnd, &rect);
 
-            // Initialize and setup connection-based and connectionless services
-            NetworkManager::getInstance().init(hWnd);
+            // Resize peer list
+            MoveWindow(hMouserPeerListBox, 0, 0, rect.right, rect.bottom, TRUE);
 
-            // Send out multicast to discover peers
-            NetworkManager::getInstance().sendMulticast("Mouser|PEER_DISC");
+            // Resize temp label
+            MoveWindow(hMouserNoPeersLabel, 0, 0, rect.right, rect.bottom, TRUE);
+
+            // Tell status bar to resize
+            SendMessage(hMouserStatusBar, WM_SIZE, 0, 0);
         }
         break;
     case WM_MCST_SOCKET:
@@ -516,12 +482,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 break;
         }
         break;
-    case WM_EVENT_SEND_PACKET:
-        {
-            auto pair = (std::pair<Peer*, Packet*>*)wParam;
-            pair->first->queuePacket(pair->second);
-        }
-        break;
     case WM_EVENT_OPEN_PEER_CHAT:
         return getWindow(WindowType::PeerWin, (Peer*)wParam) != NULL;
     case WM_EVENT_OPEN_PEER_STREAM:
@@ -533,6 +493,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Parse the menu selections:
         switch (wmId)
         {
+            /*
 		case IDC_MAIN_PEER_BUTTON:
 			{
 				// Get IP from editbox
@@ -559,6 +520,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				}
 			}
 			break;
+            */
         case IDC_MAIN_PEER_LISTBOX:
             switch (wmEvent)
             {
@@ -585,6 +547,15 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             break;
         default:
             return DefWindowProc(hWnd, msg, wParam, lParam);
+        }
+        break;
+    case WM_CTLCOLORSTATIC:
+        {
+            HDC hdcStatic = (HDC)wParam;
+            SetTextColor(hdcStatic, RGB(255, 255, 255));
+            SetBkMode(hdcStatic, TRANSPARENT);
+
+            return (LRESULT)brushBgnd;
         }
         break;
     case WM_PAINT:
@@ -615,18 +586,29 @@ void updatePeerListBoxData()
     // Erase all peers from listbox
     SendMessage(hMouserPeerListBox, LB_RESETCONTENT, 0, 0);
 
-    // Add updated peers to listbox
-    auto iter = peers.begin();
-    while (iter != peers.end())
+    if (peers.size() == 0)
     {
-        // Only display name if it's known
-        if (wcscmp((*iter)->getName(), L"Unknown") != 0)
+        ShowWindow(hMouserPeerListBox, FALSE);
+        ShowWindow(hMouserNoPeersLabel, TRUE);
+    }
+    else
+    {
+        ShowWindow(hMouserPeerListBox, TRUE);
+        ShowWindow(hMouserNoPeersLabel, FALSE);
+
+        // Add updated peers to listbox
+        auto iter = peers.begin();
+        while (iter != peers.end())
         {
-            // Add peer to listbox
-            int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
-            SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
+            // Only display name if it's known
+            if (wcscmp((*iter)->getName(), L"Unknown") != 0)
+            {
+                // Add peer to listbox
+                int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
+                SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
+            }
+            ++iter;
         }
-        ++iter;
     }
 }
 
@@ -654,7 +636,7 @@ LRESULT APIENTRY EditSubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
             UINT ticks = GetTickCount();
             if ((ticks - lastIsTypingTick) > 500)
             {
-                peer->sendPacket(new Packet(Packet::CHAT_IS_TYPING));
+                peer->getWorker()->sendPacket(new Packet(Packet::CHAT_IS_TYPING));
                 lastIsTypingTick = ticks;
             }
         }
@@ -788,6 +770,8 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         break;
 	case WM_CTLCOLORSTATIC:
+
+        if (hWnd == hMouserNoPeersLabel)
 		{
 			HDC hdcStatic = (HDC)wParam;
 			SetTextColor(hdcStatic, RGB(255, 255, 255));
@@ -795,6 +779,8 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 			return (LRESULT)brushBgnd;
 		}
+        break;
+
     case WM_DROPFILES:
         {
             HDROP hDrop = (HDROP)wParam;
@@ -811,7 +797,6 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
 
             DragFinish(hDrop);
-            break;
         }
         break;
 
@@ -932,7 +917,7 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
         }
         break;
     case WM_CLOSE:
-        peer->sendPacket(new Packet(Packet::STREAM_CLOSE));
+        peer->getWorker()->sendPacket(new Packet(Packet::STREAM_CLOSE));
         DestroyWindow(hWnd);
         break;
     default:

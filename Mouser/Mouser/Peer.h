@@ -4,6 +4,7 @@
 #include "StreamSender.h"
 #include "FileSender.h"
 #include "CursorUtil.h"
+#include "Worker.h"
 #include <atlimage.h> // IStream_ and CImage functions
 #include <map>
 #include <queue>
@@ -21,11 +22,6 @@ class Peer
 
         Peer(SOCKET sock);
         ~Peer();
-
-        void queuePacket(Packet* pkt);
-        void sendPacket(Packet* pkt);
-
-        size_t getQueueSize() const;
 
         void makeFileSendRequest(wchar_t* path);
         void stopSharing();
@@ -61,6 +57,8 @@ class Peer
         HMENU getShareMenu();
         void flushShareMenu();
 
+        Worker* getWorker();
+
         HWND hChatEditBox;
         HWND hChatButton;
         HWND hChatListBox;
@@ -76,7 +74,6 @@ class Peer
         
         void addChat(LPWSTR msg);
 
-        void sendThread();
         void rcvThread();
         
         void doFileSendThread();
@@ -107,7 +104,6 @@ class Peer
         StreamSender* _streamSender;
         FileSender* _fileSender;
         CursorUtil* _cursorUtil;
-        std::queue<Packet*> sendQueue;
         
         CImage _cachedStreamImage;
         POINT _cachedStreamCursor;
@@ -119,8 +115,6 @@ class Peer
         wchar_t _tempPath[MAX_PATH]; // Temporary file path
         wchar_t _tempExt[MAX_PATH]; // Temporary file extension
 
-        HANDLE ghMutex;
-
         RECT updateRegion;
 
         HWND _hWnd;
@@ -129,5 +123,7 @@ class Peer
 
         HMENU _menu;
         HMENU _menuShareScreen;
+
+        Worker* _worker;
 
 };

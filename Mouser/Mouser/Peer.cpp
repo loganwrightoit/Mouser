@@ -12,20 +12,12 @@
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0)
 {
-    _name = L"";
+    _worker = new Worker(_socket);
 
-    // Create queue mutex lock
-    if ((ghMutex = CreateMutex(NULL, FALSE, NULL)) == NULL)
-    {
-        AddOutputMsg(L"[P2P]: CreateMutex() failed, queue not thread-safe.");
-    }
+    _name = L"Unknown Peer";
 
     // Send peer name
     sendName();
-
-    // Start send thread
-    std::thread st(&Peer::sendThread, this);
-    st.detach();
 
     // Start receive thread
     std::thread rt(&Peer::rcvThread, this);
@@ -36,7 +28,6 @@ Peer::~Peer()
 {
     shutdown(_socket, SD_BOTH);
     closesocket(_socket);
-    CloseHandle(ghMutex);
 
     if (_hWnd)
     {
@@ -49,6 +40,10 @@ Peer::~Peer()
     if (_name)
     {
         delete[] _name;
+    }
+    if (_worker)
+    {
+        delete _worker;
     }
 }
 
@@ -107,44 +102,9 @@ void Peer::openChatWindow()
     }
 }
 
-void Peer::sendPacket(Packet* pkt)
+Worker* Peer::getWorker()
 {
-    SendMessage(getRootWindow(), WM_EVENT_SEND_PACKET, (WPARAM)&std::make_pair(this, pkt), NULL);
-}
-
-//
-// Single-threaded use only by main thread!
-// Can stall program waiting for queue
-//
-void Peer::queuePacket(Packet* pkt)
-{
-    if (WaitForSingleObject(ghMutex, INFINITE) == WAIT_OBJECT_0)
-    {
-        sendQueue.push(pkt);
-        ReleaseMutex(ghMutex);
-    }
-}
-
-void Peer::sendThread()
-{
-    while (1)
-    {
-        if (sendQueue.size() > 0)
-        {
-            if (WaitForSingleObject(ghMutex, INFINITE) == WAIT_OBJECT_0)
-            {
-                Packet* pkt = sendQueue.front();
-                NetworkManager::getInstance().sendPacket(_socket, pkt);
-                sendQueue.pop();
-                delete pkt;
-                ReleaseMutex(ghMutex);
-            }
-        }
-        else
-        {
-            Sleep(15); // Awakened 66 times a second, more than sufficient
-        }
-    }
+    return _worker;
 }
 
 void Peer::openStreamWindow()
@@ -189,7 +149,7 @@ void Peer::sendName()
     if (encode_utf8(&buffer, getUserName()))
     {
         // Send name to peer
-        sendPacket(new Packet(Packet::NAME, buffer.first, buffer.second));
+        _worker->sendPacket(new Packet(Packet::NAME, buffer.first, buffer.second));
     }
 }
 
@@ -205,7 +165,7 @@ void Peer::makeFileSendRequest(wchar_t* path)
         _file.size = (size_t)file.tellg();
         char* data = new char[sizeof(_file)];
         memcpy_s(data, sizeof(_file), &_file, sizeof(_file));
-        sendPacket(new Packet(Packet::FILE_SEND_REQUEST, data, sizeof(_file)));
+        _worker->sendPacket(new Packet(Packet::FILE_SEND_REQUEST, data, sizeof(_file)));
 
         // Close file
         file.close();
@@ -265,7 +225,7 @@ void Peer::makeStreamRequest(HWND hWnd)
         return;
     }
 
-    sendPacket(new Packet(Packet::STREAM_REQUEST, data, sizeof(info)));
+    _worker->sendPacket(new Packet(Packet::STREAM_REQUEST, data, sizeof(info)));
 }
 
 void Peer::doFileSendThread()
@@ -280,7 +240,7 @@ void Peer::doFileSendThread()
         // Send file fragments to peer
         while (1)
         {
-            if (getQueueSize() < 4)
+            if (_worker->isReady())
             {
                 char buffer[FILE_BUFFER];
                 size_t size;
@@ -291,7 +251,7 @@ void Peer::doFileSendThread()
                     // Send fragment
                     char* data = new char[sizeof(buffer)];
                     memcpy_s(data, sizeof(buffer), buffer, sizeof(buffer));
-                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, sizeof(buffer)));
+                    _worker->sendPacket(new Packet(Packet::FILE_FRAGMENT, data, sizeof(buffer)));
                 }
                 else if ((size = (size_t)file.gcount()) > 0)
                 {
@@ -300,7 +260,7 @@ void Peer::doFileSendThread()
                     // Send final fragment
                     char* data = new char[size];
                     memcpy_s(data, size, buffer, size); // Buffer only contains data up to file.gcount()
-                    sendPacket(new Packet(Packet::FILE_FRAGMENT, data, size));
+                    _worker->sendPacket(new Packet(Packet::FILE_FRAGMENT, data, size));
                 }
                 else
                 {
@@ -389,7 +349,7 @@ void Peer::getFileSendRequest(Packet* pkt)
             if (_outFile.is_open())
             {
                 // Send accept packet to begin receiving file
-                sendPacket(new Packet(Packet::FILE_SEND_ALLOW));
+                _worker->sendPacket(new Packet(Packet::FILE_SEND_ALLOW));
             }
             else
             {
@@ -403,7 +363,7 @@ void Peer::getFileSendRequest(Packet* pkt)
     }
     else
     {
-        sendPacket(new Packet(Packet::FILE_SEND_DENY));
+        _worker->sendPacket(new Packet(Packet::FILE_SEND_DENY));
         addChat(L"--> Denied file send request.");
     }
 }
@@ -608,11 +568,6 @@ void Peer::getChatText(Packet* pkt)
     delete[] msg;
 }
 
-size_t Peer::getQueueSize() const
-{
-    return sendQueue.size();
-}
-
 HWND Peer::getRoot()
 {
     return _hWnd;
@@ -659,7 +614,7 @@ void Peer::sendChatMsg(wchar_t* msg)
     if (encode_utf8(&buffer, msg))
     {
         // Construct and send packet
-        sendPacket(new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second));
+        _worker->sendPacket(new Packet(Packet::CHAT_TEXT, buffer.first, buffer.second));
     }
     
     // Set focus to edit control again
@@ -952,11 +907,11 @@ void Peer::getStreamRequest(Packet* pkt)
         // Initialize cached image
         _cachedStreamImage.Create(info.width, info.height, info.bpp);
 
-        sendPacket(new Packet(Packet::STREAM_ALLOW));
+        _worker->sendPacket(new Packet(Packet::STREAM_ALLOW));
     }
     else
     {
-        sendPacket(new Packet(Packet::STREAM_DENY));
+        _worker->sendPacket(new Packet(Packet::STREAM_DENY));
     }
 }
 

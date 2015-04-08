@@ -144,7 +144,7 @@ void StreamSender::captureAsStream()
 							if (IStream_Read(pStream, data + sizeof(origin), (size_t)liSize.QuadPart) == S_OK)
                             {
                                 // Send data
-								((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_IMAGE, data, sizeof(origin)+(size_t)liSize.QuadPart));
+								((Peer*)_peer)->getWorker()->sendPacket(new Packet(Packet::STREAM_IMAGE, data, sizeof(origin)+(size_t)liSize.QuadPart));
                             }
                         }                        
                     }
@@ -189,7 +189,7 @@ void StreamSender::startCaptureThread(HWND hWnd)
 
     while (!stopStream)
     {
-        if ((((Peer*)_peer)->getQueueSize() < 4))
+        if ((((Peer*)_peer)->getWorker()->isReady()))
         {
             captureAsStream();
         }
@@ -210,5 +210,5 @@ void StreamSender::startCaptureThread(HWND hWnd)
 void StreamSender::stop()
 {
     stopStream = true;
-    ((Peer*)_peer)->sendPacket(new Packet(Packet::STREAM_CLOSE));
+    ((Peer*)_peer)->getWorker()->sendPacket(new Packet(Packet::STREAM_CLOSE));
 }
