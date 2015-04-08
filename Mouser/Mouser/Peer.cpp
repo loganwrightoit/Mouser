@@ -1003,7 +1003,7 @@ void Peer::createMenu(HWND hWnd)
 
 void Peer::onShareMenuInit()
 {
-    int maxTitleLen = 80;
+    size_t maxTitleLen = 80;
 
     // Add new menu items and populate HWND list
     WindowUtil wndUtil;
