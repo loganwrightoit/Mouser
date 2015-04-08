@@ -13,7 +13,8 @@ class Worker
         HWND getHandle() const;
         void sendPacket(Packet* pkt);
 
-        bool isReady() const;
+        void setReady();
+        bool ready() const;
 
     private:
 
@@ -25,6 +26,7 @@ class Worker
         SOCKET _socket;
         HANDLE ghMutex;
         HWND _hwnd;
+        bool isReady;
         std::queue<Packet*> _outPkts;
 
 };

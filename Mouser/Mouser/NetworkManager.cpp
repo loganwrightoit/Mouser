@@ -59,7 +59,7 @@ void NetworkManager::getIP(wchar_t* outString)
     wchar_t wcstring[newsize];
     mbstowcs_s(&convertedChars, wcstring, origsize, ip, _TRUNCATE);
 
-    wcscpy(outString, wcstring);
+    wcscpy_s(outString, 80, wcstring);
 }
 
 //

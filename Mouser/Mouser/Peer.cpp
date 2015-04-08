@@ -12,16 +12,23 @@
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0)
 {
+    // Create worker to handle socket sends
     _worker = new Worker(_socket);
-
-    _name = L"Unknown Peer";
-
-    // Send peer name
-    sendName();
 
     // Start receive thread
     std::thread rt(&Peer::rcvThread, this);
     rt.detach();
+
+    // Spin until worker is ready
+    // TODO: Replace this with event-driven system
+    while (!_worker->ready())
+    {
+        Sleep(150);
+    }
+
+    // Send host name to peer
+    _name = L"Unknown Peer";
+    sendName();
 }
 
 Peer::~Peer()
@@ -36,10 +43,6 @@ Peer::~Peer()
     if (_hWnd_stream)
     {
         PostMessage(_hWnd_stream, WM_CLOSE, 0, 0);
-    }
-    if (_name)
-    {
-        delete[] _name;
     }
     if (_worker)
     {
@@ -240,7 +243,7 @@ void Peer::doFileSendThread()
         // Send file fragments to peer
         while (1)
         {
-            if (_worker->isReady())
+            if (_worker->ready())
             {
                 char buffer[FILE_BUFFER];
                 size_t size;
@@ -533,6 +536,11 @@ void Peer::clearCursorUtil()
 void Peer::getName(Packet* pkt)
 {
     _name = encode_utf16(pkt->getData());
+
+    std::wstring str(L"Received peer name: ");
+    str.append(_name);
+    str.append(L"\n");
+    OutputDebugString(str.c_str());
 
     // Update peer list
     updatePeerListBoxData();

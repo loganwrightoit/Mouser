@@ -189,7 +189,7 @@ void StreamSender::startCaptureThread(HWND hWnd)
 
     while (!stopStream)
     {
-        if ((((Peer*)_peer)->getWorker()->isReady()))
+        if ((((Peer*)_peer)->getWorker()->ready()))
         {
             captureAsStream();
         }

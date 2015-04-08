@@ -418,8 +418,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             setWindowFont(hMouserNoPeersLabel);
             std::wstring str1(L"\n\nNo peers found.\n\nGo to 'File->Direct Connect'\nto manually connect.");
             SetWindowText(hMouserNoPeersLabel, str1.c_str());
-            //SendMessage(hMouserNoPeersLabel, SB_SETTEXT, 0, (LPARAM)str1.c_str());
-            //UpdateWindow(hMouserNoPeersLabel);
 
             // Create listbox for peers
             hMouserPeerListBox = CreateWindowEx(
