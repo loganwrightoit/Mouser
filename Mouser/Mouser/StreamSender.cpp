@@ -134,7 +134,7 @@ void StreamSender::captureAsStream()
 						{
 							delete[] data;
 							pStream->Release();
-							AddOutputMsg(L"[DEBUG]: Stream memcpy_s failed, aborting.");
+                            printf("[DEBUG]: Stream memcpy_s failed, aborting.\n");
 							return;
 						}
 

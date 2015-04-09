@@ -13,6 +13,7 @@ class Worker
         HWND getHandle() const;
         void sendPacket(Packet* pkt);
 
+        HANDLE getReadyEvent() const;
         void setReady();
         bool ready() const;
 
@@ -22,7 +23,8 @@ class Worker
         void run();
         void queuePacket(Packet* pkt);
         void sendThread();
-
+        
+        HANDLE _ghReadyEvent;
         SOCKET _socket;
         HANDLE ghMutex;
         HWND _hwnd;

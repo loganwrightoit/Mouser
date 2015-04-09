@@ -12,6 +12,8 @@
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0)
 {
+    _name = L"Unknown";
+
     // Create worker to handle socket sends
     _worker = new Worker(_socket);
 
@@ -19,15 +21,15 @@ Peer::Peer(SOCKET peer_socket = 0)
     std::thread rt(&Peer::rcvThread, this);
     rt.detach();
 
-    // Spin until worker is ready
-    // TODO: Replace this with event-driven system
-    while (!_worker->ready())
+    HANDLE readyEvent = _worker->getReadyEvent();
+    DWORD dwWaitResult = WaitForSingleObject(readyEvent, INFINITE);
+    if (dwWaitResult != WAIT_OBJECT_0)
     {
-        Sleep(150);
+        return;
     }
+    CloseHandle(readyEvent);
 
     // Send host name to peer
-    _name = L"Unknown Peer";
     sendName();
 }
 
@@ -223,7 +225,7 @@ void Peer::makeStreamRequest(HWND hWnd)
     // Not zero is error condition
     if (memcpy_s(data, sizeof(info), &info, sizeof(info)))
     {
-        AddOutputMsg(L"[DEBUG]: StreamInfo memcpy_s failed, aborting.");
+        printf("[DEBUG]: StreamInfo memcpy_s failed, aborting.\n");
         delete[] data;
         return;
     }
@@ -356,12 +358,12 @@ void Peer::getFileSendRequest(Packet* pkt)
             }
             else
             {
-                AddOutputMsg(L"[P2P]: Unable to open temporary file for receiving send.");
+                printf("[P2P]: Unable to open temporary file for receiving send.\n");
             }
         }
         else
         {
-            AddOutputMsg(L"[P2P]: Unable to get temporary file path.");
+            printf("[P2P]: Unable to get temporary file path.\n");
         }
     }
     else
@@ -433,9 +435,7 @@ void Peer::rcvThread()
     char* ip = inet_ntoa(addr.sin_addr);
 
     // Notify output window of new peer connection
-    wchar_t buffer[256];
-    swprintf(buffer, 256, L"[P2P]: Connected to peer at %hs", ip);
-    AddOutputMsg(buffer);
+    printf("[P2P]: Connected to peer at %hs\n", ip);
 
     while (1)
     {
@@ -657,7 +657,7 @@ void Peer::DrawStreamImage(HDC hdc)
         // Draw new stream image area
         if (!_cachedStreamImage.StretchBlt(hdc, resized))
         {
-            AddOutputMsg(L"[DEBUG]: StretchBlt() failed on stream resize.");
+            printf("[DEBUG]: StretchBlt() failed on stream resize.\n");
         }
         onResize = false;
     }

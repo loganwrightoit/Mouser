@@ -70,14 +70,12 @@ void NetworkManager::startWinsock()
     WSADATA wsaData;
     if (WSAStartup(0x0202, &wsaData) != NO_ERROR) // Winsock 2.2
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Winsock]: Initialization failed with error: %s", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Winsock]: Initialization failed with error: %s\n", WSAGetLastError());
         WSACleanup();
     }
     else
     {
-        AddOutputMsg(L"[Winsock]: Initialized.");
+        printf("[Winsock]: Initialized.\n");
     }
 }
 
@@ -92,9 +90,7 @@ SOCKET NetworkManager::getPeerListenerSocket() const
 
     if (bind(sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: bind() failed with error: %i\n", WSAGetLastError());
         return INVALID_SOCKET;
     }
 
@@ -108,9 +104,7 @@ bool NetworkManager::leaveMulticastGroup()
 {
     if (setsockopt(_mcst_socket, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_DROP_MEMBERSHIP failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: setsockopt() IP_DROP_MEMBERSHIP failed with error: %i\n", WSAGetLastError());
         closesocket(_mcst_socket);
         return false;
     }
@@ -128,9 +122,7 @@ SOCKET NetworkManager::getMulticastSocket() const
     SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     if (sock == INVALID_SOCKET)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: socket() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: socket() failed with error: %i\n", WSAGetLastError());
         closesocket(sock);
         return INVALID_SOCKET;
     }
@@ -143,9 +135,7 @@ SOCKET NetworkManager::getMulticastSocket() const
     addr.sin_port = htons(MCST_PORT);
     if (bind(sock, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: bind() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: bind() failed with error: %i\n", WSAGetLastError());
         closesocket(sock);
         return INVALID_SOCKET;
     }
@@ -153,9 +143,7 @@ SOCKET NetworkManager::getMulticastSocket() const
     // Set time-to-live
     if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&MCST_TTL, sizeof(MCST_TTL)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_MULTICAST_TTL failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: setsockopt() IP_MULTICAST_TTL failed with error: %i\n", WSAGetLastError());
         closesocket(sock);
         return false;
     }
@@ -165,9 +153,7 @@ SOCKET NetworkManager::getMulticastSocket() const
     bool flag = FALSE;
     if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&flag, sizeof(flag)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: setsockopt() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: setsockopt() failed with error: %i\n", WSAGetLastError());
         closesocket(sock);
         return INVALID_SOCKET;
     }
@@ -178,9 +164,7 @@ SOCKET NetworkManager::getMulticastSocket() const
     mreq.imr_interface.s_addr = INADDR_ANY;
     if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&mreq, sizeof(mreq)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: setsockopt() IP_ADD_MEMBERSHIP failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: setsockopt() IP_ADD_MEMBERSHIP failed with error: %i\n", WSAGetLastError());
         closesocket(sock);
         return INVALID_SOCKET;
     }
@@ -204,14 +188,12 @@ bool NetworkManager::sendMulticast(char * identifier)
     //char * buffer = new char[s.length()];
     if (sendto(_mcst_socket, s.c_str(), s.length(), 0, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: sendto() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: sendto() failed with error: %i\n", WSAGetLastError());
         return false;
     }
     else
     {
-        AddOutputMsg(L"[Multicast]: Discovery packet sent.");
+        printf("[Multicast]: Discovery packet sent.\n");
         return true;
     }
 }
@@ -227,16 +209,12 @@ sockaddr_in NetworkManager::getMulticastSenderInfo() const
 
     if (recvfrom(_mcst_socket, buffer, sizeof(buffer), 0, (LPSOCKADDR)&addr, &addrLen) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: recvfrom() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Multicast]: recvfrom() failed with error: %i\n", WSAGetLastError());
         closesocket(_mcst_socket);
     }
     else
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Multicast]: Received discovery packet from %hs", inet_ntoa(addr.sin_addr));
-        AddOutputMsg(buffer);
+        printf("[Multicast]: Received discovery packet from %hs\n", inet_ntoa(addr.sin_addr));
     }
     return addr;
 }
@@ -272,7 +250,7 @@ bool NetworkManager::sendPacket(SOCKET socket, Packet * pkt)
 	if (memcpy_s(toSend + 8, sendSize, pkt->getData(), pkt->getSize()))
 	{
 		delete[] toSend;
-		AddOutputMsg(L"[ERROR]: sendPacket memcpy_s failed, aborting.");
+        printf("[ERROR]: sendPacket memcpy_s failed, aborting.\n");
 		return false;
 	}
 
@@ -285,9 +263,7 @@ bool NetworkManager::sendPacket(SOCKET socket, Packet * pkt)
         bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
         if (result == SOCKET_ERROR && !blocking)
         {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: send() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
+            printf("[P2P]: send() failed with error: %i\n", WSAGetLastError());
             delete[] toSend;
             return false;
         }
@@ -338,7 +314,7 @@ Packet * NetworkManager::getPacket(SOCKET socket)
     bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
     if (blocking)
     {
-        AddOutputMsg(L"[ERROR]: doRcv() could not receive packet, would block.");
+        printf("[ERROR]: doRcv() could not receive packet, would block.\n");
         return nullptr;
     }
 
@@ -386,9 +362,7 @@ bool NetworkManager::doRcv(SOCKET socket, char * data, unsigned int recvLength)
         bool blocking = WSAGetLastError() == WSAEWOULDBLOCK;
         if (result == SOCKET_ERROR && !blocking)
         {
-            wchar_t buffer1[256];
-            swprintf(buffer1, 256, L"[P2P]: recv() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer1);
+            printf("[P2P]: recv() failed with error: %i\n", WSAGetLastError());
             return false;
         }
         if (!blocking)
@@ -412,9 +386,7 @@ void NetworkManager::setBlocking(SOCKET socket, bool block)
     unsigned long mode = block;
     if (ioctlsocket(socket, FIONBIO, &mode) != NO_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[Socket]: ioctlsocket() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[Socket]: ioctlsocket() failed with error: %i\n", WSAGetLastError());
     }
 }
 
@@ -428,9 +400,7 @@ void NetworkManager::joinMulticastGroup(HWND hWnd)
     {
         if (WSAAsyncSelect(_mcst_socket, hWnd, WM_MCST_SOCKET, FD_READ) == SOCKET_ERROR)
         {
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[Multicast]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-            AddOutputMsg(buffer);
+            printf("[Multicast]: WSAAsyncSelect() failed with error: %i\n", WSAGetLastError());
             leaveMulticastGroup();
         }
     }
@@ -445,16 +415,12 @@ void NetworkManager::setupPeerListener(HWND hWnd)
 
     if (_p2p_lstn_socket == INVALID_SOCKET)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: socket() failed with error: %i\n", WSAGetLastError());
         return;
     }
     if (WSAAsyncSelect(_p2p_lstn_socket, hWnd, WM_P2P_LISTEN_SOCKET, (FD_CONNECT | FD_ACCEPT | FD_CLOSE)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: WSAAsyncSelect() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: WSAAsyncSelect() failed with error: %i\n", WSAGetLastError());
         closesocket(_p2p_lstn_socket);
         return;
     }
@@ -465,17 +431,13 @@ void NetworkManager::setupPeerListener(HWND hWnd)
 
     if (::bind(_p2p_lstn_socket, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: bind() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: bind() failed with error: %i\n", WSAGetLastError());
         closesocket(_p2p_lstn_socket);
         return;
     }
     if (listen(_p2p_lstn_socket, 5) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: listen() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: listen() failed with error: %i\n", WSAGetLastError());
         closesocket(_p2p_lstn_socket);
         return;
     }

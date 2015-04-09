@@ -27,10 +27,9 @@ void PeerHandler::disconnectPeer(Peer * peer)
             sockaddr_in addr;
             int size = sizeof(addr);
             getpeername(peer->getSocket(), (sockaddr*)&addr, &size);
-            wchar_t buffer[256];
-            swprintf(buffer, 256, L"[P2P]: Peer disconnected at %hs", inet_ntoa(addr.sin_addr));
-            AddOutputMsg(buffer);
 
+            printf("[P2P]: Peer disconnected at %hs\n", inet_ntoa(addr.sin_addr));
+            
             // Stop peer stream
             peer->onDestroyRoot();
 
@@ -51,9 +50,7 @@ void PeerHandler::directConnectToPeer(char* ip)
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = inet_addr(ip);
 
-	wchar_t buffer[256];
-	swprintf(buffer, 256, L"[P2P]: Attempting peer connection at %hs", inet_ntoa(addr.sin_addr));
-	AddOutputMsg(buffer);
+    printf("[P2P]: Attempting peer connection at %hs\n", inet_ntoa(addr.sin_addr));
 
 	std::thread t(&PeerHandler::connectToPeerThread, this, addr);
 	t.detach();
@@ -71,9 +68,7 @@ void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
     SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock == INVALID_SOCKET)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: socket() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: socket() failed with error: %i\n", WSAGetLastError());
         return;
     }
 
@@ -85,9 +80,7 @@ void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
 
     if (connect(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: connect() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: connect() failed with error: %i\n", WSAGetLastError());
         closesocket(sock);
         return;
     }
@@ -102,7 +95,7 @@ void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
     peers.push_back(new Peer(sock));
 
     // Update main GUI peer listbox
-    updatePeerListBoxData();
+    //updatePeerListBoxData();
 }
 
 void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
@@ -110,9 +103,7 @@ void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
     SOCKET sock = accept(wParam, NULL, NULL);
     if (sock == INVALID_SOCKET)
     {
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"[P2P]: accept() failed with error: %i", WSAGetLastError());
-        AddOutputMsg(buffer);
+        printf("[P2P]: accept() failed with error: %i\n", WSAGetLastError());
         return;
     }
 
@@ -126,5 +117,5 @@ void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
     peers.push_back(new Peer(sock));
 
     // Update main GUI peer listbox
-    updatePeerListBoxData();
+    //updatePeerListBoxData();
 }

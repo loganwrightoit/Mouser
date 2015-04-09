@@ -7,7 +7,7 @@ Worker::Worker(SOCKET socket) : isReady(false)
     // Create queue mutex lock
     if ((ghMutex = CreateMutex(NULL, FALSE, NULL)) == NULL)
     {
-        //AddOutputMsg(L"[P2P]: CreateMutex() failed, queue not thread-safe.");
+        printf("[P2P]: CreateMutex() failed, queue not thread-safe.\n");
     }
 
     _socket = socket;
@@ -22,6 +22,10 @@ Worker::~Worker()
 
 void Worker::run()
 {
+    // Force system to create message queue
+    MSG msg;
+    PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
+
     WNDCLASSEX wx = {};
     wx.cbSize = sizeof(WNDCLASSEX);
     wx.lpfnWndProc = WorkerProc;
@@ -32,24 +36,39 @@ void Worker::run()
     {
         exit(1);
     }
-    
+
+    _ghReadyEvent = CreateEvent(
+        NULL,               // default security attributes
+        TRUE,               // manual-reset event
+        FALSE,              // initial state is nonsignaled
+        NULL  // object name
+        );
+    if (_ghReadyEvent == NULL)
+    {
+        printf("CreateEvent failed (%d)\n", GetLastError());
+        return;
+    }
+
     // Create message-only window
     _hwnd = CreateWindowEx(0, wx.lpszClassName, wx.lpszClassName, 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, this);
+    //PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
+    SetEvent(_ghReadyEvent);
 
     // Start send thread
     std::thread t(&Worker::sendThread, this);
     t.detach();
 
-    // TODO: Figure out event-driven system for this
-    isReady = true;
-
     // Main message loop
-    MSG msg;
     while (GetMessage(&msg, NULL, 0, 0))
     {
         //TranslateMessage(&msg); // Process key events
         DispatchMessage(&msg);
     }
+}
+
+HANDLE Worker::getReadyEvent() const
+{
+    return _ghReadyEvent;
 }
 
 void Worker::setReady()
@@ -81,6 +100,9 @@ LRESULT CALLBACK Worker::WorkerProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
                 auto pair = (std::pair<Worker*, Packet*>*)wParam;
                 pair->first->queuePacket(pair->second);
             }
+            break;
+        case WM_CLOSE:
+            DestroyWindow(hwnd);
             break;
         default:
             return DefWindowProc(hwnd, msg, wParam, lParam);

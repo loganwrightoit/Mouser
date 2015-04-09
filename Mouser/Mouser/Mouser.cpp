@@ -38,7 +38,7 @@ HWND hMouserStatusBar;
 HWND hMouserNoPeersLabel;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
-HBRUSH brushBgnd = CreateSolidBrush(RGB(100, 150, 200));
+HBRUSH brushBgnd = CreateSolidBrush(RGB(80, 120, 200));
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -364,14 +364,6 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     return TRUE;
 }
 
-void AddOutputMsg(LPWSTR msg)
-{
-    int idx = SendMessage(hMouserOutputListBox, LB_ADDSTRING, 0, (LPARAM)msg);
-
-    // Scroll to new message
-    SendMessage(hMouserOutputListBox, LB_SETTOPINDEX, idx, 0);
-}
-
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
 //
@@ -598,13 +590,9 @@ void updatePeerListBoxData()
         auto iter = peers.begin();
         while (iter != peers.end())
         {
-            // Only display name if it's known
-            if (wcscmp((*iter)->getName(), L"Unknown") != 0)
-            {
-                // Add peer to listbox
-                int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
-                SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
-            }
+            // Add peer to listbox
+            int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
+            SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
             ++iter;
         }
     }
