@@ -29,3 +29,4 @@
 #include "NetworkManager.h"
 #include "PeerHandler.h"
 #include "WindowUtil.h"
+#include "StringUtil.h"

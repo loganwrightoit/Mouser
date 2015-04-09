@@ -51,7 +51,8 @@ void Worker::run()
 
     // Create message-only window
     _hwnd = CreateWindowEx(0, wx.lpszClassName, wx.lpszClassName, 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, this);
-    //PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
+    
+    // We should be able to receive packet messages now
     SetEvent(_ghReadyEvent);
 
     // Start send thread
@@ -61,7 +62,7 @@ void Worker::run()
     // Main message loop
     while (GetMessage(&msg, NULL, 0, 0))
     {
-        //TranslateMessage(&msg); // Process key events
+        //TranslateMessage(&msg); // Process virtual key events
         DispatchMessage(&msg);
     }
 }

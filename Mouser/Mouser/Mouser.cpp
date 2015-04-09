@@ -46,6 +46,7 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    MainWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    PeerWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    StreamWndProc(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    DirectConnect(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 bool                isPeerChatSendCommand(MSG msg);
 void                sendChatToPeer(HWND hWnd);
@@ -408,7 +409,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 NULL);
 
             setWindowFont(hMouserNoPeersLabel);
-            std::wstring str1(L"\n\nNo peers found.\n\nGo to 'File->Direct Connect'\nto manually connect.");
+            std::wstring str1(L"\n\nNo peers connected.\n\nGo to 'File->Direct Connect'\nto manually connect.");
             SetWindowText(hMouserNoPeersLabel, str1.c_str());
 
             // Create listbox for peers
@@ -429,12 +430,22 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             setWindowFont(hMouserPeerListBox);
 
             // Create status bar
-            hMouserStatusBar = CreateWindowEx(0, STATUSCLASSNAME, NULL,
-                WS_CHILD | WS_VISIBLE, 0, 0, 0, 0,
-                hWnd, (HMENU)IDC_MAIN_STATUS_BAR, GetModuleHandle(NULL), NULL);
+            hMouserStatusBar = CreateWindowEx(
+                0,
+                STATUSCLASSNAME,
+                NULL,
+                WS_CHILD | WS_VISIBLE,
+                0,
+                0,
+                0,
+                0,
+                hWnd,
+                (HMENU)IDC_MAIN_STATUS_BAR,
+                GetModuleHandle(NULL),
+                NULL);
 
             // Set IP in status bar
-            wchar_t ip[80];
+            wchar_t ip[16];
             NetworkManager::getInstance().getIP(ip);
             std::wstring str(L"\tYour IP: ");
             str.append(ip);
@@ -483,34 +494,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         // Parse the menu selections:
         switch (wmId)
         {
-            /*
-		case IDC_MAIN_PEER_BUTTON:
-			{
-				// Get IP from editbox
-				wchar_t buffer[16];
-				GetWindowText(hMouserPeerConnectEditBox, buffer, sizeof(buffer));
-
-				if (wcslen(buffer) == 0)
-				{
-					AddOutputMsg(L"[P2P]: Must enter a valid IP address.");
-				}
-				else
-				{
-					// Convert wchar_t* string to char*
-					size_t szText = wcslen(buffer) + 1; // +1 for null terminator
-					char* text = new char[szText];
-					size_t charsConverted = 0;
-					wcstombs_s(&charsConverted, text, szText, buffer, wcslen(buffer));
-
-					// Attempt peer connection
-					peerHandler->directConnectToPeer(text);
-
-					// Clean up memory
-					delete[] text;
-				}
-			}
-			break;
-            */
         case IDC_MAIN_PEER_LISTBOX:
             switch (wmEvent)
             {
@@ -531,6 +514,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             break;
         case IDM_ABOUT:
             DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+            break;
+        case IDM_DIRECTCONNECT:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_DIRECTCONNECTBOX), hWnd, DirectConnect);
             break;
         case IDM_EXIT:
             DestroyWindow(hWnd);
@@ -911,6 +897,48 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     }
 
     return 0;
+}
+
+//
+// Message handler for about box.
+//
+INT_PTR CALLBACK DirectConnect(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    UNREFERENCED_PARAMETER(lParam);
+
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK)
+        {
+            // Grab IP from edit control
+            HWND hwnd = GetDlgItem(hDlg, IDC_DC_IP_EDIT);
+            wchar_t input[17];
+            GetWindowText(hwnd, input, 17);
+
+            // Convert to char*
+            StringUtil util;
+            std::string str(util.utf8_encode(input));
+
+            // Attempt connection to IP
+            peerHandler->directConnectToPeer(str.c_str());
+
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        
+        break;
+    }
+
+    return (INT_PTR)FALSE;
 }
 
 //

@@ -27,6 +27,7 @@ Peer::Peer(SOCKET peer_socket = 0)
     {
         return;
     }
+    _worker->setReady();
     CloseHandle(readyEvent);
 
     // Send host name to peer
@@ -312,7 +313,7 @@ int Peer::displayFileSendRequestMessageBox()
 int Peer::displayStreamRequestMessageBox(wchar_t* name)
 {
     wchar_t buffer[256];
-    swprintf(buffer, 256, L"%ls wants to share a screen with you: %ls.\nDo you want to accept it?", _name, name);
+    swprintf(buffer, 256, L"%ls wants to share a screen with you:\n\n%ls\n\nDo you want to accept it?", _name, name);
 
     int msgboxID = MessageBox(
         NULL,
