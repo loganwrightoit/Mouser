@@ -34,7 +34,7 @@ void Worker::run()
 
     if (!RegisterClassEx(&wx))
     {
-        exit(1);
+        printf("Unable to register worker class.\n");
     }
 
     _ghReadyEvent = CreateEvent(
