@@ -531,6 +531,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             return DefWindowProc(hWnd, msg, wParam, lParam);
         }
         break;
+    case WM_CTLCOLORLISTBOX:
     case WM_CTLCOLORSTATIC:
         {
             HDC hdcStatic = (HDC)wParam;
@@ -747,16 +748,16 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             setWindowFont(peer->hChatIsTypingLabel);
         }
         break;
-	case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORSTATIC:
 
-        if (hWnd == hMouserNoPeersLabel)
-		{
-			HDC hdcStatic = (HDC)wParam;
-			SetTextColor(hdcStatic, RGB(255, 255, 255));
-			SetBkMode(hdcStatic, TRANSPARENT);
+        if ((HWND)lParam == peer->hChatIsTypingLabel)
+        {
+            HDC hdcStatic = (HDC)wParam;
+            SetTextColor(hdcStatic, RGB(255, 255, 255));
+            SetBkMode(hdcStatic, TRANSPARENT);
 
-			return (LRESULT)brushBgnd;
-		}
+            return (LRESULT)brushBgnd;
+        }
         break;
 
     case WM_DROPFILES:
