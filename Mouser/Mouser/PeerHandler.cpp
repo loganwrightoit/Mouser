@@ -95,6 +95,12 @@ void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
 
     // Add peer to vector
     peers.push_back(new Peer(sock));
+
+    // Give peer time to resolve name
+    Sleep(500);
+
+    // Update peer list
+    updatePeerListBoxData();
 }
 
 void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
@@ -114,4 +120,7 @@ void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
 
     // Add peer
     peers.push_back(new Peer(sock));
+
+    // Update peer list
+    updatePeerListBoxData();
 }
