@@ -3,7 +3,6 @@
 #include <thread>
 #include <string>
 #include "math.h"
-#include <Shlobj.h>
 #include "ImageUtil.h"
 #include "Shellapi.h"
 
@@ -123,8 +122,7 @@ void Peer::openStreamWindow()
     }
     else
     {
-        HWND root = getRootWindow();
-        SendMessage(root, WM_EVENT_OPEN_PEER_STREAM, (WPARAM)this, NULL);
+        SendMessage(getRootWindow(), WM_EVENT_OPEN_PEER_STREAM, (WPARAM)this, NULL);
     }
 }
 
@@ -166,12 +164,18 @@ void Peer::makeFileSendRequest(wchar_t* path)
 
     if (file.is_open())
     {
+        // Populate file info
+        FileSender::FileInfo info;
+        wcscpy_s(info.path, wcslen(path) + 1, path);
+        info.size = (size_t)file.tellg();
+
+        // Create file sender object (creates file transfer window)
+        _fileSender = new FileSender(this, TRUE, info);
+
         // Send file info to peer (filename, size)
-        wcscpy_s(_file.path, wcslen(path) + 1, path);
-        _file.size = (size_t)file.tellg();
-        char* data = new char[sizeof(_file)];
-        memcpy_s(data, sizeof(_file), &_file, sizeof(_file));
-        _worker->sendPacket(new Packet(Packet::FILE_SEND_REQUEST, data, sizeof(_file)));
+        char* data = new char[sizeof(info)];
+        memcpy_s(data, sizeof(info), &info, sizeof(info));
+        _worker->sendPacket(new Packet(Packet::FILE_SEND_REQUEST, data, sizeof(info)));
 
         // Close file
         file.close();
@@ -234,71 +238,14 @@ void Peer::makeStreamRequest(HWND hWnd)
     _worker->sendPacket(new Packet(Packet::STREAM_REQUEST, data, sizeof(info)));
 }
 
-void Peer::doFileSendThread()
-{
-    // Open file
-    std::ifstream file(_file.path, std::ifstream::binary);
-
-    if (file.is_open())
-    {
-        _remainingFile = _file.size;
-
-        // Send file fragments to peer
-        while (1)
-        {
-            if (_worker->ready())
-            {
-                char buffer[FILE_BUFFER];
-                size_t size;
-                if (file.read(buffer, sizeof(buffer)))
-                {
-                    _remainingFile -= FILE_BUFFER;
-
-                    // Send fragment
-                    char* data = new char[sizeof(buffer)];
-                    memcpy_s(data, sizeof(buffer), buffer, sizeof(buffer));
-                    _worker->sendPacket(new Packet(Packet::FILE_FRAGMENT, data, sizeof(buffer)));
-                }
-                else if ((size = (size_t)file.gcount()) > 0)
-                {
-                    _remainingFile -= size;
-
-                    // Send final fragment
-                    char* data = new char[size];
-                    memcpy_s(data, size, buffer, size); // Buffer only contains data up to file.gcount()
-                    _worker->sendPacket(new Packet(Packet::FILE_FRAGMENT, data, size));
-                }
-                else
-                {
-                    // Notify peer chat of completion
-                    wchar_t buffer[256];
-                    PathStripPath(_file.path);
-                    swprintf(buffer, 256, L"--> File %ls (%d bytes) sent to peer.", _file.path, _file.size);
-                    addChat(buffer);
-
-                    SetWindowText(_hWnd, _name);
-
-                    file.close();
-                    return;
-                }
-
-                // Update percentage label in peer window
-                wchar_t buffer2[256];
-                swprintf(buffer2, 256, L"%ls - Sending file: %.0f%%", _name, (1 - (float)_remainingFile / _file.size) * 100);
-                SetWindowText(_hWnd, buffer2);
-            }
-        }
-    }
-}
-
-int Peer::displayFileSendRequestMessageBox()
+int Peer::displayFileSendRequestMessageBox(FileSender::FileInfo info)
 {
     wchar_t fileName[MAX_PATH];
-    wcscpy_s(fileName, MAX_PATH, _file.path);
+    wcscpy_s(fileName, MAX_PATH, info.path);
     PathStripPath(fileName);
 
     wchar_t buffer[256];
-    swprintf(buffer, 256, L"%ls wants to send you a file:\n\n%ls (%i bytes)\n\nDo you want to accept it?", _name, fileName, _file.size);
+    swprintf(buffer, 256, L"%ls wants to send you a file:\n\n%ls (%i bytes)\n\nDo you want to accept it?", _name, fileName, info.size);
 
     int msgboxID = MessageBox(
         NULL,
@@ -325,106 +272,41 @@ int Peer::displayStreamRequestMessageBox(wchar_t* name)
     return msgboxID;
 }
 
+void Peer::openDownloadDialog()
+{
+    if (!_fileSender)
+    {
+        _fileSender = new FileSender(this, FALSE, _temp);
+    }
+}
+
 void Peer::getFileSendRequest(Packet* pkt)
 {
-    // Save file info
-    // Not zero is error condition
-    if (memcpy_s(&_file, sizeof(_file), pkt->getData(), sizeof(_file)))
+    // Populate temporary file info
+    if (memcpy_s(&_temp, sizeof(struct FileSender::FileInfo), pkt->getData(), sizeof(struct FileSender::FileInfo)))
     {
-        return;
+        return; // Not zero is error condition
     }
 
-    if (displayFileSendRequestMessageBox() == IDYES)
+    if (displayFileSendRequestMessageBox(_temp) == IDYES) // Peer accepted file transfer request
     {
-        // Create file on desktop
-        if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, NULL, 0, _tempPath)))
-        {
-            // Grab some path properties
-            wchar_t fileName[MAX_PATH];
-            _wsplitpath_s(_file.path, NULL, 0, NULL, 0, fileName, MAX_PATH, _tempExt, MAX_PATH);
-
-            // Build a new path with temporary file extension
-            PathAppend(_tempPath, fileName);
-            PathRenameExtension(_tempPath, L".tmp");
-
-            // Save remaining size for decrementing as fragments received
-            _remainingFile = _file.size;
-
-            // Open file in preparation for file fragments
-            _outFile.open(_tempPath, std::ifstream::binary);
-            if (_outFile.is_open())
-            {
-                // Send accept packet to begin receiving file
-                _worker->sendPacket(new Packet(Packet::FILE_SEND_ALLOW));
-            }
-            else
-            {
-                printf("[P2P]: Unable to open temporary file for receiving send.\n");
-            }
-        }
-        else
-        {
-            printf("[P2P]: Unable to get temporary file path.\n");
-        }
+        _fileSender = new FileSender(this, FALSE, _temp);
+        //SendMessage(getRootWindow(), WM_EVENT_OPEN_DOWNLOADBOX, (WPARAM)this, NULL);
     }
     else
     {
         _worker->sendPacket(new Packet(Packet::FILE_SEND_DENY));
-        addChat(L"--> Denied file send request.");
     }
 }
 
 void Peer::getFileSendAllow(Packet* pkt)
 {
-    addChat(L"--> Peer accepted file send request, beginning transfer.");
-
-    // Start new thread to send file
-    std::thread t(&Peer::doFileSendThread, this);
-    t.detach();
+    _fileSender->onPeerAcceptRequest();
 }
 
 void Peer::getFileSendDeny(Packet* pkt)
 {
-    addChat(L"--> Peer denied file send request.");
-}
-
-void Peer::getFileFragment(Packet* pkt)
-{
-    // Check that file is open
-    if (_outFile.is_open())
-    {
-        _outFile.write(pkt->getData(), pkt->getSize());
-
-        // Decrement expected size
-        _remainingFile -= pkt->getSize();
-
-        // Close file if expected reaches 0
-        if (_remainingFile <= 0)
-        {
-            _outFile.close();
-
-            // Rename extension of temporary file
-            wchar_t oldPath[MAX_PATH];
-            wcscpy_s(oldPath, MAX_PATH, _tempPath);
-            PathRenameExtension(_tempPath, _tempExt);
-            _wrename(oldPath, _tempPath);
-
-            // Notify peer chat of completion
-            wchar_t buffer[256];
-            PathStripPath(_file.path);
-            swprintf(buffer, 256, L"--> File %ls (%d bytes) saved to desktop.", _file.path, _file.size);
-            addChat(buffer);
-
-            SetWindowText(_hWnd, _name);
-            return;
-        }
-
-        // Update percentage label in peer window
-        wchar_t buffer[256];
-        swprintf(buffer, 256, L"%ls - Receiving file: %.0f%%", getUserName(), (1 - (float) _remainingFile / _file.size) * 100);
-        openChatWindow();
-        SetWindowText(_hWnd, buffer);
-    }
+    _fileSender->onPeerRejectRequest();
 }
 
 void Peer::rcvThread()
@@ -481,7 +363,7 @@ void Peer::rcvThread()
             getFileSendDeny(pkt);
             break;
         case Packet::FILE_FRAGMENT:
-            getFileFragment(pkt);
+            _fileSender->getFileFragment(pkt);
             break;
         case Packet::NAME:
             getName(pkt);

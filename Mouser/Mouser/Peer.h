@@ -65,6 +65,8 @@ class Peer
         HWND hChatStopSharingButton;
         HWND hChatIsTypingLabel;
 
+        void openDownloadDialog();
+
         bool onResize;
 
     private:
@@ -76,13 +78,11 @@ class Peer
 
         void rcvThread();
         
-        void doFileSendThread();
-        int  displayFileSendRequestMessageBox();
+        int  displayFileSendRequestMessageBox(const FileSender::FileInfo info);
         void getFileSendRequest(Packet* pkt);
         void getFileSendAllow(Packet* pkt);
         void getFileSendDeny(Packet* pkt);
-        void getFileFragment(Packet* pkt);
-
+        
         int  displayStreamRequestMessageBox(wchar_t* name);
         void getStreamRequest(Packet* pkt);
         void getStreamAllow(Packet* pkt);
@@ -107,14 +107,6 @@ class Peer
         
         CImage _cachedStreamImage;
         POINT _cachedStreamCursor;
-
-        // Holds path and size of file send
-        FileSender::FileInfo _file;
-        std::ofstream _outFile; // Stream target for incoming file fragments
-        size_t _remainingFile; // Amount of expected filesize read
-        wchar_t _tempPath[MAX_PATH]; // Temporary file path
-        wchar_t _tempExt[MAX_PATH]; // Temporary file extension
-
         RECT updateRegion;
 
         HWND _hWnd;
@@ -123,6 +115,8 @@ class Peer
 
         HMENU _menu;
         HMENU _menuShareScreen;
+
+        FileSender::FileInfo _temp;
 
         Worker* _worker;
 

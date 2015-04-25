@@ -104,16 +104,19 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
     // Main message loop:
     while (GetMessage(&msg, NULL, 0, 0))
     {
-        if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
+        if (!IsDialogMessage(FileSender::getActive(), &msg))
         {
-            // Detect ENTER command in peer chat editbox
-            if (isPeerChatSendCommand(msg))
+            if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
             {
-                continue;
-            }
+                // Detect ENTER command in peer chat editbox
+                if (isPeerChatSendCommand(msg))
+                {
+                    continue;
+                }
 
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
         }
     }
 
@@ -487,6 +490,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return getWindow(WindowType::PeerWin, (Peer*)wParam) != NULL;
     case WM_EVENT_OPEN_PEER_STREAM:
         return getWindow(WindowType::StreamWin, (Peer*)wParam) != NULL;
+    case WM_EVENT_OPEN_DOWNLOADBOX:
+        ((Peer*)wParam)->openDownloadDialog();
+        return TRUE;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);
