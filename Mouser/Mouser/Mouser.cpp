@@ -490,7 +490,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return getWindow(WindowType::PeerWin, (Peer*)wParam) != NULL;
     case WM_EVENT_OPEN_PEER_STREAM:
         return getWindow(WindowType::StreamWin, (Peer*)wParam) != NULL;
-    case WM_EVENT_OPEN_DOWNLOADBOX:
+    case WM_EVENT_CREATE_DOWNLOADBOX:
         ((Peer*)wParam)->openDownloadDialog();
         return TRUE;
     case WM_COMMAND:
@@ -762,20 +762,23 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
     case WM_DROPFILES:
         {
-            HDROP hDrop = (HDROP)wParam;
-            UINT numFiles = DragQueryFile(hDrop, 0xffffffff, NULL, NULL);
-            
-            // Only allow single file
-            if (numFiles == 1)
+            if (!(peer->getFileSender()))
             {
-                wchar_t lpszFile[MAX_PATH];
-                if (DragQueryFile(hDrop, 0, lpszFile, MAX_PATH))
-                {
-                    peer->makeFileSendRequest(lpszFile);
-                }
-            }
+                HDROP hDrop = (HDROP)wParam;
+                UINT numFiles = DragQueryFile(hDrop, 0xffffffff, NULL, NULL);
 
-            DragFinish(hDrop);
+                // Only allow single file
+                if (numFiles == 1)
+                {
+                    wchar_t lpszFile[MAX_PATH];
+                    if (DragQueryFile(hDrop, 0, lpszFile, MAX_PATH))
+                    {
+                        peer->makeFileSendRequest(lpszFile);
+                    }
+                }
+
+                DragFinish(hDrop);
+            }
         }
         break;
 

@@ -47,6 +47,9 @@ class Peer
         void onDestroyRoot();
         void clearStreamSender();
         void clearCursorUtil();
+        void openDownloadDialog();
+
+        FileSender* getFileSender() const;
 
         void DrawStreamImage(HDC hdc);
         void DrawStreamCursor(HDC hdc);
@@ -64,8 +67,6 @@ class Peer
         HWND hChatListBox;
         HWND hChatStopSharingButton;
         HWND hChatIsTypingLabel;
-
-        void openDownloadDialog();
 
         bool onResize;
 

@@ -9,7 +9,7 @@
 #define NOMINMAX
 
 Peer::Peer(SOCKET peer_socket = 0)
-: _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0)
+: _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0), _fileSender(0)
 {
     _name = L"Unknown";
 
@@ -272,6 +272,11 @@ int Peer::displayStreamRequestMessageBox(wchar_t* name)
     return msgboxID;
 }
 
+FileSender* Peer::getFileSender() const
+{
+    return _fileSender;
+}
+
 void Peer::openDownloadDialog()
 {
     if (!_fileSender)
@@ -290,8 +295,7 @@ void Peer::getFileSendRequest(Packet* pkt)
 
     if (displayFileSendRequestMessageBox(_temp) == IDYES) // Peer accepted file transfer request
     {
-        _fileSender = new FileSender(this, FALSE, _temp);
-        //SendMessage(getRootWindow(), WM_EVENT_OPEN_DOWNLOADBOX, (WPARAM)this, NULL);
+        SendMessage(getRootWindow(), WM_EVENT_CREATE_DOWNLOADBOX, (WPARAM)this, NULL);
     }
     else
     {
