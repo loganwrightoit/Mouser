@@ -201,6 +201,9 @@ void FileSender::getFileFragment(Packet* pkt)
             // Activate "OK" button
             HWND hwnd = GetDlgItem(_hDlg, IDOK);
             EnableWindow(hwnd, TRUE);
+
+            // For now, destroy the window since its not responding
+            DestroyWindow(_hDlg);
         }
     }
 }
