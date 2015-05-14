@@ -6,7 +6,10 @@ void PeerHandler::addPeer(Peer* peer)
 {
     peers.push_back(peer);
 
-    updatePeerListBoxData();
+    if (peer->getName() != L"Unknown")
+    {
+        updatePeerListBoxData();
+    }
 }
 
 void PeerHandler::removePeer(Peer* peer)
@@ -50,6 +53,21 @@ Peer* PeerHandler::getPeer(HWND _In_hWnd)
     HWND hWnd = GetAncestor(_In_hWnd, GA_ROOT);
     Peer* peer = (Peer*) GetWindowLongPtr(hWnd, GWL_USERDATA);
     return peer;
+}
+
+//
+// Returns peer associated with socket.
+//
+Peer* PeerHandler::getPeer(SOCKET socket)
+{
+    auto iter = peers.begin();
+    while (iter != peers.end())
+    {
+        if ((*iter)->getSocket() == socket)
+        {
+            return *iter;
+        }
+    }
 }
 
 void PeerHandler::directConnectToPeer(const char* ip)

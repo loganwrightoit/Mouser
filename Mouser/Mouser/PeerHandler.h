@@ -21,6 +21,7 @@ class PeerHandler
         std::vector<Peer*> getPeers() const;
         void handlePeerConnectionRequest(WPARAM wParam);
         Peer* getPeer(HWND hWnd);
+        Peer* PeerHandler::getPeer(SOCKET socket);
 
     private:
 

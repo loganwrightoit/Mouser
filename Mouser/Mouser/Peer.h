@@ -30,7 +30,6 @@ class Peer
         void sendStreamResize();
         void sendStreamCursor();
         void sendChatMsg(wchar_t* msg);
-        void sendName();
         SOCKET getSocket() const;
 
         HWND getRoot();
@@ -68,6 +67,8 @@ class Peer
         HWND hChatListBox;
         HWND hChatStopSharingButton;
         HWND hChatIsTypingLabel;
+
+        std::pair<char*, size_t> getNameData();
 
         bool onResize;
 

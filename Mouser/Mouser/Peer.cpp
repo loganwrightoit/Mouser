@@ -20,17 +20,16 @@ Peer::Peer(SOCKET peer_socket = 0)
     std::thread rt(&Peer::rcvThread, this);
     rt.detach();
 
-    HANDLE readyEvent = _worker->getReadyEvent();
-    DWORD dwWaitResult = WaitForSingleObject(readyEvent, INFINITE);
-    if (dwWaitResult != WAIT_OBJECT_0)
-    {
-        return;
-    }
+    //HANDLE readyEvent = _worker->getReadyEvent();
+    //DWORD dwWaitResult = WaitForSingleObject(readyEvent, INFINITE);
+    //if (dwWaitResult != WAIT_OBJECT_0)
+    //{
+    //    return;
+    //}
     _worker->setReady();
-    CloseHandle(readyEvent);
+    //CloseHandle(readyEvent);
 
-    // Send host name to peer
-    sendName();
+
 }
 
 Peer::~Peer()
@@ -155,14 +154,13 @@ void Peer::addChat(LPWSTR msg)
     }
 }
 
-void Peer::sendName()
+std::pair<char*, size_t> Peer::getNameData()
 {
     std::pair<char*, size_t> buffer;
     
     if (encode_utf8(&buffer, getUserName()))
     {
-        // Send name to peer
-        _worker->sendPacket(new Packet(Packet::NAME, buffer.first, buffer.second));
+        return buffer;
     }
 }
 
