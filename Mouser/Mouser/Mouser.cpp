@@ -415,23 +415,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             std::wstring str1(L"\n\nNo peers connected.\n\nGo to 'File->Direct Connect'\nto manually connect.");
             SetWindowText(hMouserNoPeersLabel, str1.c_str());
 
-            // Create listbox for peers
-            hMouserPeerListBox = CreateWindowEx(
-                NULL,
-                L"LISTBOX",
-                NULL,
-                WS_CHILD | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
-				0,
-				0,
-				rect.right,
-				rect.bottom,
-                hWnd,
-                (HMENU)IDC_MAIN_PEER_LISTBOX,
-                hInst,
-                NULL);
-
-            setWindowFont(hMouserPeerListBox);
-
             // Create status bar
             hMouserStatusBar = CreateWindowEx(
                 0,
@@ -447,6 +430,23 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 GetModuleHandle(NULL),
                 NULL);
 
+            // Create listbox for peers
+            hMouserPeerListBox = CreateWindowEx(
+                NULL,
+                L"LISTBOX",
+                NULL,
+                WS_CHILD | WS_VSCROLL | ES_AUTOVSCROLL | LBS_HASSTRINGS | LBS_NOTIFY,
+                0,
+                0,
+                rect.right,
+                rect.bottom,
+                hWnd,
+                (HMENU)IDC_MAIN_PEER_LISTBOX,
+                hInst,
+                NULL);
+
+            setWindowFont(hMouserPeerListBox);
+
             // Set IP in status bar
             wchar_t ip[16];
             NetworkManager::getInstance().getIP(ip);
@@ -460,11 +460,15 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             RECT rect;
             GetClientRect(hWnd, &rect);
 
+            RECT status;
+            GetWindowRect(hMouserStatusBar, &status);
+            int status_height = status.bottom - status.top;
+
             // Resize peer list
-            MoveWindow(hMouserPeerListBox, 0, 0, rect.right, rect.bottom, TRUE);
+            MoveWindow(hMouserPeerListBox, 0, 0, rect.right, rect.bottom - status_height, TRUE);
 
             // Resize temp label
-            MoveWindow(hMouserNoPeersLabel, 0, 0, rect.right, rect.bottom, TRUE);
+            MoveWindow(hMouserNoPeersLabel, 0, 0, rect.right, rect.bottom - status_height, TRUE);
 
             // Tell status bar to resize
             SendMessage(hMouserStatusBar, WM_SIZE, 0, 0);
