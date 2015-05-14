@@ -394,7 +394,6 @@ void Peer::getStreamClose()
 {
     if (_streamSender) // Receiver closed stream window
     {
-        delete _streamSender;
         clearStreamSender();
         clearCursorUtil();
         EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);

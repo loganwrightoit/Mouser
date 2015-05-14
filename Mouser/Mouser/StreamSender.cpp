@@ -204,8 +204,6 @@ void StreamSender::startCaptureThread(HWND hWnd)
     DeleteDC(hTileDC);
     DeleteObject(hTileHBmp);
 
-    OutputDebugString(L"Clearing streamsender variable.");
-
     ((Peer*)_peer)->clearStreamSender();
     delete this;
 }
