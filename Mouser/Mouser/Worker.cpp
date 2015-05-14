@@ -37,23 +37,23 @@ void Worker::run()
         printf("Unable to register worker class.\n");
     }
 
-    //_ghReadyEvent = CreateEvent(
-    //    NULL,               // default security attributes
-    //    TRUE,               // manual-reset event
-    //    FALSE,              // initial state is nonsignaled
-    //    NULL  // object name
-    //    );
-    //if (_ghReadyEvent == NULL)
-    //{
-    //    printf("CreateEvent failed (%d)\n", GetLastError());
-    //    return;
-    //}
+    _ghReadyEvent = CreateEvent(
+        NULL,               // default security attributes
+        TRUE,               // manual-reset event
+        FALSE,              // initial state is nonsignaled
+        NULL  // object name
+        );
+    if (_ghReadyEvent == NULL)
+    {
+        printf("CreateEvent failed (%d)\n", GetLastError());
+        return;
+    }
 
     // Create message-only window
     _hwnd = CreateWindowEx(0, wx.lpszClassName, wx.lpszClassName, 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, this);
     
     // We should be able to receive packet messages now
-    //SetEvent(_ghReadyEvent);
+    SetEvent(_ghReadyEvent);
 
     // Start send thread
     std::thread t(&Worker::sendThread, this);
@@ -95,8 +95,7 @@ LRESULT CALLBACK Worker::WorkerProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
     {
         case WM_CREATE:
             {
-                // Relying on other methods to determine when the window is ready
-                // to receive messages is insufficient, so send the name here
+                // Send the peer name right away
                 Peer* peer = PeerHandler::getInstance().getPeer(worker->_socket);
                 auto buffer = peer->getNameData();
                 worker->queuePacket(new Packet(Packet::NAME, buffer.first, buffer.second));
@@ -104,7 +103,6 @@ LRESULT CALLBACK Worker::WorkerProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             break;
         case WM_EVENT_SEND_PACKET:
             {
-                OutputDebugString(L"Sending name packet to peer");
                 auto pair = (std::pair<Worker*, Packet*>*)wParam;
                 pair->first->queuePacket(pair->second);
             }

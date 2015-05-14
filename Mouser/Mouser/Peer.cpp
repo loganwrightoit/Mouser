@@ -11,7 +11,7 @@
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0), _fileSender(0)
 {
-    _name = L"Unknown";
+    _name = L"";
 
     // Create worker to handle socket sends
     _worker = new Worker(_socket);
@@ -20,16 +20,14 @@ Peer::Peer(SOCKET peer_socket = 0)
     std::thread rt(&Peer::rcvThread, this);
     rt.detach();
 
-    //HANDLE readyEvent = _worker->getReadyEvent();
-    //DWORD dwWaitResult = WaitForSingleObject(readyEvent, INFINITE);
-    //if (dwWaitResult != WAIT_OBJECT_0)
-    //{
-    //    return;
-    //}
+    HANDLE readyEvent = _worker->getReadyEvent();
+    DWORD dwWaitResult = WaitForSingleObject(readyEvent, INFINITE);
+    if (dwWaitResult != WAIT_OBJECT_0)
+    {
+        return;
+    }
     _worker->setReady();
-    //CloseHandle(readyEvent);
-
-
+    CloseHandle(readyEvent);
 }
 
 Peer::~Peer()
