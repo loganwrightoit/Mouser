@@ -13,9 +13,11 @@ class PeerHandler
             return instance;
         }
 
+        void addPeer(Peer* peer);
+        void removePeer(Peer* peer);
+
 		void directConnectToPeer(const char* ip);
         void connectToPeer();
-        void disconnectPeer(Peer * peer);
         std::vector<Peer*> getPeers() const;
         void handlePeerConnectionRequest(WPARAM wParam);
         Peer* getPeer(HWND hWnd);

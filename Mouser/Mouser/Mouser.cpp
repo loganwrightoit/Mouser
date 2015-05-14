@@ -493,6 +493,13 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_EVENT_CREATE_DOWNLOADBOX:
         ((Peer*)wParam)->openDownloadDialog();
         return TRUE;
+    case WM_EVENT_ADD_PEER:
+        peerHandler->addPeer((Peer*)wParam);
+
+        return TRUE;
+    case WM_EVENT_REMOVE_PEER:
+        peerHandler->removePeer((Peer*)wParam);
+        return TRUE;
     case WM_COMMAND:
         wmId = LOWORD(wParam);
         wmEvent = HIWORD(wParam);

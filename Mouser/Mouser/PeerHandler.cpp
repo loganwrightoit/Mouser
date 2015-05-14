@@ -2,6 +2,37 @@
 #include "PeerHandler.h"
 #include <thread>
 
+void PeerHandler::addPeer(Peer* peer)
+{
+    peers.push_back(peer);
+
+    updatePeerListBoxData();
+}
+
+void PeerHandler::removePeer(Peer* peer)
+{
+    auto iter = peers.begin();
+    while (iter != peers.end())
+    {
+        if (*iter == peer)
+        {
+            sockaddr_in addr;
+            int size = sizeof(addr);
+            getpeername(peer->getSocket(), (sockaddr*)&addr, &size);
+
+            printf("[P2P]: Peer disconnected at %hs\n", inet_ntoa(addr.sin_addr));
+
+            // Stop peer stream
+            peer->onDestroyRoot();
+
+            // Erase peer from vector
+            peers.erase(iter);
+        }
+    }
+
+    updatePeerListBoxData();
+}
+
 std::vector<Peer*> PeerHandler::getPeers() const
 {
     return peers;
@@ -15,31 +46,6 @@ Peer* PeerHandler::getPeer(HWND _In_hWnd)
     HWND hWnd = GetAncestor(_In_hWnd, GA_ROOT);
     Peer* peer = (Peer*) GetWindowLongPtr(hWnd, GWL_USERDATA);
     return peer;
-}
-
-void PeerHandler::disconnectPeer(Peer * peer)
-{
-    auto iter = peers.begin();
-    while (iter != peers.end())
-    {
-        if (*iter == peer)
-        {
-            sockaddr_in addr;
-            int size = sizeof(addr);
-            getpeername(peer->getSocket(), (sockaddr*)&addr, &size);
-
-            printf("[P2P]: Peer disconnected at %hs\n", inet_ntoa(addr.sin_addr));
-            
-            // Stop peer stream
-            peer->onDestroyRoot();
-
-            // Erase peer from vector
-            peers.erase(iter);
-        }
-    }
-
-    // Update main GUI peer listbox
-    updatePeerListBoxData();
 }
 
 void PeerHandler::directConnectToPeer(const char* ip)
@@ -93,14 +99,7 @@ void PeerHandler::connectToPeerThread(sockaddr_in inAddr)
     // Set socket to blocking
     NetworkManager::getInstance().setBlocking(sock, true);
 
-    // Add peer to vector
-    peers.push_back(new Peer(sock));
-
-    // Give peer time to resolve name
-    Sleep(500);
-
-    // Update peer list
-    updatePeerListBoxData();
+    SendMessage(getRootWindow(), WM_EVENT_ADD_PEER, (WPARAM)(new Peer(sock)), 0);
 }
 
 void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
@@ -119,8 +118,5 @@ void PeerHandler::handlePeerConnectionRequest(WPARAM wParam)
     NetworkManager::getInstance().setBlocking(sock, true);
 
     // Add peer
-    peers.push_back(new Peer(sock));
-
-    // Update peer list
-    updatePeerListBoxData();
+    SendMessage(getRootWindow(), WM_EVENT_ADD_PEER, (WPARAM)(new Peer(sock)), 0);
 }

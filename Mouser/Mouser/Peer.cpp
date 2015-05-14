@@ -184,7 +184,6 @@ void Peer::makeFileSendRequest(wchar_t* path)
 
 void Peer::stopSharing()
 {
-    addChat(L"--> Stopped sharing screen.");
     _streamSender->stop();
     _cursorUtil->stop();
     EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
@@ -195,7 +194,6 @@ void Peer::stopSharing()
 void Peer::makeStreamRequest(HWND hWnd)
 {
     EnableMenuItem(_menu, 0, MF_GRAYED | MF_BYPOSITION);
-    addChat(L"--> Sent screen share request, awaiting response.");
     DrawMenuBar(_hWnd);
 
     // Store source HWND for later
@@ -331,7 +329,7 @@ void Peer::rcvThread()
         switch (pkt->getProtocol())
         {
         case Packet::DISCONNECT:
-            PeerHandler::getInstance().disconnectPeer(this);
+            SendMessage(getRootWindow(), WM_EVENT_REMOVE_PEER, (WPARAM)this, 0);
             return;
         case Packet::STREAM_REQUEST:
             getStreamRequest(pkt);
@@ -392,8 +390,6 @@ void Peer::getStreamClose()
         EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
         DrawMenuBar(_hWnd);
         EnableWindow(hChatStopSharingButton, FALSE);
-
-        addChat(L"--> Peer closed screen share.");
     }
     else if (_hWnd_stream) // Sender halted stream
     {
@@ -812,7 +808,6 @@ void Peer::getStreamRequest(Packet* pkt)
 
 void Peer::getStreamAllow(Packet* pkt)
 {
-    addChat(L"--> Share request accepted, you are now sharing your screen.");
     EnableWindow(hChatStopSharingButton, true);
 
     _cursorUtil = new CursorUtil(this, _hWnd_stream_src);
@@ -823,7 +818,6 @@ void Peer::getStreamAllow(Packet* pkt)
 
 void Peer::getStreamDeny(Packet* pkt)
 {
-    addChat(L"--> Share request denied.");
     EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
     DrawMenuBar(_hWnd);
 }
