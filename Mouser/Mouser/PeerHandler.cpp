@@ -22,11 +22,15 @@ void PeerHandler::removePeer(Peer* peer)
 
             printf("[P2P]: Peer disconnected at %hs\n", inet_ntoa(addr.sin_addr));
 
-            // Stop peer stream
-            peer->onDestroyRoot();
-
+            peer->onDestruct();
+            
             // Erase peer from vector
             peers.erase(iter);
+
+            // Destroy peer
+            delete *iter;
+
+            break;
         }
     }
 
@@ -55,10 +59,6 @@ void PeerHandler::directConnectToPeer(const char* ip)
 	addr.sin_port = htons(NetworkManager::getInstance().getPeerListenerPort());
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = inet_addr(ip);
-
-    OutputDebugStringA("[P2P]: Attempting peer connection at: ");
-    OutputDebugStringA(inet_ntoa(addr.sin_addr));
-    OutputDebugStringA("\n");
 
 	std::thread t(&PeerHandler::connectToPeerThread, this, addr);
 	t.detach();

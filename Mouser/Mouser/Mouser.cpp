@@ -850,10 +850,10 @@ LRESULT CALLBACK PeerWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         hdc = BeginPaint(hWnd, &ps);
         EndPaint(hWnd, &ps);
         break;
-    case WM_DESTROY:
+    case WM_CLOSE:
         // Remove the subclass from the edit control. 
         SetWindowLong(peer->hChatEditBox, GWL_WNDPROC, (LONG)wpOrigEditProc);
-        peer->onDestroyRoot();
+        DestroyWindow(hWnd);
         break;
     default:
         return DefWindowProc(hWnd, msg, wParam, lParam);

@@ -35,21 +35,11 @@ Peer::Peer(SOCKET peer_socket = 0)
 
 Peer::~Peer()
 {
+    // Close socket
     shutdown(_socket, SD_BOTH);
     closesocket(_socket);
 
-    if (_hWnd)
-    {
-        PostMessage(_hWnd, WM_CLOSE, 0, 0);
-    }
-    if (_hWnd_stream)
-    {
-        PostMessage(_hWnd_stream, WM_CLOSE, 0, 0);
-    }
-    if (_worker)
-    {
-        delete _worker;
-    }
+    delete _worker;
 }
 
 HWND Peer::getStream()
@@ -67,10 +57,26 @@ void Peer::setStreamWindow(HWND hWnd)
     _hWnd_stream = hWnd;
 }
 
-void Peer::onDestroyRoot()
+void Peer::onDestruct()
 {
-    getStreamClose();
-    _hWnd = _hWnd_stream = _hWnd_stream_src = 0;
+    if (_hWnd_stream)
+    {
+        if (_streamSender)
+        {
+            _streamSender->stop();
+            delete _streamSender;
+        }
+        if (_cursorUtil)
+        {
+            _cursorUtil->stop();
+            delete _cursorUtil;
+        }
+        DestroyWindow(_hWnd_stream);
+    }
+    if (_hWnd)
+    {
+        DestroyWindow(_hWnd);
+    }
 }
 
 void Peer::setInputFocus()
@@ -100,11 +106,11 @@ void Peer::openChatWindow()
             str.append(L" is typing...");
             HWND hWnd = GetDlgItem(_hWnd, IDC_PEER_CHAT_IS_TYPING_LABEL);
             SendMessage(hWnd, WM_SETTEXT, NULL, (LPARAM)str.c_str());
-
-            // Focus on input text area
-            setInputFocus();
         }
     }
+
+    // Focus on input text area
+    setInputFocus();
 }
 
 Worker* Peer::getWorker()

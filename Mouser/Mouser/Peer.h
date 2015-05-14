@@ -44,7 +44,7 @@ class Peer
         void openChatWindow();
         void openStreamWindow();
 
-        void onDestroyRoot();
+        void onDestruct();
         void clearStreamSender();
         void clearCursorUtil();
         void openDownloadDialog();
