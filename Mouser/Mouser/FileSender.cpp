@@ -51,11 +51,6 @@ FileSender::FileSender(Peer* peer, BOOL sender, FileInfo info) : _peer(peer), _s
     SetDlgItemText(_hDlg, IDC_DOWNLOAD_SIZE, str.c_str());
 }
 
-FileSender::~FileSender()
-{
-    DestroyWindow(_hDlg);
-}
-
 //
 // Message handler.
 //
@@ -71,29 +66,10 @@ INT_PTR CALLBACK FileSender::FileTransferDlgProc(HWND hDlg, UINT message, WPARAM
         else // becoming active
             hDlgCurrent = hDlg;         
         return (INT_PTR)TRUE;
-    case WM_INITDIALOG:
-        {
-            CREATESTRUCT* pCreate = (CREATESTRUCT*)lParam;
-            FileSender* sender = (FileSender*)pCreate->lpCreateParams;
-            SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)sender);
-        }
-        return (INT_PTR)TRUE;
-
     case WM_COMMAND:
         {
-            if (LOWORD(wParam) == IDOK)
+            if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
             {
-                // Transfer complete
-                EndDialog(hDlg, LOWORD(wParam));
-                return (INT_PTR)TRUE;
-            }
-            else if (LOWORD(wParam) == IDCANCEL)
-            {
-                FileSender* sender = (FileSender*)GetWindowLongPtr(hDlg, GWLP_USERDATA);
-
-                // Need to cancel file send
-                sender->cancel();
-
                 EndDialog(hDlg, LOWORD(wParam));
                 return (INT_PTR)TRUE;
             }
@@ -163,13 +139,6 @@ void FileSender::onPeerRejectRequest()
     EnableWindow(hwnd, TRUE);
 }
 
-void FileSender::cancel()
-{
-    // If sender, send file cancel packet and close
-
-    // If receiver, send file cancel packet and close
-}
-
 void FileSender::getFileFragment(Packet* pkt)
 {
     // Check that file is open
@@ -201,6 +170,8 @@ void FileSender::getFileFragment(Packet* pkt)
             // Activate "OK" button
             HWND hwnd = GetDlgItem(_hDlg, IDOK);
             EnableWindow(hwnd, TRUE);
+
+            _peer->clearFileSender();
         }
     }
 }
@@ -251,7 +222,8 @@ void FileSender::doFileSendThread()
 
                     // Close file after send
                     file.close();
-
+                    
+                    _peer->clearFileSender();
                     return;
                 }
 

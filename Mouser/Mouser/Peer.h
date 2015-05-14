@@ -45,6 +45,7 @@ class Peer
         void openStreamWindow();
 
         void onDestruct();
+        void clearFileSender();
         void clearStreamSender();
         void clearCursorUtil();
         void openDownloadDialog();

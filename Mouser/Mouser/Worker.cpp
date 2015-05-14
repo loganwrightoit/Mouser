@@ -157,3 +157,13 @@ bool Worker::ready() const
 {
     return isReady && _outPkts.size() < 4;
 }
+
+void Worker::clearFileSender(void* peer)
+{
+    ((Peer*)peer)->clearFileSender();
+}
+
+void Worker::clearStreamSender(void* peer)
+{
+    ((Peer*)peer)->clearStreamSender();
+}

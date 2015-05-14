@@ -17,6 +17,9 @@ class Worker
         void setReady();
         bool ready() const;
 
+        void clearFileSender(void* peer);
+        void clearStreamSender(void* peer);
+
     private:
 
         static LRESULT CALLBACK WorkerProc(HWND, UINT, WPARAM, LPARAM);

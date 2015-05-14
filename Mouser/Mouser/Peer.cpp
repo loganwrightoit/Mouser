@@ -407,19 +407,33 @@ void Peer::getStreamClose()
     }
 }
 
-//
-// Only call with StreamSender object when threads are finished.
-//
+void Peer::clearFileSender()
+{
+    if (_fileSender)
+    {
+        delete _fileSender;
+        _fileSender = NULL;
+    }
+}
+
 void Peer::clearStreamSender()
 {
-    delete _streamSender;
-    _streamSender = NULL;
+    if (_streamSender)
+    {
+        _streamSender->stop();
+        delete _streamSender;
+        _streamSender = NULL;
+    }
 }
 
 void Peer::clearCursorUtil()
 {
-    delete _cursorUtil;
-    _cursorUtil = NULL;
+    if (_cursorUtil)
+    {
+        _cursorUtil->stop();
+        delete _cursorUtil;
+        _cursorUtil = NULL;
+    }
 }
 
 void Peer::getName(Packet* pkt)

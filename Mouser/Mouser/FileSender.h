@@ -21,10 +21,8 @@ class FileSender
         };
 
         FileSender(Peer* peer, BOOL sender, FileInfo info);
-        ~FileSender();
 
         void getFileFragment(Packet* pkt);
-        void cancel();
         void onPeerAcceptRequest();
         void onPeerRejectRequest();
         static HWND getActive()
@@ -42,7 +40,7 @@ class FileSender
 
         Peer* _peer;
         HWND _hDlg;
-
+        
         // Holds path and size of file send
         FileSender::FileInfo _info;
         BOOL _sender; // Whether initiated transfer request
