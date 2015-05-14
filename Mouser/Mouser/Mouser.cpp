@@ -890,7 +890,6 @@ LRESULT CALLBACK StreamWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
         break;
     case WM_ERASEBKGND:
         return FALSE;
-        break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;

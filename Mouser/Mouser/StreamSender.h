@@ -26,7 +26,7 @@ class StreamSender
         StreamSender(void* peer, StreamSender::StreamInfo info);
         ~StreamSender();
 
-        void stream(HWND hWnd);
+        void start(HWND hWnd);
         void stop();
 
         int getTileSize(int x, int y);
@@ -53,5 +53,8 @@ class StreamSender
         int                 _szTile;
         StreamInfo          _info;
 
+        bool _continue;
+
         std::map<unsigned int, size_t> tempMap;
+
 };

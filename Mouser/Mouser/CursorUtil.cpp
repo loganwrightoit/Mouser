@@ -2,14 +2,10 @@
 #include "CursorUtil.h"
 #include <thread>
 
-CursorUtil::CursorUtil(void* peer, HWND hWnd) : _cursor({ 0, 0 }), _streaming(false)
+CursorUtil::CursorUtil(void* peer, HWND hWnd) : _cursor({ 0, 0 })
 {
     _peer = peer;
     _hWnd = hWnd;
-}
-
-CursorUtil::~CursorUtil()
-{
 }
 
 RECT CursorUtil::getRect(HICON cursor)
@@ -43,9 +39,9 @@ POINT CursorUtil::getCursor()
     return _cursor;
 }
 
-void CursorUtil::stream(int sendRate)
+void CursorUtil::start(int sendRate)
 {
-    _streaming = true;
+    _continue = true;
 
     // Start cursor stream thread
     std::thread t(&CursorUtil::streamThread, this, sendRate);
@@ -57,7 +53,7 @@ void CursorUtil::streamThread(int sendRate)
     UINT lastTicks = GetTickCount();
     float timeFactor = 1000 / 60.0f;
 
-    while (_streaming)
+    while (_continue)
     {
         // Send cursor updates according to sendRate
         UINT ticks = GetTickCount();
@@ -94,9 +90,10 @@ void CursorUtil::streamThread(int sendRate)
     }
 
     ((Peer*)_peer)->clearCursorUtil();
+    delete this;
 }
 
 void CursorUtil::stop()
 {
-    _streaming = false;
+    _continue = false;
 }

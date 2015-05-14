@@ -155,10 +155,10 @@ void StreamSender::captureAsStream()
     }
 }
 
-bool stopStream = false;
-
-void StreamSender::stream(HWND hWnd)
+void StreamSender::start(HWND hWnd)
 {
+    _continue = true;
+
     // Start stream
     std::thread t(&StreamSender::startCaptureThread, this, hWnd);
     t.detach();
@@ -187,7 +187,7 @@ void StreamSender::startCaptureThread(HWND hWnd)
     hTileHBmp = CreateCompatibleBitmap(hDestDC, _szTile, _szTile);
     SelectObject(hTileDC, hTileHBmp);
 
-    while (!stopStream)
+    while (_continue)
     {
         if ((((Peer*)_peer)->getWorker()->ready()))
         {
@@ -204,11 +204,14 @@ void StreamSender::startCaptureThread(HWND hWnd)
     DeleteDC(hTileDC);
     DeleteObject(hTileHBmp);
 
+    OutputDebugString(L"Clearing streamsender variable.");
+
     ((Peer*)_peer)->clearStreamSender();
+    delete this;
 }
 
 void StreamSender::stop()
 {
-    stopStream = true;
+    _continue = false;
     ((Peer*)_peer)->getWorker()->sendPacket(new Packet(Packet::STREAM_CLOSE));
 }

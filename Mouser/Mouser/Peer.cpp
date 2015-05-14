@@ -35,6 +35,9 @@ Peer::Peer(SOCKET peer_socket = 0)
 
 Peer::~Peer()
 {
+    clearStreamSender();
+    clearCursorUtil();
+
     // Close socket
     shutdown(_socket, SD_BOTH);
     closesocket(_socket);
@@ -190,8 +193,8 @@ void Peer::makeFileSendRequest(wchar_t* path)
 
 void Peer::stopSharing()
 {
-    _streamSender->stop();
-    _cursorUtil->stop();
+    clearStreamSender();
+    clearCursorUtil();
     EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
     EnableWindow(hChatStopSharingButton, false);
     DrawMenuBar(_hWnd);
@@ -391,8 +394,9 @@ void Peer::getStreamClose()
 {
     if (_streamSender) // Receiver closed stream window
     {
-        _streamSender->stop();
-
+        delete _streamSender;
+        clearStreamSender();
+        clearCursorUtil();
         EnableMenuItem(_menu, 0, MF_ENABLED | MF_BYPOSITION);
         DrawMenuBar(_hWnd);
         EnableWindow(hChatStopSharingButton, FALSE);
@@ -400,10 +404,7 @@ void Peer::getStreamClose()
     else if (_hWnd_stream) // Sender halted stream
     {
         PostMessage(_hWnd_stream, WM_CLOSE, 0, 0);
-    }
-    if (_cursorUtil)
-    {
-        _cursorUtil->stop();
+        _hWnd_stream = NULL;
     }
 }
 
@@ -412,8 +413,8 @@ void Peer::clearFileSender()
     if (_fileSender)
     {
         delete _fileSender;
-        _fileSender = NULL;
     }
+    _fileSender = NULL;
 }
 
 void Peer::clearStreamSender()
@@ -421,9 +422,8 @@ void Peer::clearStreamSender()
     if (_streamSender)
     {
         _streamSender->stop();
-        delete _streamSender;
-        _streamSender = NULL;
     }
+    _streamSender = NULL;
 }
 
 void Peer::clearCursorUtil()
@@ -431,9 +431,8 @@ void Peer::clearCursorUtil()
     if (_cursorUtil)
     {
         _cursorUtil->stop();
-        delete _cursorUtil;
-        _cursorUtil = NULL;
     }
+    _cursorUtil = NULL;
 }
 
 void Peer::getName(Packet* pkt)
@@ -831,9 +830,9 @@ void Peer::getStreamAllow(Packet* pkt)
     EnableWindow(hChatStopSharingButton, true);
 
     _cursorUtil = new CursorUtil(this, _hWnd_stream_src);
-    _cursorUtil->stream(30);
+    _cursorUtil->start(30);
 
-    _streamSender->stream(_hWnd_stream_src);
+    _streamSender->start(_hWnd_stream_src);
 }
 
 void Peer::getStreamDeny(Packet* pkt)
