@@ -6,10 +6,7 @@ void PeerHandler::addPeer(Peer* peer)
 {
     peers.push_back(peer);
 
-    if (peer->getName() != L"")
-    {
-        updatePeerListBoxData();
-    }
+    updatePeerListBoxData();
 }
 
 void PeerHandler::removePeer(Peer* peer)

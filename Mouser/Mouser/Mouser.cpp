@@ -499,7 +499,6 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return TRUE;
     case WM_EVENT_ADD_PEER:
         peerHandler->addPeer((Peer*)wParam);
-
         return TRUE;
     case WM_EVENT_REMOVE_PEER:
         peerHandler->removePeer((Peer*)wParam);

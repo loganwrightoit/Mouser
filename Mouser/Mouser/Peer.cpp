@@ -11,7 +11,7 @@
 Peer::Peer(SOCKET peer_socket = 0)
 : _socket(peer_socket), _hWnd(0), _hWnd_stream(0), _streamSender(0), _cursorUtil(0), _fileSender(0)
 {
-    _name = L"";
+    _name = L"Unknown";
 
     // Create worker to handle socket sends
     _worker = new Worker(_socket);
@@ -434,12 +434,7 @@ void Peer::getName(Packet* pkt)
 {
     _name = encode_utf16(pkt->getData());
 
-    std::wstring str(L"Received peer name: ");
-    str.append(_name);
-    str.append(L"\n");
-    OutputDebugString(str.c_str());
-
-    // Update peer list
+    Sleep(100);
     updatePeerListBoxData();
 }
 
