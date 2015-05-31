@@ -39,6 +39,7 @@ HWND hMouserNoPeersLabel;
 NetworkManager *network = &NetworkManager::getInstance();
 PeerHandler *peerHandler = &PeerHandler::getInstance();
 HBRUSH brushBgnd = CreateSolidBrush(RGB(80, 120, 200));
+HANDLE ghMutex;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -67,6 +68,12 @@ int APIENTRY _tWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstanc
 		SetProcessDPIAware();
 	}
 	catch (exception) {}
+
+    // Create mutex for accessing peer list
+    if ((ghMutex = CreateMutex(NULL, FALSE, NULL)) == NULL)
+    {
+        printf("[P2P]: CreateMutex() failed, peer list access not thread-safe.\n");
+    }
 
 	// Set username
 	DWORD szName = sizeof(_username);
@@ -560,6 +567,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         DestroyWindow(hWnd);
         break;
     case WM_DESTROY:
+        CloseHandle(ghMutex);
         PostQuitMessage(0);
         break;
     default:
@@ -574,30 +582,35 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 //
 void updatePeerListBoxData()
 {
-    std::vector<Peer*> peers = peerHandler->getPeers();
-
-    // Erase all peers from listbox
-    SendMessage(hMouserPeerListBox, LB_RESETCONTENT, 0, 0);
-
-    if (peers.size() == 0)
+    if (WaitForSingleObject(ghMutex, INFINITE) == WAIT_OBJECT_0)
     {
-        ShowWindow(hMouserPeerListBox, FALSE);
-        ShowWindow(hMouserNoPeersLabel, TRUE);
-    }
-    else
-    {
-        ShowWindow(hMouserPeerListBox, TRUE);
-        ShowWindow(hMouserNoPeersLabel, FALSE);
+        std::vector<Peer*> peers = peerHandler->getPeers();
 
-        // Add updated peers to listbox
-        auto iter = peers.begin();
-        while (iter != peers.end())
+        // Erase all peers from listbox
+        SendMessage(hMouserPeerListBox, LB_RESETCONTENT, 0, 0);
+
+        if (peers.size() == 0)
         {
-            // Add peer to listbox
-            int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
-            SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
-            ++iter;
+            ShowWindow(hMouserPeerListBox, FALSE);
+            ShowWindow(hMouserNoPeersLabel, TRUE);
         }
+        else
+        {
+            ShowWindow(hMouserPeerListBox, TRUE);
+            ShowWindow(hMouserNoPeersLabel, FALSE);
+
+            // Add updated peers to listbox
+            auto iter = peers.begin();
+            while (iter != peers.end())
+            {
+                // Add peer to listbox
+                int index = SendMessage(hMouserPeerListBox, LB_ADDSTRING, 0, (LPARAM)(*iter)->getName());
+                SendMessage(hMouserPeerListBox, LB_SETITEMDATA, (WPARAM)index, (LPARAM)*iter);
+                ++iter;
+            }
+        }
+
+        ReleaseMutex(ghMutex);
     }
 }
 

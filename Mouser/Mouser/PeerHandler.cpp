@@ -5,8 +5,6 @@
 void PeerHandler::addPeer(Peer* peer)
 {
     peers.push_back(peer);
-
-    updatePeerListBoxData();
 }
 
 void PeerHandler::removePeer(Peer* peer)
